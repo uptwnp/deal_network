@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Filter, X, List, Map } from 'lucide-react';
+import { Search, Filter, X } from 'lucide-react';
 import { FilterOptions } from '../types/property';
 
 interface SearchFilterProps {
   onSearch: (query: string) => void;
   onFilter: (filters: FilterOptions) => void;
-  viewType: 'list' | 'map';
-  onViewChange: (view: 'list' | 'map') => void;
 }
 
 const CITY_OPTIONS = ['Panipat', 'Delhi', 'Gurgaon', 'Noida', 'Faridabad'];
@@ -19,7 +17,7 @@ const AREA_OPTIONS = [
   'Civil Lines', 'GT Road', 'Huda Sector', 'Industrial Area'
 ];
 
-export function SearchFilter({ onSearch, onFilter, viewType, onViewChange }: SearchFilterProps) {
+export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
@@ -81,17 +79,6 @@ export function SearchFilter({ onSearch, onFilter, viewType, onViewChange }: Sea
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
-        <button
-          onClick={() => onViewChange(viewType === 'list' ? 'map' : 'list')}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center min-w-[44px]"
-          title={viewType === 'list' ? 'Switch to Map View' : 'Switch to List View'}
-        >
-          {viewType === 'list' ? (
-            <Map className="w-5 h-5 text-gray-600" />
-          ) : (
-            <List className="w-5 h-5 text-gray-600" />
-          )}
-        </button>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className="relative px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"

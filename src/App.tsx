@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Home, Globe, User, Map, List, LogOut, ChevronDown } from 'lucide-react';
+import { Plus, Home, Globe, User, LogOut, ChevronDown } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyModal } from './components/PropertyModal';
 import { PropertyDetailsModal } from './components/PropertyDetailsModal';
 import { ContactModal } from './components/ContactModal';
-import { PropertyMap } from './components/PropertyMap';
 import { SearchFilter } from './components/SearchFilter';
 import { Toast } from './components/Toast';
 import { useAuth } from './contexts/AuthContext';
@@ -12,7 +11,6 @@ import { propertyApi } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
 
 type FilterType = 'all' | 'my' | 'public';
-type ViewType = 'list' | 'map';
 
 interface ToastState {
   message: string;
@@ -22,7 +20,6 @@ interface ToastState {
 function App() {
   const { ownerId, setOwnerId } = useAuth();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [viewType, setViewType] = useState<ViewType>('list');
   const [myProperties, setMyProperties] = useState<Property[]>([]);
   const [publicProperties, setPublicProperties] = useState<Property[]>([]);
   const [allProperties, setAllProperties] = useState<Property[]>([]);
@@ -354,40 +351,31 @@ function App() {
         <SearchFilter
           onSearch={handleSearch}
           onFilter={handleFilter}
-          viewType={viewType}
-          onViewChange={setViewType}
         />
 
-
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className={`animate-fade-in ${viewType === 'map' ? 'hidden lg:block' : ''}`}>
-            {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            ) : currentProperties.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                <p className="text-gray-500">
-                  {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {currentProperties.map((property) => (
-                  <PropertyCard
-                    key={property.id}
-                    property={property}
-                    isOwned={property.owner_id === ownerId}
-                    onViewDetails={handleViewProperty}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className={`h-[600px] lg:block animate-fade-in ${viewType === 'list' ? 'hidden lg:block' : ''}`}>
-            <PropertyMap properties={currentProperties} />
-          </div>
+        <div className="mt-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : currentProperties.length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+              <p className="text-gray-500">
+                {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {currentProperties.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  isOwned={property.owner_id === ownerId}
+                  onViewDetails={handleViewProperty}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
