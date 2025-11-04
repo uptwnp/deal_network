@@ -79,35 +79,35 @@ export function PropertyCard({
   return (
     <button
       onClick={() => onViewDetails(property)}
-      className={`w-full bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-3 border-l-4 ${typeStyles.borderColor} border-t border-r border-b border-gray-200 text-left ${typeStyles.hoverBorderColor} relative`}
+      className={`w-full bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-3 sm:p-4 border-l-4 ${typeStyles.borderColor} border-t border-r border-b border-gray-200 text-left ${typeStyles.hoverBorderColor} relative`}
     >
-     <div className="flex items-start gap-2 mb-0">
+     <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
             {sizeText} {property.type} in {property.area}, {property.city}
           </h3>
         </div>
         <div className="flex-shrink-0">
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-lg sm:text-2xl font-bold text-gray-900">
             {priceText}
           </div>
         </div>
       </div>
-      <p className="text-sm text-gray-700 mb-2">{trimmedDescription}</p>
+      <p className="text-xs sm:text-sm text-gray-700 mb-2 sm:mb-3 leading-relaxed">{trimmedDescription}</p>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 sm:space-y-2">
         {property.highlights && (
           <div className="flex flex-wrap gap-1">
             {property.highlights.split(',').slice(0, 3).map((highlight, idx) => (
               <span
                 key={idx}
-                className={`px-1.5 py-0.5 text-xs ${typeStyles.bgColor} ${typeStyles.iconColor} rounded`}
+                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs ${typeStyles.bgColor} ${typeStyles.iconColor} rounded`}
               >
                 {highlight.trim()}
               </span>
             ))}
             {property.highlights.split(',').length > 3 && (
-              <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">
+              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-700 rounded">
                 +{property.highlights.split(',').length - 3}
               </span>
             )}
@@ -116,19 +116,19 @@ export function PropertyCard({
 
         {isOwned && (
           <div className="flex flex-wrap gap-1">
-            <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded font-medium">
+            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded font-medium">
               My Property
             </span>
             {property.tags && property.tags.split(',').slice(0, 3).map((tag, idx) => (
               <span
                 key={idx}
-                className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
+                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-600 rounded"
               >
                 {tag.trim()}
               </span>
             ))}
             {property.tags && property.tags.split(',').length > 3 && (
-              <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">
+              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-700 rounded">
                 +{property.tags.split(',').length - 3}
               </span>
             )}
@@ -137,19 +137,19 @@ export function PropertyCard({
       </div>
 
       {/* Created date and Public/Private icon in bottom right */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-2">
+      <div className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 flex items-center gap-1.5 sm:gap-2">
         <span className={`text-xs ${typeStyles.iconColor} opacity-60`}>
           {createdDateText}
         </span>
         {isOwned && (
           <>
             {property.is_public === 1 ? (
-              <div className="p-1.5 bg-green-100 text-green-700 rounded shadow-sm" title="Public">
-                <Globe className="w-4 h-4" />
+              <div className="p-1 sm:p-1.5 bg-green-100 text-green-700 rounded shadow-sm" title="Public">
+                <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             ) : (
-              <div className="p-1.5 bg-blue-100 text-blue-700 rounded shadow-sm" title="Private">
-                <Lock className="w-4 h-4" />
+              <div className="p-1 sm:p-1.5 bg-blue-100 text-blue-700 rounded shadow-sm" title="Private">
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             )}
           </>

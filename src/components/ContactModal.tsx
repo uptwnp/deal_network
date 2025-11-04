@@ -60,25 +60,25 @@ export function ContactModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-slide-up">
-        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Ask a Question</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-3 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md animate-slide-up">
+        <div className="border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Ask a Question</h2>
           <button
             onClick={() => {
               // Clear draft when closed
               localStorage.removeItem(STORAGE_KEY);
               onClose();
             }}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="w-6 h-6 text-gray-500" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-blue-900">
+        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm font-medium text-blue-900">
               {property.type} in {property.area}, {property.city}
             </p>
             <p className="text-xs text-blue-800 mt-1">
@@ -87,14 +87,14 @@ export function ContactModal({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
               Your Question
             </label>
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="What would you like to know about this property?"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none text-sm sm:text-base"
               rows={4}
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -102,23 +102,23 @@ export function ContactModal({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-3 sm:pt-4">
             <button
               onClick={() => {
                 // Clear draft when cancelled
                 localStorage.removeItem(STORAGE_KEY);
                 onClose();
               }}
-              className="px-4 py-3 text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSendQuestion}
               disabled={!question.trim() || loading}
-              className="px-4 py-3 text-base font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors disabled:bg-gray-300 flex items-center justify-center gap-2"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors disabled:bg-gray-300 flex items-center justify-center gap-1.5 sm:gap-2"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               {loading ? 'Sending...' : 'Send'}
             </button>
           </div>

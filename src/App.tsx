@@ -306,69 +306,69 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <Home className="w-6 h-6 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900">PropNetwork</h1>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Home className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">PropNetwork</h1>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setCurrentPage('profile')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Profile & Settings"
               >
-                <Settings className="w-5 h-5 text-gray-600" />
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </button>
               <div className="relative" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs sm:text-sm"
                 >
-                  <Globe className="w-5 h-5" />
-                  <span className="hidden sm:inline text-sm">{getFilterLabel()}</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
+                  <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{getFilterLabel()}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showFilterMenu && (
-                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-48 sm:w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                     <button
                       onClick={() => handleFilterChange('all')}
-                      className={`w-full px-4 py-3 text-left text-sm transition-colors ${
+                      className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm transition-colors ${
                         activeFilter === 'all'
                           ? 'bg-blue-50 text-blue-700 font-medium'
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4" />
+                        <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>All Properties</span>
                       </div>
                     </button>
                     <button
                       onClick={() => handleFilterChange('my')}
-                      className={`w-full px-4 py-3 text-left text-sm transition-colors ${
+                      className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm transition-colors ${
                         activeFilter === 'my'
                           ? 'bg-blue-50 text-blue-700 font-medium'
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Home className="w-4 h-4" />
+                        <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>My Properties</span>
                       </div>
                     </button>
                     <button
                       onClick={() => handleFilterChange('public')}
-                      className={`w-full px-4 py-3 text-left text-sm transition-colors ${
+                      className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm transition-colors ${
                         activeFilter === 'public'
                           ? 'bg-blue-50 text-blue-700 font-medium'
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4" />
+                        <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>Public Properties</span>
                       </div>
                     </button>
@@ -380,25 +380,25 @@ function App() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         <SearchFilter
           onSearch={handleSearch}
           onFilter={handleFilter}
         />
 
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="flex items-center justify-center h-48 sm:h-64">
+              <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : currentProperties.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <p className="text-gray-500">
+            <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
+              <p className="text-sm sm:text-base text-gray-500">
                 {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {currentProperties.map((property) => (
                 <PropertyCard
                   key={property.id}
@@ -463,37 +463,37 @@ function App() {
           setEditingProperty(null);
           setShowModal(true);
         }}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
         title="Add Property"
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
       </button>
 
-      <footer className="bg-white border-t border-gray-200 py-4 px-4 mt-12">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-gray-600" />
-            <span className="text-sm text-gray-700">
+      <footer className="bg-white border-t border-gray-200 py-3 sm:py-4 px-3 sm:px-4 mt-8 sm:mt-12">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600" />
+            <span className="text-xs sm:text-sm text-gray-700">
               Logged in as <span className="font-semibold text-blue-600">User {ownerId}</span>
             </span>
           </div>
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-xs sm:text-sm font-medium"
               title="User menu"
             >
               Switch User
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              <div className="absolute right-0 mt-2 w-44 sm:w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                 <button
                   onClick={() => {
                     handleUserIdChange();
                     setShowUserMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm text-gray-700 hover:bg-gray-100"
                 >
                   Switch User ID
                 </button>
@@ -503,9 +503,9 @@ function App() {
                     setShowUserMenu(false);
                     showToast('Logged out', 'success');
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Logout
                 </button>
               </div>

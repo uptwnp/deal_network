@@ -208,20 +208,20 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const selectedColumnLabel = SEARCH_COLUMNS.find(col => col.value === searchColumn)?.label || 'All Info';
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
+    <div className="space-y-2 sm:space-y-3">
+      <div className="flex gap-1.5 sm:gap-2">
         <div className="relative flex-1 flex">
           <div className="relative" ref={columnDropdownRef}>
             <button
               type="button"
               onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-              className="h-10 px-3 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 hover:bg-gray-100 transition-colors flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap"
+              className="h-9 sm:h-10 px-2 sm:px-3 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 hover:bg-gray-100 transition-colors flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap"
             >
-              <span className="truncate max-w-[120px] sm:max-w-none">{selectedColumnLabel}</span>
-              <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${showColumnDropdown ? 'rotate-180' : ''}`} />
+              <span className="truncate max-w-[100px] sm:max-w-[120px] md:max-w-none">{selectedColumnLabel}</span>
+              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${showColumnDropdown ? 'rotate-180' : ''}`} />
             </button>
             {showColumnDropdown && (
-              <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
+              <div className="absolute left-0 top-full mt-1 w-44 sm:w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
                 {SEARCH_COLUMNS.map((column) => (
                   <button
                     key={column.value}
@@ -231,7 +231,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                       localStorage.setItem(STORAGE_KEYS.SEARCH_COLUMN, column.value);
                       setShowColumnDropdown(false);
                     }}
-                    className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${
                       searchColumn === column.value
                         ? 'bg-blue-50 text-blue-700 font-medium'
                         : 'text-gray-700 hover:bg-gray-50'
@@ -244,7 +244,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             )}
           </div>
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               <input
               type="text"
               placeholder={`Search in ${selectedColumnLabel.toLowerCase()}...`}
@@ -254,30 +254,30 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 // Auto-save to localStorage
                 localStorage.setItem(STORAGE_KEYS.SEARCH_QUERY, e.target.value);
               }}
-              className="w-full h-10 pl-10 pr-4 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full h-9 sm:h-10 pl-8 sm:pl-10 pr-3 sm:pr-4 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="relative px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+          className="relative px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 sm:gap-2"
         >
-          <Filter className="w-5 h-5 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Filter</span>
+          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+          <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Filter</span>
           {activeFilterCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
               {activeFilterCount}
             </span>
           )}
         </button>
         <button
           onClick={() => setShowAreaSection(!showAreaSection)}
-          className="relative px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+          className="relative px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 sm:gap-2"
         >
-          <MapPin className="w-5 h-5 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Area</span>
+          <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+          <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Area</span>
           {selectedArea && (
-            <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
               1
             </span>
           )}
@@ -285,18 +285,18 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       </div>
 
       {showAreaSection && (
-        <div className="flex gap-2 w-full">
+        <div className="flex gap-1.5 sm:gap-2 w-full">
           <div className="relative flex-1" ref={areaDropdownRef}>
           <button
             type="button"
             onClick={() => setShowAreaDropdown(!showAreaDropdown)}
-            className="w-full h-10 px-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-sm font-medium text-gray-700"
+            className="w-full h-9 sm:h-10 px-3 sm:px-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-xs sm:text-sm font-medium text-gray-700"
           >
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-gray-600" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               <span>{selectedArea || 'Select Area'}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {selectedArea && (
                 <button
                   type="button"
@@ -304,12 +304,12 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                     e.stopPropagation();
                     handleAreaClear();
                   }}
-                  className="p-1 hover:bg-gray-200 rounded"
+                  className="p-0.5 sm:p-1 hover:bg-gray-200 rounded"
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
                 </button>
               )}
-              <ChevronDown className={`w-4 h-4 transition-transform ${showAreaDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${showAreaDropdown ? 'rotate-180' : ''}`} />
             </div>
           </button>
           {showAreaDropdown && (
@@ -319,7 +319,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   key={idx}
                   type="button"
                   onClick={() => handleAreaSelect(area)}
-                  className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                  className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${
                     selectedArea === area
                       ? 'bg-blue-50 text-blue-700 font-medium'
                       : 'text-gray-700 hover:bg-gray-50'
@@ -335,20 +335,20 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       )}
 
       {showFilters && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Filters</h3>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 space-y-3 shadow-lg">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900">Filters</h3>
             <button
               onClick={() => setShowFilters(false)}
               className="p-1 hover:bg-gray-100 rounded"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">City</label>
               <input
                 ref={cityInputRef}
                 type="text"
@@ -356,7 +356,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 onChange={(e) => handleFilterChange('city', e.target.value)}
                 onFocus={() => setShowCitySuggestions(true)}
                 onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 placeholder="e.g., Panipat"
               />
               {showCitySuggestions && (
@@ -371,7 +371,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                         handleFilterChange('city', city);
                         setShowCitySuggestions(false);
                       }}
-                      className="w-full px-3 py-2 text-left hover:bg-blue-50 text-sm text-gray-700"
+                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 text-xs sm:text-sm text-gray-700"
                     >
                       {city}
                     </button>
@@ -381,7 +381,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </div>
 
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Area</label>
               <input
                 ref={areaInputRef}
                 type="text"
@@ -389,7 +389,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 onChange={(e) => handleFilterChange('area', e.target.value)}
                 onFocus={() => setShowAreaSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 200)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 placeholder="e.g., Sector 18"
               />
               {showAreaSuggestions && (
@@ -404,7 +404,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                         handleFilterChange('area', area);
                         setShowAreaSuggestions(false);
                       }}
-                      className="w-full px-3 py-2 text-left hover:bg-blue-50 text-sm text-gray-700"
+                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 text-xs sm:text-sm text-gray-700"
                     >
                       {area}
                     </button>
@@ -414,11 +414,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Type</label>
               <select
                 value={filters.type}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               >
                 <option value="">All Types</option>
                 <option value="Residential Plot">Residential Plot</option>
@@ -431,10 +431,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 Price Range (Lakhs)
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2">
                 <input
                   type="number"
                   placeholder="Min"
@@ -442,7 +442,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   onChange={(e) =>
                     handleFilterChange('min_price', e.target.value ? parseFloat(e.target.value) : undefined)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
                 <input
                   type="number"
@@ -451,7 +451,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   onChange={(e) =>
                     handleFilterChange('max_price', e.target.value ? parseFloat(e.target.value) : undefined)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
             </div>
@@ -460,13 +460,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
           <div className="flex gap-2 pt-3 border-t border-gray-200">
             <button
               onClick={clearFilters}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="flex-1 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               Clear
             </button>
             <button
               onClick={applyFilters}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              className="flex-1 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
               Apply Filters
             </button>
