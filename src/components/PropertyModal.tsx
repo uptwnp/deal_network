@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, MapPin, Plus } from 'lucide-react';
 import { Property, PropertyFormData } from '../types/property';
+import { getUserSettings } from '../types/userSettings';
 
 interface PropertyModalProps {
   property?: Property | null;
@@ -66,6 +67,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
   const draftData = loadDraft();
 
+  // Get user settings for defaults
+  const userSettings = getUserSettings();
+
   const [formData, setFormData] = useState<PropertyFormData>(
     property ? {
       city: property.city,
@@ -86,16 +90,16 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       public_rating: property.public_rating || 0,
       my_rating: property.my_rating || 0,
     } : (draftData || {
-      city: 'Panipat',
-      area: '',
-      type: '',
+      city: userSettings.city || 'Panipat',
+      area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
+      type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
       description: '',
       note_private: '',
       min_size: 0,
       size_max: 0,
-      size_unit: 'Sqyd',
-      price_min: 0,
-      price_max: 0,
+      size_unit: userSettings.defaultSizeUnit || 'Sqyd',
+      price_min: userSettings.defaultPriceMin || 0,
+      price_max: userSettings.defaultPriceMax || 0,
       location: '',
       location_accuracy: 'Medium',
       is_public: 0,
@@ -131,10 +135,12 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           ...formData,
           highlights: selectedHighlights.join(', '),
           tags: selectedTags.join(', '),
+          showSizeRange,
+          showPriceRange,
         }));
       } catch {}
     }
-  }, [formData, selectedHighlights, selectedTags, property]);
+  }, [formData, selectedHighlights, selectedTags, showSizeRange, showPriceRange, property]);
 
   useEffect(() => {
     if (property) {
@@ -162,9 +168,13 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       setShowSizeRange(property.min_size !== property.size_max);
       setShowPriceRange(property.price_min !== property.price_max);
     } else if (draftData) {
-      // Restore range visibility from draft
-      setShowSizeRange(draftData.min_size !== draftData.size_max);
-      setShowPriceRange(draftData.price_min !== draftData.price_max);
+      // Restore range visibility from draft (only if explicitly saved)
+      if (typeof draftData.showSizeRange === 'boolean') {
+        setShowSizeRange(draftData.showSizeRange);
+      }
+      if (typeof draftData.showPriceRange === 'boolean') {
+        setShowPriceRange(draftData.showPriceRange);
+      }
     }
   }, [property, draftData]);
 

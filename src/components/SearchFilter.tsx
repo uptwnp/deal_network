@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, X, ChevronDown, MapPin } from 'lucide-react';
 import { FilterOptions } from '../types/property';
+import { getUserSettings } from '../types/userSettings';
 
 interface SearchFilterProps {
   onSearch: (query: string, column?: string) => void;
@@ -47,31 +48,36 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       const savedColumn = localStorage.getItem(STORAGE_KEYS.SEARCH_COLUMN) || '';
       const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
       const savedArea = localStorage.getItem(STORAGE_KEYS.SELECTED_AREA) || '';
+      const userSettings = getUserSettings();
+      
+      // Use user settings as defaults if no saved filters
+      const defaultFilters: FilterOptions = savedFilters ? JSON.parse(savedFilters) : {
+        city: userSettings.city || '',
+        area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
+        type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
+        min_price: userSettings.defaultPriceMin,
+        max_price: userSettings.defaultPriceMax,
+      };
       
       return {
         query: savedQuery,
         column: savedColumn,
-        filters: savedFilters ? JSON.parse(savedFilters) : {
-          city: '',
-          area: '',
-          type: '',
-          min_price: undefined,
-          max_price: undefined,
-        },
-        selectedArea: savedArea,
+        filters: defaultFilters,
+        selectedArea: savedArea || (userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : ''),
       };
     } catch {
+      const userSettings = getUserSettings();
       return {
         query: '',
         column: '',
         filters: {
-          city: '',
-          area: '',
-          type: '',
-          min_price: undefined,
-          max_price: undefined,
+          city: userSettings.city || '',
+          area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
+          type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
+          min_price: userSettings.defaultPriceMin,
+          max_price: userSettings.defaultPriceMax,
         },
-        selectedArea: '',
+        selectedArea: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
       };
     }
   };

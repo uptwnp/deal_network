@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Home, Globe, User, LogOut, ChevronDown } from 'lucide-react';
+import { Plus, Home, Globe, User, LogOut, ChevronDown, Settings } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyModal } from './components/PropertyModal';
 import { PropertyDetailsModal } from './components/PropertyDetailsModal';
 import { ContactModal } from './components/ContactModal';
 import { SearchFilter } from './components/SearchFilter';
+import { ProfilePage } from './components/ProfilePage';
 import { Toast } from './components/Toast';
 import { useAuth } from './contexts/AuthContext';
 import { propertyApi } from './services/api';
@@ -23,6 +24,7 @@ const STORAGE_KEYS = {
 
 function App() {
   const { ownerId, setOwnerId } = useAuth();
+  const [currentPage, setCurrentPage] = useState<'home' | 'profile'>('home');
   
   // Load persisted activeFilter from localStorage
   const loadPersistedFilter = (): FilterType => {
@@ -297,6 +299,10 @@ function App() {
     return 'Public Properties';
   };
 
+  if (currentPage === 'profile') {
+    return <ProfilePage onBack={() => setCurrentPage('home')} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
@@ -308,6 +314,13 @@ function App() {
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCurrentPage('profile')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Profile & Settings"
+              >
+                <Settings className="w-5 h-5 text-gray-600" />
+              </button>
               <div className="relative" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
