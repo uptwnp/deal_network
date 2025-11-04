@@ -17,9 +17,25 @@ interface ToastState {
   type: 'success' | 'error';
 }
 
+const STORAGE_KEYS = {
+  ACTIVE_FILTER: 'propnetwork_active_filter',
+};
+
 function App() {
   const { ownerId, setOwnerId } = useAuth();
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  
+  // Load persisted activeFilter from localStorage
+  const loadPersistedFilter = (): FilterType => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_FILTER);
+      if (saved && (saved === 'all' || saved === 'my' || saved === 'public')) {
+        return saved as FilterType;
+      }
+    } catch {}
+    return 'all';
+  };
+
+  const [activeFilter, setActiveFilter] = useState<FilterType>(loadPersistedFilter());
   const [myProperties, setMyProperties] = useState<Property[]>([]);
   const [publicProperties, setPublicProperties] = useState<Property[]>([]);
   const [allProperties, setAllProperties] = useState<Property[]>([]);
@@ -177,7 +193,7 @@ function App() {
   };
 
   const handleSearch = useCallback(
-    async (query: string) => {
+    async (query: string, column?: string) => {
       setSearchQuery(query);
       if (!query.trim()) {
         if (activeFilter === 'all') {
@@ -191,7 +207,7 @@ function App() {
       }
 
       try {
-        const results = await propertyApi.searchProperties(query);
+        const results = await propertyApi.searchProperties(query, column);
         let filtered = results;
 
         if (activeFilter === 'my') {
@@ -242,6 +258,10 @@ function App() {
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_FILTER, filter);
+    // Clear current search and filters when filter type changes
+    // (SearchFilter will restore from localStorage on next render)
     setSearchQuery('');
     setActiveFilters({});
     setShowFilterMenu(false);

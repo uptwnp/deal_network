@@ -30,6 +30,8 @@ const TAG_OPTIONS = [
   'Airport Nearby',
 ];
 
+const STORAGE_KEY = 'propnetwork_property_form_draft';
+
 const AREA_SUGGESTIONS = [
   'Sector 15',
   'Sector 16',
@@ -50,34 +52,89 @@ const AREA_SUGGESTIONS = [
 ];
 
 export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProps) {
-  const [formData, setFormData] = useState<PropertyFormData>({
-    city: 'Panipat',
-    area: '',
-    type: '',
-    description: '',
-    note_private: '',
-    min_size: 0,
-    size_max: 0,
-    size_unit: 'Sqyd',
-    price_min: 0,
-    price_max: 0,
-    location: '',
-    location_accuracy: 'Medium',
-    is_public: 0,
-    tags: '',
-    highlights: '',
-    public_rating: 0,
-    my_rating: 0,
-  });
+  // Load draft from localStorage if no property (new property)
+  const loadDraft = (): PropertyFormData | null => {
+    if (property) return null; // Don't load draft when editing
+    try {
+      const draft = localStorage.getItem(STORAGE_KEY);
+      if (draft) {
+        return JSON.parse(draft);
+      }
+    } catch {}
+    return null;
+  };
+
+  const draftData = loadDraft();
+
+  const [formData, setFormData] = useState<PropertyFormData>(
+    property ? {
+      city: property.city,
+      area: property.area,
+      type: property.type,
+      description: property.description,
+      note_private: property.note_private || '',
+      min_size: property.min_size,
+      size_max: property.size_max,
+      size_unit: property.size_unit,
+      price_min: property.price_min,
+      price_max: property.price_max,
+      location: property.location,
+      location_accuracy: property.location_accuracy || 'Medium',
+      is_public: property.is_public,
+      tags: property.tags || '',
+      highlights: property.highlights || '',
+      public_rating: property.public_rating || 0,
+      my_rating: property.my_rating || 0,
+    } : (draftData || {
+      city: 'Panipat',
+      area: '',
+      type: '',
+      description: '',
+      note_private: '',
+      min_size: 0,
+      size_max: 0,
+      size_unit: 'Sqyd',
+      price_min: 0,
+      price_max: 0,
+      location: '',
+      location_accuracy: 'Medium',
+      is_public: 0,
+      tags: '',
+      highlights: '',
+      public_rating: 0,
+      my_rating: 0,
+    })
+  );
 
   const [showSizeRange, setShowSizeRange] = useState(false);
   const [showPriceRange, setShowPriceRange] = useState(false);
   const [showHighlightModal, setShowHighlightModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
-  const [selectedHighlights, setSelectedHighlights] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [areaInput, setAreaInput] = useState('');
+  const [selectedHighlights, setSelectedHighlights] = useState<string[]>(
+    property 
+      ? (property.highlights ? property.highlights.split(',').map(h => h.trim()) : [])
+      : (draftData?.highlights ? draftData.highlights.split(',').map(h => h.trim()).filter(Boolean) : [])
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    property
+      ? (property.tags ? property.tags.split(',').map(t => t.trim()) : [])
+      : (draftData?.tags ? draftData.tags.split(',').map(t => t.trim()).filter(Boolean) : [])
+  );
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false);
+
+  // Save draft to localStorage as user types (only for new properties, not edits)
+  useEffect(() => {
+    if (!property) {
+      // Only save draft for new properties
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          ...formData,
+          highlights: selectedHighlights.join(', '),
+          tags: selectedTags.join(', '),
+        }));
+      } catch {}
+    }
+  }, [formData, selectedHighlights, selectedTags, property]);
 
   useEffect(() => {
     if (property) {
@@ -104,8 +161,12 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       setSelectedTags(property.tags ? property.tags.split(',').map(t => t.trim()) : []);
       setShowSizeRange(property.min_size !== property.size_max);
       setShowPriceRange(property.price_min !== property.price_max);
+    } else if (draftData) {
+      // Restore range visibility from draft
+      setShowSizeRange(draftData.min_size !== draftData.size_max);
+      setShowPriceRange(draftData.price_min !== draftData.price_max);
     }
-  }, [property]);
+  }, [property, draftData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +183,11 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       highlights: selectedHighlights.join(', '),
       tags: selectedTags.join(', '),
     };
+
+    // Clear draft on successful submit
+    if (!property) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
 
     onSubmit(finalData);
   };
@@ -156,22 +222,28 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-slide-up">
-        <div className="z-10 sticky top-0 bg-white border-b border-gray-200 px-8 py-6 flex items-center justify-between rounded-t-2xl">
-          <h2 className="text-2xl font-bold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-2 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto animate-slide-up">
+        <div className="z-10 sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-8 py-4 sm:py-6 flex items-center justify-between rounded-t-2xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
             {property ? 'Edit Property' : 'Add Property'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => {
+              // Clear draft when closed
+              if (!property) {
+                localStorage.removeItem(STORAGE_KEY);
+              }
+              onClose();
+            }}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="w-6 h-6 text-gray-500" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div className="relative">
               <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">
                 Area/Address
@@ -183,7 +255,6 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                   value={formData.area}
                   onChange={(e) => {
                     handleChange(e);
-                    setAreaInput(e.target.value);
                     setShowAreaSuggestions(true);
                   }}
                   onFocus={() => setShowAreaSuggestions(true)}
@@ -454,15 +525,13 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 onClick={() => setShowTagModal(true)}
                 className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
               >
-                <Plus className="w-4 h-4" />
-                Edit
-                 {selectedTags.length > 0 ? (
-  "Manage"
-) : (
-  <>
-    <Plus className="w-4 h-4 inline" /> Add
-  </>
-)}
+                {selectedTags.length > 0 ? (
+                  "Manage"
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 inline" /> Add
+                  </>
+                )}
 
               </button>
             </div>
@@ -499,17 +568,23 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-4">
             <button
               type="submit"
-              className="px-6 py-4 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm"
+              className="px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm"
             >
               {property ? 'Update Property' : 'Add Property'}
             </button>
             <button
               type="button"
-              onClick={onClose}
-              className="px-6 py-4 text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              onClick={() => {
+                // Clear draft when cancelled
+                if (!property) {
+                  localStorage.removeItem(STORAGE_KEY);
+                }
+                onClose();
+              }}
+              className="px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
             >
               Cancel
             </button>
@@ -518,10 +593,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       </div>
 
       {showHighlightModal && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-xl font-bold text-gray-900">Select Highlights</h3>
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[95vh] sm:max-h-[80vh] overflow-y-auto animate-slide-up">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Select Highlights</h3>
               <button
                 onClick={() => setShowHighlightModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -530,7 +605,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <input
                 type="text"
                 placeholder="Add select highlights"
@@ -543,13 +618,13 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 }}
               />
 
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
                 {HIGHLIGHT_OPTIONS.map((highlight) => (
                   <button
                     key={highlight}
                     type="button"
                     onClick={() => toggleHighlight(highlight)}
-                    className={`w-full px-4 py-3 text-left rounded-xl transition-colors ${
+                    className={`px-4 py-2 rounded-xl transition-colors text-sm ${
                       selectedHighlights.includes(highlight)
                         ? 'bg-blue-50 text-blue-700 font-medium'
                         : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
@@ -587,14 +662,14 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 <button
                   type="button"
                   onClick={() => setShowHighlightModal(false)}
-                  className="px-6 py-3 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
                 >
                   Done
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowHighlightModal(false)}
-                  className="px-6 py-3 text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
@@ -605,10 +680,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       )}
 
       {showTagModal && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-xl font-bold text-gray-900">Select Tags</h3>
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[95vh] sm:max-h-[80vh] overflow-y-auto animate-slide-up">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Select Tags</h3>
               <button
                 onClick={() => setShowTagModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -617,7 +692,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <input
                 type="text"
                 placeholder="Add custom tags"
@@ -630,13 +705,13 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 }}
               />
 
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
                 {TAG_OPTIONS.map((tag) => (
                   <button
                     key={tag}
                     type="button"
                     onClick={() => toggleTag(tag)}
-                    className={`w-full px-4 py-3 text-left rounded-xl transition-colors ${
+                    className={`px-4 py-2 rounded-xl transition-colors text-sm ${
                       selectedTags.includes(tag)
                         ? 'bg-blue-50 text-blue-700 font-medium'
                         : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
@@ -674,14 +749,14 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 <button
                   type="button"
                   onClick={() => setShowTagModal(false)}
-                  className="px-6 py-3 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
                 >
                   Done
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowTagModal(false)}
-                  className="px-6 py-3 text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                 >
                   Cancel
                 </button>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Send } from 'lucide-react';
 import { Property } from '../types/property';
 
@@ -10,6 +10,8 @@ interface ContactModalProps {
   onSubmit: (message: string, phone: string) => void;
 }
 
+const STORAGE_KEY = 'propnetwork_contact_question';
+
 export function ContactModal({
   property,
   ownerPhone,
@@ -17,8 +19,22 @@ export function ContactModal({
   onClose,
   onSubmit,
 }: ContactModalProps) {
-  const [question, setQuestion] = useState('');
+  // Load draft from localStorage
+  const loadDraft = (): string => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const [question, setQuestion] = useState(loadDraft());
   const [loading, setLoading] = useState(false);
+
+  // Save draft to localStorage as user types
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, question);
+  }, [question]);
 
   const handleSendQuestion = async () => {
     if (!question.trim()) return;
@@ -32,6 +48,8 @@ export function ContactModal({
 
       window.open(whatsappUrl, '_blank');
       onSubmit(question, ownerPhone);
+      // Clear draft on successful submit
+      localStorage.removeItem(STORAGE_KEY);
       setQuestion('');
       onClose();
     } catch (error) {
@@ -47,7 +65,11 @@ export function ContactModal({
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Ask a Question</h2>
           <button
-            onClick={onClose}
+            onClick={() => {
+              // Clear draft when closed
+              localStorage.removeItem(STORAGE_KEY);
+              onClose();
+            }}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-6 h-6 text-gray-500" />
@@ -82,7 +104,11 @@ export function ContactModal({
 
           <div className="grid grid-cols-2 gap-3 pt-4">
             <button
-              onClick={onClose}
+              onClick={() => {
+                // Clear draft when cancelled
+                localStorage.removeItem(STORAGE_KEY);
+                onClose();
+              }}
               className="px-4 py-3 text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
             >
               Cancel

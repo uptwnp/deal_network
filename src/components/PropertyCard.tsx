@@ -1,4 +1,4 @@
-import { MapPin, Globe, Lock, Home, Building2, Building, Trees, Factory } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
 import { Property } from '../types/property';
 
 interface PropertyCardProps {
@@ -10,72 +10,25 @@ interface PropertyCardProps {
 // Get type-specific styling
 function getPropertyTypeStyles(type: string) {
   const typeLower = type.toLowerCase();
+  const isPlot = typeLower.includes('plot');
   
-  if (typeLower.includes('residential plot')) {
+  if (isPlot) {
+    // Plot - dull color
     return {
-      borderColor: 'border-l-blue-500',
-      hoverBorderColor: 'hover:border-l-blue-600',
-      icon: Home,
-      iconColor: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      accentColor: 'bg-blue-100',
+      borderColor: 'border-l-gray-300',
+      hoverBorderColor: 'hover:border-l-gray-400',
+      bgColor: 'bg-gray-50',
+      accentColor: 'bg-gray-100',
     };
-  } else if (typeLower.includes('commercial plot')) {
-    return {
-      borderColor: 'border-l-purple-500',
-      hoverBorderColor: 'hover:border-l-purple-600',
-      icon: Building2,
-      iconColor: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      accentColor: 'bg-purple-100',
-    };
-  } else if (typeLower.includes('house')) {
-    return {
-      borderColor: 'border-l-green-500',
-      hoverBorderColor: 'hover:border-l-green-600',
-      icon: Home,
-      iconColor: 'text-green-600',
-      bgColor: 'bg-green-50',
-      accentColor: 'bg-green-100',
-    };
-  } else if (typeLower.includes('apartment')) {
+  } else {
+    // Other - orange color
     return {
       borderColor: 'border-l-orange-500',
       hoverBorderColor: 'hover:border-l-orange-600',
-      icon: Building,
-      iconColor: 'text-orange-600',
       bgColor: 'bg-orange-50',
       accentColor: 'bg-orange-100',
     };
-  } else if (typeLower.includes('agriculture')) {
-    return {
-      borderColor: 'border-l-teal-500',
-      hoverBorderColor: 'hover:border-l-teal-600',
-      icon: Trees,
-      iconColor: 'text-teal-600',
-      bgColor: 'bg-teal-50',
-      accentColor: 'bg-teal-100',
-    };
-  } else if (typeLower.includes('industrial')) {
-    return {
-      borderColor: 'border-l-red-500',
-      hoverBorderColor: 'hover:border-l-red-600',
-      icon: Factory,
-      iconColor: 'text-red-600',
-      bgColor: 'bg-red-50',
-      accentColor: 'bg-red-100',
-    };
   }
-  
-  // Default styling
-  return {
-    borderColor: 'border-l-gray-500',
-    hoverBorderColor: 'hover:border-l-gray-600',
-    icon: Home,
-    iconColor: 'text-gray-600',
-    bgColor: 'bg-gray-50',
-    accentColor: 'bg-gray-100',
-  };
 }
 
 export function PropertyCard({
@@ -84,65 +37,63 @@ export function PropertyCard({
   onViewDetails,
 }: PropertyCardProps) {
   const typeStyles = getPropertyTypeStyles(property.type);
-  const TypeIcon = typeStyles.icon;
+  
+  // Trim description to 200 characters
+  const trimmedDescription = property.description.length > 200 
+    ? property.description.substring(0, 200) + '...'
+    : property.description;
+  
+  // Format price
+  const priceText = property.price_min === property.price_max
+    ? `₹${property.price_min}L`
+    : `₹${property.price_min}-${property.price_max}L`;
+  
+  // Format size
+  const sizeText = property.min_size === property.size_max
+    ? `${property.min_size} ${property.size_unit}`
+    : `${property.min_size}-${property.size_max} ${property.size_unit}`;
+  
+  // Format created date
+  const formatCreatedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }
+  };
+  
+  const createdDateText = formatCreatedDate(property.created_on);
   
   return (
     <button
       onClick={() => onViewDetails(property)}
-      className={`w-full bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-3 border-l-4 ${typeStyles.borderColor} border-t border-r border-b border-gray-200 text-left ${typeStyles.hoverBorderColor}`}
+      className={`w-full bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-3 border-l-4 ${typeStyles.borderColor} border-t border-r border-b border-gray-200 text-left ${typeStyles.hoverBorderColor} relative`}
     >
-     <div className="flex items-start gap-2 mb-2">
-  {isOwned && (
-    <div className="flex-shrink-0 mt-0.5">
-      <div
-        className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-        title="My Property"
-      >
-        My
-      </div>
-    </div>
-  )}
-
+     <div className="flex items-start gap-2 mb-0">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <TypeIcon className={`w-4 h-4 ${typeStyles.iconColor} flex-shrink-0`} />
-            <h3 className="text-base font-semibold text-gray-900">{property.type}</h3>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-gray-600 mt-0.5">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>
-              {property.area}, {property.city}
-            </span>
+          <h3 className="text-base font-semibold text-gray-900">
+            {sizeText} {property.type} in {property.area}, {property.city}
+          </h3>
+        </div>
+        <div className="flex-shrink-0">
+          <div className="text-2xl font-bold text-gray-900">
+            {priceText}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          {property.is_public === 1 ? (
-            <div className="p-1.5 bg-green-100 text-green-700 rounded" title="Public">
-              <Globe className="w-3.5 h-3.5" />
-            </div>
-          ) : isOwned ? (
-            <div className="p-1.5 bg-blue-100 text-blue-700 rounded" title="Only Me">
-              <Lock className="w-3.5 h-3.5" />
-            </div>
-          ) : null}
-        </div>
       </div>
-
-      <p className="text-xs text-gray-700 mb-2 line-clamp-2">{property.description}</p>
-
-      <div className="flex items-center gap-4 mb-2 text-xs text-gray-600">
-        <span>
-          {property.min_size === property.size_max
-            ? `${property.min_size} ${property.size_unit}`
-            : `${property.min_size}-${property.size_max} ${property.size_unit}`}
-        </span>
-        <span className="text-gray-400">•</span>
-        <span>
-          {property.price_min === property.price_max
-            ? `₹${property.price_min}L`
-            : `₹${property.price_min}-${property.price_max}L`}
-        </span>
-      </div>
+      <p className="text-sm text-gray-700 mb-2">{trimmedDescription}</p>
 
       <div className="space-y-1.5">
         {property.highlights && (
@@ -163,9 +114,12 @@ export function PropertyCard({
           </div>
         )}
 
-        {isOwned && property.tags && (
+        {isOwned && (
           <div className="flex flex-wrap gap-1">
-            {property.tags.split(',').slice(0, 3).map((tag, idx) => (
+            <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded font-medium">
+              My Property
+            </span>
+            {property.tags && property.tags.split(',').slice(0, 3).map((tag, idx) => (
               <span
                 key={idx}
                 className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
@@ -173,7 +127,7 @@ export function PropertyCard({
                 {tag.trim()}
               </span>
             ))}
-            {property.tags.split(',').length > 3 && (
+            {property.tags && property.tags.split(',').length > 3 && (
               <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">
                 +{property.tags.split(',').length - 3}
               </span>
@@ -182,6 +136,25 @@ export function PropertyCard({
         )}
       </div>
 
+      {/* Created date and Public/Private icon in bottom right */}
+      <div className="absolute bottom-3 right-3 flex items-center gap-2">
+        <span className={`text-xs ${typeStyles.iconColor} opacity-60`}>
+          {createdDateText}
+        </span>
+        {isOwned && (
+          <>
+            {property.is_public === 1 ? (
+              <div className="p-1.5 bg-green-100 text-green-700 rounded shadow-sm" title="Public">
+                <Globe className="w-4 h-4" />
+              </div>
+            ) : (
+              <div className="p-1.5 bg-blue-100 text-blue-700 rounded shadow-sm" title="Private">
+                <Lock className="w-4 h-4" />
+              </div>
+            )}
+          </>
+        )}
+      </div>
     
     </button>
   );

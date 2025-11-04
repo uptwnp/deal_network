@@ -1,11 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, ChevronDown, MapPin } from 'lucide-react';
 import { FilterOptions } from '../types/property';
 
 interface SearchFilterProps {
-  onSearch: (query: string) => void;
+  onSearch: (query: string, column?: string) => void;
   onFilter: (filters: FilterOptions) => void;
 }
+
+const STORAGE_KEYS = {
+  SEARCH_QUERY: 'propnetwork_search_query',
+  SEARCH_COLUMN: 'propnetwork_search_column',
+  FILTERS: 'propnetwork_filters',
+  SELECTED_AREA: 'propnetwork_selected_area',
+};
+
+const SEARCH_COLUMNS = [
+  { value: '', label: 'All Info' },
+  { value: 'general', label: 'All General' },
+  { value: 'area', label: 'Area' },
+  { value: 'heading', label: 'Heading' },
+  { value: 'description', label: 'Description' },
+  { value: 'size', label: 'Size' },
+  { value: 'price', label: 'Price' },
+  { value: 'highlights', label: 'Highlight' },
+  { value: 'tags', label: 'Tags' },
+  { value: 'note_private', label: 'Private info' },
+  { value: 'city', label: 'City' },
+  { value: 'type', label: 'Property type' },
+];
 
 const CITY_OPTIONS = ['Panipat', 'Delhi', 'Gurgaon', 'Noida', 'Faridabad'];
 const AREA_OPTIONS = [
@@ -18,30 +40,116 @@ const AREA_OPTIONS = [
 ];
 
 export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  // Load persisted state from localStorage
+  const loadPersistedState = () => {
+    try {
+      const savedQuery = localStorage.getItem(STORAGE_KEYS.SEARCH_QUERY) || '';
+      const savedColumn = localStorage.getItem(STORAGE_KEYS.SEARCH_COLUMN) || '';
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      const savedArea = localStorage.getItem(STORAGE_KEYS.SELECTED_AREA) || '';
+      
+      return {
+        query: savedQuery,
+        column: savedColumn,
+        filters: savedFilters ? JSON.parse(savedFilters) : {
+          city: '',
+          area: '',
+          type: '',
+          min_price: undefined,
+          max_price: undefined,
+        },
+        selectedArea: savedArea,
+      };
+    } catch {
+      return {
+        query: '',
+        column: '',
+        filters: {
+          city: '',
+          area: '',
+          type: '',
+          min_price: undefined,
+          max_price: undefined,
+        },
+        selectedArea: '',
+      };
+    }
+  };
+
+  const persistedState = loadPersistedState();
+
+  const [searchQuery, setSearchQuery] = useState(persistedState.query);
+  const [searchColumn, setSearchColumn] = useState(persistedState.column);
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAreaSection, setShowAreaSection] = useState(false);
+  const [showAreaDropdown, setShowAreaDropdown] = useState(false);
+  const [selectedArea, setSelectedArea] = useState<string>(persistedState.selectedArea);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false);
   const cityInputRef = useRef<HTMLInputElement>(null);
   const areaInputRef = useRef<HTMLInputElement>(null);
-  const [filters, setFilters] = useState<FilterOptions>({
-    city: '',
-    area: '',
-    type: '',
-    min_price: undefined,
-    max_price: undefined,
-  });
+  const columnDropdownRef = useRef<HTMLDivElement>(null);
+  const areaDropdownRef = useRef<HTMLDivElement>(null);
+  const [filters, setFilters] = useState<FilterOptions>(persistedState.filters);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (columnDropdownRef.current && !columnDropdownRef.current.contains(event.target as Node)) {
+        setShowColumnDropdown(false);
+      }
+      if (areaDropdownRef.current && !areaDropdownRef.current.contains(event.target as Node)) {
+        setShowAreaDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Save search query and column to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SEARCH_QUERY, searchQuery);
+    localStorage.setItem(STORAGE_KEYS.SEARCH_COLUMN, searchColumn);
+  }, [searchQuery, searchColumn]);
+
+  // Save filters to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filters));
+  }, [filters]);
+
+  // Save selected area to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_AREA, selectedArea);
+  }, [selectedArea]);
+
+  // Apply filters on initial load if they exist
+  useEffect(() => {
+    const activeFilters = Object.fromEntries(
+      Object.entries(filters).filter(([_, v]) => v !== '' && v !== undefined)
+    );
+    if (Object.keys(activeFilters).length > 0) {
+      onFilter(activeFilters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      onSearch(searchQuery);
+      onSearch(searchQuery, searchColumn || undefined);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, onSearch]);
+  }, [searchQuery, searchColumn, onSearch]);
+
+  useEffect(() => {
+    setSelectedArea(filters.area || '');
+  }, [filters.area]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | number | undefined) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
+    // Auto-save to localStorage
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
   };
 
   const applyFilters = () => {
@@ -50,6 +158,27 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     );
     onFilter(cleanFilters);
     setShowFilters(false);
+  };
+
+  const handleAreaSelect = (area: string) => {
+    setSelectedArea(area);
+    const newFilters = { ...filters, area };
+    setFilters(newFilters);
+    const cleanFilters = Object.fromEntries(
+      Object.entries({ ...newFilters }).filter(([_, v]) => v !== '' && v !== undefined)
+    );
+    onFilter(cleanFilters);
+    setShowAreaDropdown(false);
+  };
+
+  const handleAreaClear = () => {
+    setSelectedArea('');
+    const newFilters = { ...filters, area: '' };
+    setFilters(newFilters);
+    const cleanFilters = Object.fromEntries(
+      Object.entries(newFilters).filter(([_, v]) => v !== '' && v !== undefined)
+    );
+    onFilter(cleanFilters);
   };
 
   const clearFilters = () => {
@@ -61,23 +190,67 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       max_price: undefined,
     };
     setFilters(emptyFilters);
+    setSelectedArea('');
+    // Clear from localStorage when manually cleared
+    localStorage.removeItem(STORAGE_KEYS.FILTERS);
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
     onFilter({});
   };
 
   const activeFilterCount = Object.values(filters).filter((v) => v !== '' && v !== undefined).length;
 
+  const selectedColumnLabel = SEARCH_COLUMNS.find(col => col.value === searchColumn)?.label || 'All Info';
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search properties..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+        <div className="relative flex-1 flex">
+          <div className="relative" ref={columnDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+              className="h-10 px-3 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 hover:bg-gray-100 transition-colors flex items-center gap-2 text-sm font-medium text-gray-700 whitespace-nowrap"
+            >
+              <span className="truncate max-w-[120px] sm:max-w-none">{selectedColumnLabel}</span>
+              <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${showColumnDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showColumnDropdown && (
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
+                {SEARCH_COLUMNS.map((column) => (
+                  <button
+                    key={column.value}
+                    type="button"
+                    onClick={() => {
+                      setSearchColumn(column.value);
+                      localStorage.setItem(STORAGE_KEYS.SEARCH_COLUMN, column.value);
+                      setShowColumnDropdown(false);
+                    }}
+                    className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                      searchColumn === column.value
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {column.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+              type="text"
+              placeholder={`Search in ${selectedColumnLabel.toLowerCase()}...`}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                // Auto-save to localStorage
+                localStorage.setItem(STORAGE_KEYS.SEARCH_QUERY, e.target.value);
+              }}
+              className="w-full h-10 pl-10 pr-4 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
@@ -91,7 +264,69 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </span>
           )}
         </button>
+        <button
+          onClick={() => setShowAreaSection(!showAreaSection)}
+          className="relative px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+        >
+          <MapPin className="w-5 h-5 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Area</span>
+          {selectedArea && (
+            <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              1
+            </span>
+          )}
+        </button>
       </div>
+
+      {showAreaSection && (
+        <div className="flex gap-2 w-full">
+          <div className="relative flex-1" ref={areaDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowAreaDropdown(!showAreaDropdown)}
+            className="w-full h-10 px-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-sm font-medium text-gray-700"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-gray-600" />
+              <span>{selectedArea || 'Select Area'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedArea && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAreaClear();
+                  }}
+                  className="p-1 hover:bg-gray-200 rounded"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              )}
+              <ChevronDown className={`w-4 h-4 transition-transform ${showAreaDropdown ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+          {showAreaDropdown && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
+              {AREA_OPTIONS.map((area, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleAreaSelect(area)}
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                    selectedArea === area
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {area}
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
+        </div>
+      )}
 
       {showFilters && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-lg">
