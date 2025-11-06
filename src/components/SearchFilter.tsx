@@ -2,43 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, X, ChevronDown, MapPin } from 'lucide-react';
 import { FilterOptions } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
+import {
+  STORAGE_KEYS,
+  SEARCH_COLUMNS,
+  CITY_OPTIONS,
+  AREA_OPTIONS,
+  PROPERTY_TYPE_OPTIONS,
+} from '../utils/filterOptions';
 
 interface SearchFilterProps {
   onSearch: (query: string, column?: string) => void;
   onFilter: (filters: FilterOptions) => void;
 }
-
-const STORAGE_KEYS = {
-  SEARCH_QUERY: 'propnetwork_search_query',
-  SEARCH_COLUMN: 'propnetwork_search_column',
-  FILTERS: 'propnetwork_filters',
-  SELECTED_AREA: 'propnetwork_selected_area',
-};
-
-const SEARCH_COLUMNS = [
-  { value: '', label: 'All Info' },
-  { value: 'general', label: 'All General' },
-  { value: 'area', label: 'Area' },
-  { value: 'heading', label: 'Heading' },
-  { value: 'description', label: 'Description' },
-  { value: 'size', label: 'Size' },
-  { value: 'price', label: 'Price' },
-  { value: 'highlights', label: 'Highlight' },
-  { value: 'tags', label: 'Tags' },
-  { value: 'note_private', label: 'Private info' },
-  { value: 'city', label: 'City' },
-  { value: 'type', label: 'Property type' },
-];
-
-const CITY_OPTIONS = ['Panipat', 'Delhi', 'Gurgaon', 'Noida', 'Faridabad'];
-const AREA_OPTIONS = [
-  'Sector 1', 'Sector 2', 'Sector 3', 'Sector 4', 'Sector 5',
-  'Sector 6', 'Sector 7', 'Sector 8', 'Sector 9', 'Sector 10',
-  'Sector 12', 'Sector 13', 'Sector 14', 'Sector 15', 'Sector 16',
-  'Sector 17', 'Sector 18', 'Sector 19', 'Sector 20', 'Sector 21',
-  'Sector 22', 'Sector 23', 'Sector 24', 'Sector 25', 'Model Town',
-  'Civil Lines', 'GT Road', 'Huda Sector', 'Industrial Area'
-];
 
 export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Load persisted state from localStorage
@@ -335,16 +310,159 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       )}
 
       {showFilters && (
-        <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 space-y-3 shadow-lg">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <h3 className="text-sm sm:text-base font-semibold text-gray-900">Filters</h3>
-            <button
-              onClick={() => setShowFilters(false)}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
-            </button>
+        <>
+          {/* Mobile: Full-screen modal */}
+          <div className="fixed inset-0 z-50 flex items-end sm:hidden bg-black/50 p-0">
+            <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[98vh] overflow-y-auto animate-slide-up">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-2xl">
+                <h3 className="text-base font-semibold text-gray-900">Filters</h3>
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="p-1 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="grid grid-cols-1 gap-2.5">
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <input
+                      ref={cityInputRef}
+                      type="text"
+                      value={filters.city}
+                      onChange={(e) => handleFilterChange('city', e.target.value)}
+                      onFocus={() => setShowCitySuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="e.g., Panipat"
+                    />
+                    {showCitySuggestions && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {CITY_OPTIONS.filter(city =>
+                          city.toLowerCase().includes((filters.city || '').toLowerCase())
+                        ).map((city, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              handleFilterChange('city', city);
+                              setShowCitySuggestions(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-blue-50 text-sm text-gray-700"
+                          >
+                            {city}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
+                    <input
+                      ref={areaInputRef}
+                      type="text"
+                      value={filters.area}
+                      onChange={(e) => handleFilterChange('area', e.target.value)}
+                      onFocus={() => setShowAreaSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 200)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="e.g., Sector 18"
+                    />
+                    {showAreaSuggestions && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {AREA_OPTIONS.filter(area =>
+                          area.toLowerCase().includes((filters.area || '').toLowerCase())
+                        ).map((area, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              handleFilterChange('area', area);
+                              setShowAreaSuggestions(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-blue-50 text-sm text-gray-700"
+                          >
+                            {area}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <select
+                      value={filters.type}
+                      onChange={(e) => handleFilterChange('type', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">All Types</option>
+                      {PROPERTY_TYPE_OPTIONS.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Price Range (Lakhs)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={filters.min_price || ''}
+                        onChange={(e) =>
+                          handleFilterChange('min_price', e.target.value ? parseFloat(e.target.value) : undefined)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={filters.max_price || ''}
+                        onChange={(e) =>
+                          handleFilterChange('max_price', e.target.value ? parseFloat(e.target.value) : undefined)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t border-gray-200">
+                  <button
+                    onClick={clearFilters}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={applyFilters}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Desktop: Inline filters */}
+          <div className="hidden sm:block bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold text-gray-900">Filters</h3>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             <div className="relative">
@@ -362,7 +480,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
               {showCitySuggestions && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {CITY_OPTIONS.filter(city =>
-                    city.toLowerCase().includes(filters.city.toLowerCase())
+                    city.toLowerCase().includes((filters.city || '').toLowerCase())
                   ).map((city, idx) => (
                     <button
                       key={idx}
@@ -395,7 +513,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
               {showAreaSuggestions && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {AREA_OPTIONS.filter(area =>
-                    area.toLowerCase().includes(filters.area.toLowerCase())
+                    area.toLowerCase().includes((filters.area || '').toLowerCase())
                   ).map((area, idx) => (
                     <button
                       key={idx}
@@ -421,12 +539,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               >
                 <option value="">All Types</option>
-                <option value="Residential Plot">Residential Plot</option>
-                <option value="Commercial Plot">Commercial Plot</option>
-                <option value="House">House</option>
-                <option value="Apartment">Apartment</option>
-                <option value="Agriculture Land">Agriculture Land</option>
-                <option value="Industrial Plot">Industrial Plot</option>
+                {PROPERTY_TYPE_OPTIONS.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -457,21 +574,22 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </div>
           </div>
 
-          <div className="flex gap-2 pt-3 border-t border-gray-200">
-            <button
-              onClick={clearFilters}
-              className="flex-1 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Clear
-            </button>
-            <button
-              onClick={applyFilters}
-              className="flex-1 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              Apply Filters
-            </button>
+            <div className="flex gap-2 pt-3 border-t border-gray-200">
+              <button
+                onClick={clearFilters}
+                className="flex-1 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Apply Filters
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

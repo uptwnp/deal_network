@@ -13,6 +13,7 @@ import { useAuth } from './contexts/AuthContext';
 import { propertyApi } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
 import { logoutUser, getCurrentUser } from './types/user';
+import { STORAGE_KEYS } from './utils/filterOptions';
 
 type FilterType = 'all' | 'my' | 'public';
 
@@ -20,10 +21,6 @@ interface ToastState {
   message: string;
   type: 'success' | 'error';
 }
-
-const STORAGE_KEYS = {
-  ACTIVE_FILTER: 'propnetwork_active_filter',
-};
 
 function App() {
   const { ownerId, setOwnerId, isAuthenticated, setUser } = useAuth();

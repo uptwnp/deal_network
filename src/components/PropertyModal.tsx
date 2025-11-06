@@ -2,6 +2,12 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, MapPin, ChevronDown } from 'lucide-react';
 import { Property, PropertyFormData } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
+import {
+  AREA_OPTIONS,
+  CITY_OPTIONS_WITH_LABELS,
+  PROPERTY_TYPE_OPTIONS,
+  SIZE_UNIT_OPTIONS,
+} from '../utils/filterOptions';
 
 interface PropertyModalProps {
   property?: Property | null;
@@ -10,25 +16,6 @@ interface PropertyModalProps {
 }
 
 const STORAGE_KEY = 'propnetwork_property_form_draft';
-
-const AREA_SUGGESTIONS = [
-  'Sector 15',
-  'Sector 16',
-  'Sector 17',
-  'Sector 18',
-  'Sector 19',
-  'Sector 20',
-  'Sector 21',
-  'Sector 22',
-  'Sector 23',
-  'Sector 24',
-  'Sector 25',
-  'Model Town',
-  'Civil Lines',
-  'GT Road',
-  'Huda Sector',
-  'Industrial Area',
-];
 
 export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProps) {
   // Load draft from localStorage if no property (new property) - memoize to prevent re-renders
@@ -121,34 +108,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
   }, [showSizeUnitDropdown, showCityDropdown, showPropertyTypeDropdown]);
 
-  const sizeUnitOptions = [
-    { value: 'Sqyd', label: 'Sq. Yard' },
-    { value: 'Sqft', label: 'Sq. Ft' },
-    { value: 'Acre', label: 'Acre' },
-    { value: 'Marla', label: 'Marla' },
-    { value: 'Kanal', label: 'Kanal' },
-  ];
-
-  const cityOptions = [
-    { value: 'Panipat', label: 'Panipat' },
-    { value: 'Delhi', label: 'Delhi' },
-    { value: 'Gurgaon', label: 'Gurgaon' },
-    { value: 'Noida', label: 'Noida' },
-    { value: 'Faridabad', label: 'Faridabad' },
-  ];
-
-  const propertyTypeOptions = [
-    { value: 'Residential Plot', label: 'Residential Plot' },
-    { value: 'Commercial Plot', label: 'Commercial Plot' },
-    { value: 'House', label: 'House' },
-    { value: 'Apartment', label: 'Apartment' },
-    { value: 'Agriculture Land', label: 'Agriculture Land' },
-    { value: 'Industrial Plot', label: 'Industrial Plot' },
-  ];
-
-  const currentSizeUnitLabel = sizeUnitOptions.find(opt => opt.value === formData.size_unit)?.label || formData.size_unit;
-  const currentCityLabel = cityOptions.find(opt => opt.value === formData.city)?.label || formData.city;
-  const currentPropertyTypeLabel = propertyTypeOptions.find(opt => opt.value === formData.type)?.label || formData.type || 'Select property type';
+  const currentSizeUnitLabel = SIZE_UNIT_OPTIONS.find(opt => opt.value === formData.size_unit)?.label || formData.size_unit;
+  const currentCityLabel = CITY_OPTIONS_WITH_LABELS.find(opt => opt.value === formData.city)?.label || formData.city;
+  const currentPropertyTypeLabel = PROPERTY_TYPE_OPTIONS.find(opt => opt.value === formData.type)?.label || formData.type || 'Select property type';
 
   // Save draft to localStorage as user types (only for new properties, not edits)
   // Use debounce to prevent excessive re-renders
@@ -247,8 +209,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-2 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto animate-slide-up">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-3xl max-h-[98vh] sm:max-h-[90vh] overflow-y-auto animate-slide-up">
         <div className="z-10 sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-6 flex items-center justify-between rounded-t-2xl">
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
             {property ? 'Edit Property' : 'Add Property'}
@@ -284,7 +246,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 </button>
                 {showCityDropdown && (
                   <div className="absolute right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[120px]">
-                    {cityOptions.map((option) => (
+                    {CITY_OPTIONS_WITH_LABELS.map((option) => (
                       <button
                         key={option.value}
                         type="button"
@@ -325,7 +287,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               <MapPin className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               {showAreaSuggestions && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {AREA_SUGGESTIONS.filter(area =>
+                  {AREA_OPTIONS.filter(area =>
                     area.toLowerCase().includes(formData.area.toLowerCase())
                   ).map((area, idx) => (
                     <button
@@ -362,7 +324,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               </button>
               {showPropertyTypeDropdown && (
                 <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
-                  {propertyTypeOptions.map((option) => (
+                  {PROPERTY_TYPE_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       type="button"
@@ -401,7 +363,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                   </button>
                   {showSizeUnitDropdown && (
                     <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[120px]">
-                      {sizeUnitOptions.map((option) => (
+                      {SIZE_UNIT_OPTIONS.map((option) => (
                         <button
                           key={option.value}
                           type="button"
@@ -556,11 +518,11 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           </div>
 
           <div 
-            className="flex items-center justify-between w-full py-4 px-4 border-2 border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+            className="flex items-center justify-between w-full py-3 sm:py-4 px-3 sm:px-4 border-2 border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
             onClick={() => setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }))}
           >
             <label 
-              className="text-base font-medium text-gray-900 cursor-pointer"
+              className="text-sm sm:text-base font-medium text-gray-900 cursor-pointer"
               onClick={(e) => e.preventDefault()}
             >
               Make this property visible to everyone
@@ -574,7 +536,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 e.stopPropagation();
                 setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }));
               }}
-              className="w-5 h-5 text-blue-600 bg-white border-2 border-gray-500 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer checked:bg-blue-600 checked:border-blue-600"
+              className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 bg-white border-2 border-gray-500 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer checked:bg-blue-600 checked:border-blue-600 flex-shrink-0"
             />
           </div>
 
