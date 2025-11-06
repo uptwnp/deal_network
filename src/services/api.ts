@@ -1,8 +1,59 @@
 import axios from 'axios';
 import { Property, PropertyFormData, FilterOptions } from '../types/property';
-import { getStoredToken } from './authApi';
+import { getStoredToken, clearStoredToken } from './authApi';
+import { logoutUser } from '../types/user';
 
 const API_BASE_URL = 'https://prop.digiheadway.in/api/network.php';
+
+// Function to handle authentication errors
+function handleAuthError() {
+  // Clear all auth data
+  clearStoredToken();
+  logoutUser();
+  
+  // Redirect to login page
+  // Use window.location to ensure full page reload and clear any state
+  if (window.location.pathname !== '/login' && !window.location.pathname.startsWith('/property/')) {
+    window.location.href = '/login';
+  }
+}
+
+// Add axios response interceptor to handle authentication errors globally
+axios.interceptors.response.use(
+  (response) => {
+    // Check if response data contains an authentication error
+    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
+      const errorMessage = response.data.error || '';
+      if (errorMessage.toLowerCase().includes('authentication required') || 
+          errorMessage.toLowerCase().includes('invalid token')) {
+        handleAuthError();
+        return Promise.reject(new Error(errorMessage));
+      }
+    }
+    return response;
+  },
+  (error) => {
+    // Handle HTTP error responses
+    if (error.response) {
+      const errorData = error.response.data;
+      if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+        const errorMessage = errorData.error || '';
+        if (errorMessage.toLowerCase().includes('authentication required') || 
+            errorMessage.toLowerCase().includes('invalid token')) {
+          handleAuthError();
+        }
+      }
+      // Also check for 401/403 status codes
+      if (error.response.status === 401 || error.response.status === 403) {
+        handleAuthError();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Request cache to prevent duplicate calls
+const requestCache = new Map<number, Promise<Property | null>>();
 
 // Validate ownerId before making API calls
 function validateOwnerId(ownerId: number): void {
@@ -38,7 +89,10 @@ function normalizeProperty(data: any): Property {
 function normalizeProperties(data: any): Property[] {
   // Check if response is an error object
   if (data && typeof data === 'object' && 'error' in data) {
-    throw new Error(data.error || 'API error occurred');
+    const errorMessage = data.error || 'API error occurred';
+    // Authentication errors are handled by the interceptor, but we still throw here
+    // to prevent processing invalid data
+    throw new Error(errorMessage);
   }
   // Ensure data is an array
   if (!Array.isArray(data)) {
@@ -204,5 +258,53 @@ export const propertyApi = {
       withCredentials: true,
     });
     return normalizeProperties(response.data);
+  },
+
+  async getPropertyById(propertyId: number, ownerId?: number): Promise<Property | null> {
+    // Check if there's already a pending request for this property
+    if (requestCache.has(propertyId)) {
+      console.log('Reusing existing request for property:', propertyId);
+      return requestCache.get(propertyId)!;
+    }
+
+    // Create the request promise
+    const requestPromise = (async () => {
+      try {
+        // Use the public endpoint that doesn't require authentication
+        // This is the most efficient approach - single API request
+        const publicUrl = `${API_BASE_URL}?action=get_one_property&property_id=${propertyId}`;
+        console.log('Making single API request to:', publicUrl);
+        const publicResponse = await axios.get(publicUrl, {
+          withCredentials: true,
+          // No auth headers needed for this endpoint
+        });
+        
+        console.log('API response received:', publicResponse.status);
+        
+        // The endpoint returns an array with a single property
+        if (publicResponse.data && Array.isArray(publicResponse.data) && publicResponse.data.length > 0) {
+          const property = publicResponse.data[0];
+          // Only return if property is public
+          if (property.is_public === 1) {
+            return normalizeProperty(property);
+          }
+        }
+        
+        return null;
+      } catch (error: any) {
+        console.error('Error fetching property by ID:', error.response?.data || error.message);
+        return null;
+      } finally {
+        // Remove from cache after request completes (after a short delay to allow concurrent calls to reuse)
+        setTimeout(() => {
+          requestCache.delete(propertyId);
+        }, 1000);
+      }
+    })();
+
+    // Cache the request promise
+    requestCache.set(propertyId, requestPromise);
+    
+    return requestPromise;
   },
 };

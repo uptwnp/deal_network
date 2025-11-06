@@ -1,27 +1,83 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Save, User as UserIcon, MapPin, Home, DollarSign, Ruler, LogOut, Users, Settings, CheckCircle2, Sparkles, Heart, Info } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Save, LogOut, User, CheckCircle2, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserSettings, getUserSettings, saveUserSettings, DEFAULT_USER_SETTINGS } from '../types/userSettings';
-import { CITY_OPTIONS, AREA_OPTIONS, PROPERTY_TYPES, SIZE_UNITS } from '../utils/filterOptions';
+import { CITY_OPTIONS, AREA_OPTIONS, PROPERTY_TYPES } from '../utils/filterOptions';
 import { authApi } from '../services/authApi';
 import { setCurrentUser } from '../types/user';
+import { PasswordChangeModal } from './PasswordChangeModal';
 
 interface ProfilePageProps {
   onBack: () => void;
   onLogout: () => void;
-  onSwitchUser: () => void;
 }
 
-export function ProfilePage({ onBack, onLogout, onSwitchUser }: ProfilePageProps) {
-  const { ownerId, user, setUser } = useAuth();
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+interface ProfileData {
+  id: number;
+  name: string;
+  phone: string;
+  firm_name: string;
+  area_covers: string;
+  city_covers: string;
+  type: string;
+  default_area: string;
+  default_city: string;
+  default_type: string;
+  created_on: string;
+}
+
+export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
+  const { user, setUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as 'preferences' | 'profile' | null;
+  const [activeTab, setActiveTab] = useState<'preferences' | 'profile'>(tabFromUrl === 'profile' ? 'profile' : 'preferences');
+  
+  // Initialize profile data from user context if available
+  const [profileData, setProfileData] = useState<ProfileData>(() => {
+    if (user) {
+      return {
+        id: user.id,
+        name: user.name || '',
+        phone: user.phone || '',
+        firm_name: user.firm_name || '',
+        area_covers: user.area_covers || '',
+        city_covers: user.city_covers || '',
+        type: user.type || '',
+        default_area: user.default_area || '',
+        default_city: user.default_city || '',
+        default_type: user.default_type || '',
+        created_on: user.created_on || '',
+      };
+    }
+    return {
+      id: 0,
+      name: '',
+      phone: '',
+      firm_name: '',
+      area_covers: '',
+      city_covers: '',
+      type: '',
+      default_area: '',
+      default_city: '',
+      default_type: '',
+      created_on: '',
+    };
+  });
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [showCityCoversDropdown, setShowCityCoversDropdown] = useState(false);
+  const [showAreaCoversDropdown, setShowAreaCoversDropdown] = useState(false);
+  const [showDealsInDropdown, setShowDealsInDropdown] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Start with loading false if we have user data, true if we need to fetch
+  const [loading, setLoading] = useState(!user);
   const [error, setError] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const areaDropdownRef = useRef<HTMLDivElement>(null);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
+  const cityCoversDropdownRef = useRef<HTMLDivElement>(null);
+  const areaCoversDropdownRef = useRef<HTMLDivElement>(null);
+  const dealsInDropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch user profile from API on mount
   useEffect(() => {
@@ -30,6 +86,8 @@ export function ProfilePage({ onBack, onLogout, onSwitchUser }: ProfilePageProps
       setError('');
       try {
         const response = await authApi.getProfile();
+        console.log('Profile response:', response);
+        
         if (response.status && response.user) {
           // Update user in context
           const apiUser = {
@@ -50,41 +108,70 @@ export function ProfilePage({ onBack, onLogout, onSwitchUser }: ProfilePageProps
           setUser(apiUser);
           setCurrentUser(apiUser);
 
-          // Load local settings first
-          const localSettings = getUserSettings();
-          
-          // Map API fields to settings
-          const apiSettings: UserSettings = {
-            ...localSettings, // Keep local-only settings (price range, size unit)
-            city: response.user.default_city || localSettings.city || DEFAULT_USER_SETTINGS.city,
-            preferredAreas: response.user.default_area 
-              ? response.user.default_area.split(',').map(a => a.trim()).filter(a => a)
-              : localSettings.preferredAreas,
-            preferredPropertyTypes: response.user.default_type
-              ? response.user.default_type.split(',').map(t => t.trim()).filter(t => t)
-              : localSettings.preferredPropertyTypes,
-          };
-          
-          setSettings(apiSettings);
+          // Set profile data
+          setProfileData({
+            id: response.user.id,
+            name: response.user.name || '',
+            phone: response.user.phone || '',
+            firm_name: response.user.firm_name || '',
+            area_covers: response.user.area_covers || '',
+            city_covers: response.user.city_covers || '',
+            type: response.user.type || '',
+            default_area: response.user.default_area || '',
+            default_city: response.user.default_city || '',
+            default_type: response.user.default_type || '',
+            created_on: response.user.created_on || '',
+          });
         } else {
-          setError('Failed to load profile');
-          // Fallback to local settings
-          const loadedSettings = getUserSettings();
-          setSettings(loadedSettings);
+          // If API fails, try to use existing user data from context
+          if (user) {
+            setProfileData({
+              id: user.id,
+              name: user.name || '',
+              phone: user.phone || '',
+              firm_name: user.firm_name || '',
+              area_covers: user.area_covers || '',
+              city_covers: user.city_covers || '',
+              type: user.type || '',
+              default_area: user.default_area || '',
+              default_city: user.default_city || '',
+              default_type: user.default_type || '',
+              created_on: user.created_on || '',
+            });
+            setError(response.message || 'Using cached profile data');
+          } else {
+            setError(response.message || 'Failed to load profile');
+          }
         }
       } catch (err: any) {
         console.error('Failed to fetch profile:', err);
-        setError('Failed to load profile. Using local settings.');
-        // Fallback to local settings
-        const loadedSettings = getUserSettings();
-        setSettings(loadedSettings);
+        // If API fails, try to use existing user data from context
+        if (user) {
+          setProfileData({
+            id: user.id,
+            name: user.name || '',
+            phone: user.phone || '',
+            firm_name: user.firm_name || '',
+            area_covers: user.area_covers || '',
+            city_covers: user.city_covers || '',
+            type: user.type || '',
+            default_area: user.default_area || '',
+            default_city: user.default_city || '',
+            default_type: user.default_type || '',
+            created_on: user.created_on || '',
+          });
+          setError('Using cached profile data. API error: ' + (err.message || 'Unknown error'));
+        } else {
+          setError('Failed to load profile. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchProfile();
-  }, [setUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -94,43 +181,34 @@ export function ProfilePage({ onBack, onLogout, onSwitchUser }: ProfilePageProps
       if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target as Node)) {
         setShowTypeDropdown(false);
       }
+      if (cityCoversDropdownRef.current && !cityCoversDropdownRef.current.contains(event.target as Node)) {
+        setShowCityCoversDropdown(false);
+      }
+      if (areaCoversDropdownRef.current && !areaCoversDropdownRef.current.contains(event.target as Node)) {
+        setShowAreaCoversDropdown(false);
+      }
+      if (dealsInDropdownRef.current && !dealsInDropdownRef.current.contains(event.target as Node)) {
+        setShowDealsInDropdown(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleCityChange = (city: string) => {
-    setSettings({ ...settings, city });
-  };
-
-  const toggleArea = (area: string) => {
-    const currentAreas = settings.preferredAreas || [];
-    if (currentAreas.includes(area)) {
-      setSettings({
-        ...settings,
-        preferredAreas: currentAreas.filter(a => a !== area)
-      });
-    } else {
-      setSettings({
-        ...settings,
-        preferredAreas: [...currentAreas, area]
-      });
+  // Update URL when tab changes
+  useEffect(() => {
+    if (activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true });
     }
-  };
+  }, [activeTab, setSearchParams]);
 
-  const togglePropertyType = (type: string) => {
-    const currentTypes = settings.preferredPropertyTypes || [];
-    if (currentTypes.includes(type)) {
-      setSettings({
-        ...settings,
-        preferredPropertyTypes: currentTypes.filter(t => t !== type)
-      });
+  const toggleArrayItem = (currentValue: string, item: string): string => {
+    const items = currentValue ? currentValue.split(',').map(i => i.trim()).filter(i => i) : [];
+    if (items.includes(item)) {
+      return items.filter(i => i !== item).join(', ');
     } else {
-      setSettings({
-        ...settings,
-        preferredPropertyTypes: [...currentTypes, type]
-      });
+      return [...items, item].join(', ');
     }
   };
 
@@ -139,421 +217,662 @@ export function ProfilePage({ onBack, onLogout, onSwitchUser }: ProfilePageProps
     setSaved(false);
     
     try {
-      // Save to API
+      // Send all fields that have values (including empty strings to clear them)
+      // PHP checks isset() so we need to send the fields explicitly
       const updateData: {
-        default_city?: string;
+        firm_name?: string;
+        area_covers?: string;
+        city_covers?: string;
+        type?: string;
         default_area?: string;
+        default_city?: string;
         default_type?: string;
       } = {};
 
-      if (settings.city) {
-        updateData.default_city = settings.city;
-      }
-      if (settings.preferredAreas.length > 0) {
-        updateData.default_area = settings.preferredAreas.join(', ');
-      }
-      if (settings.preferredPropertyTypes.length > 0) {
-        updateData.default_type = settings.preferredPropertyTypes.join(', ');
-      }
+      // Always include fields (even empty strings) so PHP isset() will be true
+      updateData.firm_name = profileData.firm_name || '';
+      updateData.area_covers = profileData.area_covers || '';
+      updateData.city_covers = profileData.city_covers || '';
+      updateData.type = profileData.type || '';
+      updateData.default_area = profileData.default_area || '';
+      updateData.default_city = profileData.default_city || '';
+      updateData.default_type = profileData.default_type || '';
+
+      console.log('Sending update data:', updateData);
 
       const response = await authApi.updateProfile(updateData);
       
-      if (response.status && response.user) {
-        // Update user in context
-        const apiUser = {
-          id: response.user.id,
-          name: response.user.name,
-          phone: response.user.phone,
-          token: response.user.token,
-          firmName: response.user.firm_name,
-          firm_name: response.user.firm_name,
-          area_covers: response.user.area_covers,
-          city_covers: response.user.city_covers,
-          type: response.user.type,
-          default_area: response.user.default_area,
-          default_city: response.user.default_city,
-          default_type: response.user.default_type,
-          created_on: response.user.created_on,
-        };
-        setUser(apiUser);
-        setCurrentUser(apiUser);
-      }
+      if (response.status) {
+        // PHP doesn't return updated user, so fetch it after update
+        const profileResponse = await authApi.getProfile();
+        if (profileResponse.status && profileResponse.user) {
+          // Update user in context
+          const apiUser = {
+            id: profileResponse.user.id,
+            name: profileResponse.user.name,
+            phone: profileResponse.user.phone,
+            token: profileResponse.user.token,
+            firmName: profileResponse.user.firm_name,
+            firm_name: profileResponse.user.firm_name,
+            area_covers: profileResponse.user.area_covers,
+            city_covers: profileResponse.user.city_covers,
+            type: profileResponse.user.type,
+            default_area: profileResponse.user.default_area,
+            default_city: profileResponse.user.default_city,
+            default_type: profileResponse.user.default_type,
+            created_on: profileResponse.user.created_on,
+          };
+          setUser(apiUser);
+          setCurrentUser(apiUser);
 
-      // Also save to local storage (for settings not in API like price range and size unit)
-      saveUserSettings(settings);
-      
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+          // Update local profile data
+          setProfileData({
+            id: profileResponse.user.id,
+            name: profileResponse.user.name || '',
+            phone: profileResponse.user.phone || '',
+            firm_name: profileResponse.user.firm_name || '',
+            area_covers: profileResponse.user.area_covers || '',
+            city_covers: profileResponse.user.city_covers || '',
+            type: profileResponse.user.type || '',
+            default_area: profileResponse.user.default_area || '',
+            default_city: profileResponse.user.default_city || '',
+            default_type: profileResponse.user.default_type || '',
+            created_on: profileResponse.user.created_on || '',
+          });
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setError(response.message || 'Failed to save profile. Please try again.');
+      }
     } catch (err: any) {
       console.error('Failed to save profile:', err);
-      setError(err.message || 'Failed to save settings. Please try again.');
-      // Still save to local storage as fallback
-      saveUserSettings(settings);
+      setError(err.message || 'Failed to save profile. Please try again.');
     }
   };
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getArrayItems = (value: string): string[] => {
+    return value ? value.split(',').map(i => i.trim()).filter(i => i) : [];
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <button
                 onClick={onBack}
-                className="p-2 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:scale-105"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
               <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-blue-600" />
-                <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+                <User className="w-5 h-5 text-gray-700" />
+                <h1 className="text-xl font-semibold text-gray-900">Profile</h1>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Card */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-6 mb-6 text-white">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
-              <UserIcon className="w-8 h-8 text-white" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-1">Welcome back! 👋</h2>
-              <p className="text-blue-100">
-                {user?.name || `User ${ownerId}`} • Let's personalize your experience
-              </p>
-            </div>
-            <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
-          </div>
-        </div>
-
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {loading && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 text-center">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center">
             <p className="text-gray-600">Loading profile...</p>
           </div>
         )}
 
         {error && !loading && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
             <p className="text-yellow-800 text-sm">{error}</p>
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* Preferences Section */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-pink-500" />
-                <h3 className="text-lg font-semibold text-gray-900">Your Preferences</h3>
+        {!loading && (
+          <div className="space-y-4">
+            {/* Read-Only Info Section - Compact Grid */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className="flex flex-col">
+                  <span className="text-gray-500 text-xs font-medium mb-1">User ID</span>
+                  <span className="text-gray-900 font-semibold">{profileData.id || 'N/A'}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-500 text-xs font-medium mb-1">Name</span>
+                  <span className="text-gray-900 font-semibold">{profileData.name || 'N/A'}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-500 text-xs font-medium mb-1">Phone</span>
+                  <span className="text-gray-900 font-semibold">{profileData.phone || 'N/A'}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-500 text-xs font-medium mb-1">Created</span>
+                  <span className="text-gray-900 font-semibold text-xs">{formatDate(profileData.created_on)}</span>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mt-1">Customize your property search experience</p>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* City Setting */}
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-blue-200 transition-colors">
-                <label className="flex items-center gap-2 text-base font-semibold text-gray-800 mb-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <MapPin className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <span>Default City</span>
-                </label>
-                <select
-                  value={settings.city}
-                  onChange={(e) => handleCityChange(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 font-medium"
-                >
-                  {CITY_OPTIONS.map(city => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-                <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
-                  <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <p>This city will be automatically selected when you add new properties</p>
+            {/* Tabs */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div className="border-b border-gray-200">
+                <div className="flex">
+                  <button
+                    onClick={() => setActiveTab('preferences')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      activeTab === 'preferences'
+                        ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    Preferences
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      activeTab === 'profile'
+                        ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    Profile Info
+                  </button>
                 </div>
               </div>
 
-              {/* Preferred Areas */}
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-blue-200 transition-colors">
-                <label className="flex items-center gap-2 text-base font-semibold text-gray-800 mb-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <MapPin className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <span>Favorite Areas</span>
-                </label>
-                <div className="relative" ref={areaDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowAreaDropdown(!showAreaDropdown)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all font-medium"
+              <div className="p-4">
+                {activeTab === 'preferences' && (
+                  <div className="space-y-4">
+                {/* Default City */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default City</label>
+                  <select
+                    value={profileData.default_city}
+                    onChange={(e) => setProfileData({ ...profileData, default_city: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 text-sm"
                   >
-                    <span className="text-gray-700">
-                      {settings.preferredAreas.length > 0
-                        ? `✨ ${settings.preferredAreas.length} area${settings.preferredAreas.length > 1 ? 's' : ''} selected`
-                        : 'Click to select your favorite areas'}
-                    </span>
-                    <svg
-                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAreaDropdown ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    <option value="">Select default city</option>
+                    {CITY_OPTIONS.map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Default Areas */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Areas</label>
+                  <div className="relative" ref={areaDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowAreaDropdown(!showAreaDropdown)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showAreaDropdown && (
-                    <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-                      {AREA_OPTIONS.map(area => (
-                        <button
+                      <span className="text-gray-700">
+                        {getArrayItems(profileData.default_area).length > 0
+                          ? `✨ ${getArrayItems(profileData.default_area).length} area${getArrayItems(profileData.default_area).length > 1 ? 's' : ''} selected`
+                          : 'Click to select default areas'}
+                      </span>
+                      <svg
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAreaDropdown ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showAreaDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                        {AREA_OPTIONS.map(area => {
+                          const isSelected = getArrayItems(profileData.default_area).includes(area);
+                          return (
+                            <button
+                              key={area}
+                              type="button"
+                              onClick={() => setProfileData({ ...profileData, default_area: toggleArrayItem(profileData.default_area, area) })}
+                              className={`w-full px-3 py-2 text-left text-sm transition-all ${
+                                isSelected
+                                  ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}}
+                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span>{area}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {getArrayItems(profileData.default_area).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {getArrayItems(profileData.default_area).map(area => (
+                        <span
                           key={area}
-                          type="button"
-                          onClick={() => toggleArea(area)}
-                          className={`w-full px-4 py-3 text-left text-sm transition-all ${
-                            settings.preferredAreas.includes(area)
-                              ? 'bg-blue-50 text-blue-700 font-semibold border-l-4 border-blue-500'
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
+                          className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={settings.preferredAreas.includes(area)}
-                              onChange={() => {}}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span>{area}</span>
-                          </div>
-                        </button>
+                          {area}
+                          <button
+                            type="button"
+                            onClick={() => setProfileData({ ...profileData, default_area: toggleArrayItem(profileData.default_area, area) })}
+                            className="hover:scale-110 transition-transform font-bold"
+                            aria-label={`Remove ${area}`}
+                          >
+                            ×
+                          </button>
+                        </span>
                       ))}
                     </div>
                   )}
                 </div>
-                {settings.preferredAreas.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {settings.preferredAreas.map(area => (
-                      <span
-                        key={area}
-                        className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full text-sm font-medium flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        {area}
-                        <button
-                          type="button"
-                          onClick={() => toggleArea(area)}
-                          className="hover:scale-110 transition-transform font-bold"
-                          aria-label={`Remove ${area}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
-                  <Info className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
-                  <p>We'll prioritize properties in these areas when you search</p>
-                </div>
-              </div>
 
-              {/* Preferred Property Types */}
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-blue-200 transition-colors">
-                <label className="flex items-center gap-2 text-base font-semibold text-gray-800 mb-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Home className="w-4 h-4 text-green-600" />
-                  </div>
-                  <span>Property Types You Love</span>
-                </label>
-                <div className="relative" ref={typeDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all font-medium"
-                  >
-                    <span className="text-gray-700">
-                      {settings.preferredPropertyTypes.length > 0
-                        ? `🏠 ${settings.preferredPropertyTypes.length} type${settings.preferredPropertyTypes.length > 1 ? 's' : ''} selected`
-                        : 'Click to choose your favorite property types'}
-                    </span>
-                    <svg
-                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showTypeDropdown ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                {/* Default Property Types */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Property Types</label>
+                  <div className="relative" ref={typeDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showTypeDropdown && (
-                    <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-                      {PROPERTY_TYPES.map(type => (
-                        <button
+                      <span className="text-gray-700">
+                        {getArrayItems(profileData.default_type).length > 0
+                          ? `🏠 ${getArrayItems(profileData.default_type).length} type${getArrayItems(profileData.default_type).length > 1 ? 's' : ''} selected`
+                          : 'Click to choose default property types'}
+                      </span>
+                      <svg
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showTypeDropdown ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showTypeDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                        {PROPERTY_TYPES.map(type => {
+                          const isSelected = getArrayItems(profileData.default_type).includes(type);
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setProfileData({ ...profileData, default_type: toggleArrayItem(profileData.default_type, type) })}
+                              className={`w-full px-3 py-2 text-left text-sm transition-all ${
+                                isSelected
+                                  ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}}
+                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span>{type}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {getArrayItems(profileData.default_type).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {getArrayItems(profileData.default_type).map(type => (
+                        <span
                           key={type}
-                          type="button"
-                          onClick={() => togglePropertyType(type)}
-                          className={`w-full px-4 py-3 text-left text-sm transition-all ${
-                            settings.preferredPropertyTypes.includes(type)
-                              ? 'bg-green-50 text-green-700 font-semibold border-l-4 border-green-500'
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
+                          className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={settings.preferredPropertyTypes.includes(type)}
-                              onChange={() => {}}
-                              className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                            />
-                            <span>{type}</span>
-                          </div>
-                        </button>
+                          {type}
+                          <button
+                            type="button"
+                            onClick={() => setProfileData({ ...profileData, default_type: toggleArrayItem(profileData.default_type, type) })}
+                            className="hover:scale-110 transition-transform font-bold"
+                            aria-label={`Remove ${type}`}
+                          >
+                            ×
+                          </button>
+                        </span>
                       ))}
                     </div>
                   )}
                 </div>
-                {settings.preferredPropertyTypes.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {settings.preferredPropertyTypes.map(type => (
-                      <span
-                        key={type}
-                        className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-full text-sm font-medium flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
+
+                    {/* Save Button for Preferences */}
+                    <div className="pt-2">
+                      <button
+                        onClick={handleSave}
+                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm hover:shadow"
                       >
-                        {type}
+                        <Save className="w-4 h-4" />
+                        Save Preferences
+                      </button>
+                      {saved && (
+                        <div className="mt-3 flex items-center justify-center gap-2 text-green-600 font-medium text-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <p>Profile saved successfully! 🎉</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'profile' && (
+                  <div className="space-y-4">
+                    {/* Firm Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Firm Name</label>
+                      <input
+                        type="text"
+                        value={profileData.firm_name}
+                        onChange={(e) => setProfileData({ ...profileData, firm_name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 text-sm"
+                        placeholder="Enter firm name"
+                      />
+                    </div>
+
+                    {/* Area Covers */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Areas You Cover</label>
+                      <div className="relative" ref={areaCoversDropdownRef}>
                         <button
                           type="button"
-                          onClick={() => togglePropertyType(type)}
-                          className="hover:scale-110 transition-transform font-bold"
-                          aria-label={`Remove ${type}`}
+                          onClick={() => setShowAreaCoversDropdown(!showAreaCoversDropdown)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
                         >
-                          ×
+                          <span className="text-gray-700">
+                            {getArrayItems(profileData.area_covers).length > 0
+                              ? `✨ ${getArrayItems(profileData.area_covers).length} area${getArrayItems(profileData.area_covers).length > 1 ? 's' : ''} selected`
+                              : 'Click to select areas you cover'}
+                          </span>
+                          <svg
+                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAreaCoversDropdown ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
                         </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
-                  <Info className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p>These will be automatically applied as default filters in your searches</p>
-                </div>
-              </div>
+                        {showAreaCoversDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                            {AREA_OPTIONS.map(area => {
+                              const isSelected = getArrayItems(profileData.area_covers).includes(area);
+                              return (
+                                <button
+                                  key={area}
+                                  type="button"
+                                  onClick={() => setProfileData({ ...profileData, area_covers: toggleArrayItem(profileData.area_covers, area) })}
+                                  className={`w-full px-3 py-2 text-left text-sm transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
+                                      : 'text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span>{area}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {getArrayItems(profileData.area_covers).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {getArrayItems(profileData.area_covers).map(area => (
+                            <span
+                              key={area}
+                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
+                            >
+                              {area}
+                              <button
+                                type="button"
+                                onClick={() => setProfileData({ ...profileData, area_covers: toggleArrayItem(profileData.area_covers, area) })}
+                                className="hover:scale-110 transition-transform font-bold"
+                                aria-label={`Remove ${area}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-              {/* Default Price Range */}
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-blue-200 transition-colors">
-                <label className="flex items-center gap-2 text-base font-semibold text-gray-800 mb-3">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <DollarSign className="w-4 h-4 text-yellow-600" />
-                  </div>
-                  <span>Budget Range</span>
-                  <span className="text-xs font-normal text-gray-500">(in Lakhs)</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Minimum</label>
-                    <input
-                      type="number"
-                      value={settings.defaultPriceMin || ''}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        defaultPriceMin: e.target.value ? parseFloat(e.target.value) : undefined
-                      })}
-                      placeholder="Min"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all bg-white font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Maximum</label>
-                    <input
-                      type="number"
-                      value={settings.defaultPriceMax || ''}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        defaultPriceMax: e.target.value ? parseFloat(e.target.value) : undefined
-                      })}
-                      placeholder="Max"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all bg-white font-medium"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
-                  <Info className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                  <p>This range will be pre-filled when you search for properties</p>
-                </div>
-              </div>
+                    {/* City Covers */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Cities You Cover</label>
+                      <div className="relative" ref={cityCoversDropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setShowCityCoversDropdown(!showCityCoversDropdown)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
+                        >
+                          <span className="text-gray-700">
+                            {getArrayItems(profileData.city_covers).length > 0
+                              ? `✨ ${getArrayItems(profileData.city_covers).length} city${getArrayItems(profileData.city_covers).length > 1 ? 'ies' : ''} selected`
+                              : 'Click to select cities you cover'}
+                          </span>
+                          <svg
+                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showCityCoversDropdown ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showCityCoversDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                            {CITY_OPTIONS.map(city => {
+                              const isSelected = getArrayItems(profileData.city_covers).includes(city);
+                              return (
+                                <button
+                                  key={city}
+                                  type="button"
+                                  onClick={() => setProfileData({ ...profileData, city_covers: toggleArrayItem(profileData.city_covers, city) })}
+                                  className={`w-full px-3 py-2 text-left text-sm transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
+                                      : 'text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span>{city}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {getArrayItems(profileData.city_covers).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {getArrayItems(profileData.city_covers).map(city => (
+                            <span
+                              key={city}
+                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
+                            >
+                              {city}
+                              <button
+                                type="button"
+                                onClick={() => setProfileData({ ...profileData, city_covers: toggleArrayItem(profileData.city_covers, city) })}
+                                className="hover:scale-110 transition-transform font-bold"
+                                aria-label={`Remove ${city}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-              {/* Default Size Unit */}
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-blue-200 transition-colors">
-                <label className="flex items-center gap-2 text-base font-semibold text-gray-800 mb-3">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
-                    <Ruler className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <span>Preferred Size Unit</span>
-                </label>
-                <select
-                  value={settings.defaultSizeUnit}
-                  onChange={(e) => setSettings({ ...settings, defaultSizeUnit: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white text-gray-700 font-medium"
-                >
-                  {SIZE_UNITS.map(unit => (
-                    <option key={unit} value={unit}>
-                      {unit === 'Gaj' ? 'Gaj' : unit === 'Sqft' ? 'Sq. Ft' : unit}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
-                  <Info className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
-                  <p>This unit will be automatically selected when adding new properties</p>
-                </div>
-              </div>
+                    {/* Type - Property Types Deals In */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Property Types You Deal In</label>
+                      <div className="relative" ref={dealsInDropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setShowDealsInDropdown(!showDealsInDropdown)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
+                        >
+                          <span className="text-gray-700">
+                            {getArrayItems(profileData.type).length > 0
+                              ? `🏠 ${getArrayItems(profileData.type).length} type${getArrayItems(profileData.type).length > 1 ? 's' : ''} selected`
+                              : 'Click to select property types you deal in'}
+                          </span>
+                          <svg
+                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showDealsInDropdown ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showDealsInDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                            {PROPERTY_TYPES.map(type => {
+                              const isSelected = getArrayItems(profileData.type).includes(type);
+                              return (
+                                <button
+                                  key={type}
+                                  type="button"
+                                  onClick={() => setProfileData({ ...profileData, type: toggleArrayItem(profileData.type, type) })}
+                                  className={`w-full px-3 py-2 text-left text-sm transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
+                                      : 'text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span>{type}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {getArrayItems(profileData.type).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {getArrayItems(profileData.type).map(type => (
+                            <span
+                              key={type}
+                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
+                            >
+                              {type}
+                              <button
+                                type="button"
+                                onClick={() => setProfileData({ ...profileData, type: toggleArrayItem(profileData.type, type) })}
+                                className="hover:scale-110 transition-transform font-bold"
+                                aria-label={`Remove ${type}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-              {/* Save Button */}
-              <div className="pt-4">
-                <button
-                  onClick={handleSave}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
-                >
-                  <Save className="w-5 h-5" />
-                  Save All Preferences
-                </button>
-                {saved && (
-                  <div className="mt-4 flex items-center justify-center gap-2 text-green-600 font-medium animate-in fade-in duration-300">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <p>All settings saved successfully! 🎉</p>
+                    {/* Save Button for Profile */}
+                    <div className="pt-2">
+                      <button
+                        onClick={handleSave}
+                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm hover:shadow"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save Profile Info
+                      </button>
+                      {saved && (
+                        <div className="mt-3 flex items-center justify-center gap-2 text-green-600 font-medium text-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <p>Profile saved successfully! 🎉</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Account Actions Section */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Account</h3>
-              <p className="text-sm text-gray-600 mt-1">Manage your account settings</p>
-            </div>
-            <div className="p-6">
-              <div className="flex flex-col sm:flex-row gap-3">
+            {/* Change Password and Logout Section */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div className="p-4 space-y-3">
+                {/* Password Change Button */}
                 <button
-                  onClick={onSwitchUser}
-                  className="flex-1 px-4 py-3 bg-white border-2 border-gray-200 rounded-xl font-medium hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2 text-gray-700 hover:text-blue-700 group"
+                  type="button"
+                  onClick={() => setShowPasswordModal(true)}
+                  className="w-full px-4 py-2.5 bg-white border border-red-200 rounded-lg font-medium hover:border-red-400 hover:bg-red-50 transition-all duration-200 flex items-center justify-center gap-2 text-red-600 hover:text-red-700 text-sm"
                 >
-                  <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  Switch User ID
+                  <Lock className="w-4 h-4" />
+                  Change Password
                 </button>
+
+                {/* Logout Button */}
                 <button
                   onClick={onLogout}
-                  className="flex-1 px-4 py-3 bg-white border-2 border-red-200 rounded-xl font-medium hover:border-red-400 hover:bg-red-50 transition-all duration-200 flex items-center justify-center gap-2 text-red-600 hover:text-red-700 group"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg font-medium hover:border-gray-400 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-2 text-gray-700 hover:text-gray-900 text-sm"
                 >
-                  <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <LogOut className="w-4 h-4" />
                   Logout
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {showPasswordModal && (
+        <PasswordChangeModal
+          onClose={() => setShowPasswordModal(false)}
+          onSuccess={() => {
+            // Optionally refresh profile after password change
+          }}
+        />
+      )}
     </div>
   );
 }

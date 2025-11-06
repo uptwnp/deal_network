@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [ownerId, setOwnerIdState] = useState<number>(() => {
     const currentUser = getCurrentUser();
-    return currentUser?.id || 1;
+    return currentUser?.id || 0;
   });
 
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             authApi.logout();
             setUserState(null);
             setCurrentUser(null);
+            setOwnerIdState(0);
           }
         } catch (error) {
           console.error('Failed to verify token:', error);
@@ -67,12 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (storedUser) {
             setUserState(storedUser);
             setOwnerIdState(storedUser.id);
+          } else {
+            setOwnerIdState(0);
           }
         }
       } else if (storedUser) {
         // No token but have stored user (legacy)
         setUserState(storedUser);
         setOwnerIdState(storedUser.id);
+      } else {
+        // No token and no stored user - clear ownerId
+        setOwnerIdState(0);
       }
       
       setLoading(false);
@@ -86,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser(newUser);
     if (newUser) {
       setOwnerIdState(newUser.id);
+    } else {
+      setOwnerIdState(0);
     }
   };
 

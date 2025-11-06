@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Home, Globe, ChevronDown, Settings } from 'lucide-react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Plus, Home, Globe, ChevronDown, User } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { PropertyModal } from './components/PropertyModal';
@@ -7,9 +8,9 @@ import { PropertyDetailsModal } from './components/PropertyDetailsModal';
 import { ContactModal } from './components/ContactModal';
 import { SearchFilter } from './components/SearchFilter';
 import { ProfilePage } from './components/ProfilePage';
-import { SettingsPage } from './components/SettingsPage';
 import { HomePage } from './components/HomePage';
 import { AuthPage } from './components/AuthPage';
+import { PublicPropertyPage } from './components/PublicPropertyPage';
 import { Toast } from './components/Toast';
 import { useAuth } from './contexts/AuthContext';
 import { propertyApi } from './services/api';
@@ -27,7 +28,9 @@ interface ToastState {
 }
 
 function App() {
-  const { ownerId, setOwnerId, isAuthenticated, setUser } = useAuth();
+  const { ownerId, setOwnerId, isAuthenticated, setUser, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [showLandingPage, setShowLandingPage] = useState<boolean>(() => {
     try {
       const hasVisited = localStorage.getItem('has_visited_app');
@@ -38,7 +41,6 @@ function App() {
       return true;
     }
   });
-  const [currentPage, setCurrentPage] = useState<'home' | 'profile' | 'settings'>('home');
   
   // Load persisted activeFilter from localStorage
   const loadPersistedFilter = (): FilterType => {
@@ -54,9 +56,10 @@ function App() {
   const [activeFilter, setActiveFilter] = useState<FilterType>(loadPersistedFilter());
   const [myProperties, setMyProperties] = useState<Property[]>([]);
   const [publicProperties, setPublicProperties] = useState<Property[]>([]);
-  const [allProperties, setAllProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
+  const loadedDataRef = useRef<{ ownerId: number; my: boolean; public: boolean } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -91,24 +94,82 @@ function App() {
     }
   }, [ownerId]);
 
-  const loadAllProperties = useCallback(async () => {
-    if (!ownerId || ownerId <= 0) return;
-    try {
-      const data = await propertyApi.getAllProperties(ownerId);
-      setAllProperties(data);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load all properties';
-      showToast(errorMessage, 'error');
-    }
-  }, [ownerId]);
 
   useEffect(() => {
-    if (!ownerId || ownerId <= 0) return;
+    // Don't load properties if we're on the public property page
+    if (location.pathname.startsWith('/property/')) {
+      return;
+    }
+    
+    // Only load properties if user is authenticated and has a valid ownerId
+    if (!isAuthenticated || !ownerId || ownerId <= 0) {
+      loadedDataRef.current = null;
+      return;
+    }
+    
+    // Reset loaded data if ownerId changed
+    if (loadedDataRef.current && loadedDataRef.current.ownerId !== ownerId) {
+      loadedDataRef.current = null;
+      setMyProperties([]);
+      setPublicProperties([]);
+    }
+    
+    // Prevent duplicate requests
+    if (loadingRef.current) return;
+    
+    // Check if we already have the data we need
+    const needsMy = activeFilter === 'my' || activeFilter === 'all';
+    const needsPublic = activeFilter === 'public' || activeFilter === 'all';
+    
+    // Check what we've already loaded for this ownerId
+    const hasMy = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.my;
+    const hasPublic = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.public;
+    
+    // If we have all the data we need, don't load
+    if (needsMy && needsPublic && hasMy && hasPublic) return;
+    if (needsMy && !needsPublic && hasMy) return;
+    if (!needsMy && needsPublic && hasPublic) return;
+    
+    loadingRef.current = true;
     setLoading(true);
-    Promise.all([loadMyProperties(), loadPublicProperties(), loadAllProperties()]).then(() => {
+    
+    // Initialize loaded data ref if needed
+    if (!loadedDataRef.current || loadedDataRef.current.ownerId !== ownerId) {
+      loadedDataRef.current = { ownerId, my: false, public: false };
+    }
+    
+    // Only load the properties needed based on the active filter
+    const loadPromises: Promise<void>[] = [];
+    
+    if (needsMy && !hasMy) {
+      loadPromises.push(
+        loadMyProperties().then(() => {
+          if (loadedDataRef.current) loadedDataRef.current.my = true;
+        })
+      );
+    }
+    if (needsPublic && !hasPublic) {
+      loadPromises.push(
+        loadPublicProperties().then(() => {
+          if (loadedDataRef.current) loadedDataRef.current.public = true;
+        })
+      );
+    }
+    
+    if (loadPromises.length === 0) {
+      loadingRef.current = false;
+      setLoading(false);
+      return;
+    }
+    
+    Promise.all(loadPromises).then(() => {
+      loadingRef.current = false;
+      setLoading(false);
+    }).catch(() => {
+      loadingRef.current = false;
       setLoading(false);
     });
-  }, [loadMyProperties, loadPublicProperties, loadAllProperties, ownerId]);
+  }, [ownerId, location.pathname, isAuthenticated, activeFilter, loadMyProperties, loadPublicProperties]);
 
   useEffect(() => {
     // Only set default properties if there's no active search or filters
@@ -116,7 +177,8 @@ function App() {
       let propertiesToDisplay: Property[] = [];
 
       if (activeFilter === 'all') {
-        propertiesToDisplay = allProperties;
+        // Combine my and public properties for 'all' view
+        propertiesToDisplay = [...myProperties, ...publicProperties];
       } else if (activeFilter === 'my') {
         propertiesToDisplay = myProperties;
       } else if (activeFilter === 'public') {
@@ -125,7 +187,7 @@ function App() {
 
       setFilteredProperties(propertiesToDisplay);
     }
-  }, [activeFilter, allProperties, myProperties, publicProperties, searchQuery, activeFilters]);
+  }, [activeFilter, myProperties, publicProperties, searchQuery, activeFilters]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -163,20 +225,39 @@ function App() {
 
   // Helper function to refresh all properties and re-apply filters
   const refreshPropertiesAndFilters = useCallback(async (updateSelectedProperty?: boolean) => {
-    // Refresh all property lists
-    const [myProps, publicProps, allProps] = await Promise.all([
-      propertyApi.getUserProperties(ownerId),
-      propertyApi.getPublicProperties(ownerId),
-      propertyApi.getAllProperties(ownerId)
-    ]);
+    // Refresh property lists based on active filter (only load what's needed)
+    const loadPromises: Promise<Property[]>[] = [];
     
-    // Update state
-    setMyProperties(myProps);
-    setPublicProperties(publicProps);
-    setAllProperties(allProps);
+    if (activeFilter === 'my') {
+      loadPromises.push(propertyApi.getUserProperties(ownerId));
+    } else if (activeFilter === 'public') {
+      loadPromises.push(propertyApi.getPublicProperties(ownerId));
+    } else if (activeFilter === 'all') {
+      // For 'all', load both lists
+      loadPromises.push(propertyApi.getUserProperties(ownerId), propertyApi.getPublicProperties(ownerId));
+    }
+    
+    const results = await Promise.all(loadPromises);
+    
+    // Update state based on what was loaded
+    if (activeFilter === 'my') {
+      setMyProperties(results[0]);
+      if (loadedDataRef.current) loadedDataRef.current.my = true;
+    } else if (activeFilter === 'public') {
+      setPublicProperties(results[0]);
+      if (loadedDataRef.current) loadedDataRef.current.public = true;
+    } else if (activeFilter === 'all') {
+      setMyProperties(results[0]);
+      setPublicProperties(results[1]);
+      if (loadedDataRef.current) {
+        loadedDataRef.current.my = true;
+        loadedDataRef.current.public = true;
+      }
+    }
     
     // Update selectedProperty if modal is open and updateSelectedProperty is true
     if (updateSelectedProperty && selectedProperty) {
+      const allProps = activeFilter === 'all' ? [...results[0], ...results[1]] : results[0];
       const updatedProperty = allProps.find(p => p.id === selectedProperty.id);
       if (updatedProperty) {
         setSelectedProperty(updatedProperty);
@@ -199,11 +280,11 @@ function App() {
       } catch (error) {
         // If search fails, use fresh data from state
         if (activeFilter === 'all') {
-          setFilteredProperties(allProps);
+          setFilteredProperties([...results[0], ...results[1]]);
         } else if (activeFilter === 'my') {
-          setFilteredProperties(myProps);
+          setFilteredProperties(results[0]);
         } else if (activeFilter === 'public') {
-          setFilteredProperties(publicProps);
+          setFilteredProperties(results[0]);
         }
       }
     } else if (Object.keys(activeFilters).length > 0) {
@@ -217,21 +298,21 @@ function App() {
       } catch (error) {
         // If filter fails, use fresh data from state
         if (activeFilter === 'all') {
-          setFilteredProperties(allProps);
+          setFilteredProperties([...results[0], ...results[1]]);
         } else if (activeFilter === 'my') {
-          setFilteredProperties(myProps);
+          setFilteredProperties(results[0]);
         } else if (activeFilter === 'public') {
-          setFilteredProperties(publicProps);
+          setFilteredProperties(results[0]);
         }
       }
     } else {
       // No search/filters, use fresh data directly
       if (activeFilter === 'all') {
-        setFilteredProperties(allProps);
+        setFilteredProperties([...results[0], ...results[1]]);
       } else if (activeFilter === 'my') {
-        setFilteredProperties(myProps);
+        setFilteredProperties(results[0]);
       } else if (activeFilter === 'public') {
-        setFilteredProperties(publicProps);
+        setFilteredProperties(results[0]);
       }
     }
   }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty]);
@@ -308,13 +389,17 @@ function App() {
       ? `${property.min_size} ${property.size_unit}`
       : `${property.min_size}-${property.size_max} ${property.size_unit}`;
     const priceText = formatPriceWithLabel(property.price_min, property.price_max);
-    const text = `${property.type} in ${property.area}, ${property.city}\n${property.description}\nSize: ${sizeText}\nPrice: ${priceText}`;
+    const shareUrl = property.is_public === 1 
+      ? `${window.location.origin}/property/${property.id}`
+      : undefined;
+    const text = `${property.type} in ${property.area}, ${property.city}\n${property.description}\nSize: ${sizeText}\nPrice: ${priceText}${shareUrl ? `\n\nView: ${shareUrl}` : ''}`;
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: `${property.type} - ${property.area}`,
           text,
+          url: shareUrl,
         });
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
@@ -346,7 +431,7 @@ function App() {
       // If no query and no active filters, show default list
       if (!query.trim() && Object.keys(activeFilters).length === 0) {
         if (activeFilter === 'all') {
-          setFilteredProperties(allProperties);
+          setFilteredProperties([...myProperties, ...publicProperties]);
         } else if (activeFilter === 'my') {
           setFilteredProperties(myProperties);
         } else if (activeFilter === 'public') {
@@ -374,7 +459,7 @@ function App() {
         showToast('Search failed', 'error');
       }
     },
-    [activeFilter, allProperties, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn]
+    [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn]
   );
 
   const handleFilter = useCallback(
@@ -390,7 +475,7 @@ function App() {
       // If no filters and no search query, show default list
       if (Object.keys(filters).length === 0 && !searchQuery.trim()) {
         if (activeFilter === 'all') {
-          setFilteredProperties(allProperties);
+          setFilteredProperties([...myProperties, ...publicProperties]);
         } else if (activeFilter === 'my') {
           setFilteredProperties(myProperties);
         } else if (activeFilter === 'public') {
@@ -414,7 +499,7 @@ function App() {
         showToast('Filter failed', 'error');
       }
     },
-    [activeFilter, allProperties, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters]
+    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters]
   );
 
   const handleFilterChange = (filter: FilterType) => {
@@ -439,26 +524,13 @@ function App() {
     }
   };
 
-  const handleViewProperty = (property: Property) => {
-    setSelectedProperty(property);
-    setShowDetailsModal(true);
-  };
-
   const handleAskQuestion = (property: Property) => {
     setSelectedProperty(property);
     setShowContactModal(true);
   };
 
-  const handleContactSubmit = (_message: string, _phone: string) => {
+  const handleContactSubmit = async (_message: string, _phone: string) => {
     showToast('Question sent via WhatsApp!', 'success');
-  };
-
-  const currentProperties = filteredProperties;
-
-  const getFilterLabel = () => {
-    if (activeFilter === 'all') return 'All Properties';
-    if (activeFilter === 'my') return 'My Properties';
-    return 'Public Properties';
   };
 
   const handleLogin = (userId: number) => {
@@ -468,6 +540,8 @@ function App() {
       setUser(currentUser);
     }
     setOwnerId(userId);
+    // Show login success message
+    showToast('Login successful!', 'success');
     // After login, check if user has visited before
     try {
       const hasVisited = localStorage.getItem('has_visited_app');
@@ -488,6 +562,12 @@ function App() {
       console.error('Failed to save to localStorage:', error);
     }
     setShowLandingPage(false);
+    // Navigate based on authentication status
+    if (isAuthenticated) {
+      navigate('/home');
+    } else {
+      navigate('/login');
+    }
   };
 
   const handleLogout = () => {
@@ -502,69 +582,340 @@ function App() {
     }
   };
 
-  // Always show landing page if flag is set (regardless of authentication)
-  if (showLandingPage) {
+  // Handle property view - always open modal in main app
+  const handleViewProperty = (property: Property) => {
+    setSelectedProperty(property);
+    setShowDetailsModal(true);
+  };
+
+  // Show loading state while auth is being checked
+  if (authLoading) {
     return (
-      <HomePage 
-        onGetStarted={handleGetStarted}
-        isAuthenticated={isAuthenticated}
-        onGoToLogin={() => {
-          // Clear auth and show login page
-          authApi.logout();
-          logoutUser();
-          setUser(null);
-          setShowLandingPage(false);
-        }}
-        onGoToApp={handleGetStarted}
-      />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
     );
   }
 
-  // Show auth page if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <AuthPage 
-        onLogin={handleLogin}
-        onGoToHome={() => {
-          // Show landing page
-          try {
-            localStorage.removeItem('has_visited_app');
-          } catch {}
-          setShowLandingPage(true);
-        }}
-      />
-    );
-  }
+  return (
+    <Routes>
+      {/* Public Property Page - Always accessible */}
+      <Route path="/property/:id" element={<PublicPropertyPage />} />
+      
+      {/* Landing Page */}
+      <Route path="/" element={
+        showLandingPage || !isAuthenticated ? (
+          <HomePage 
+            onGetStarted={handleGetStarted}
+            isAuthenticated={isAuthenticated}
+            onGoToLogin={() => {
+              authApi.logout();
+              logoutUser();
+              setUser(null);
+              setShowLandingPage(false);
+              navigate('/login');
+            }}
+            onGoToApp={() => {
+              try {
+                localStorage.setItem('has_visited_app', 'true');
+              } catch {}
+              setShowLandingPage(false);
+              if (isAuthenticated) {
+                navigate('/home');
+              } else {
+                navigate('/login');
+              }
+            }}
+          />
+        ) : isAuthenticated ? (
+          <MainAppContent
+            ownerId={ownerId}
+            navigate={navigate}
+            activeFilter={activeFilter}
+            setActiveFilter={setActiveFilter}
+            myProperties={myProperties}
+            publicProperties={publicProperties}
+            filteredProperties={filteredProperties}
+            loading={loading}
+            showModal={showModal}
+            setShowModal={setShowModal}
+            showFilterMenu={showFilterMenu}
+            setShowFilterMenu={setShowFilterMenu}
+            editingProperty={editingProperty}
+            setEditingProperty={setEditingProperty}
+            toast={toast}
+            setToast={setToast}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchColumn={searchColumn}
+            setSearchColumn={setSearchColumn}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
+            selectedProperty={selectedProperty}
+            setSelectedProperty={setSelectedProperty}
+            showDetailsModal={showDetailsModal}
+            setShowDetailsModal={setShowDetailsModal}
+            showContactModal={showContactModal}
+            setShowContactModal={setShowContactModal}
+            filterMenuRef={filterMenuRef}
+            handleFilterChange={handleFilterChange}
+            handleSearch={handleSearch}
+            handleFilter={handleFilter}
+            handleViewProperty={handleViewProperty}
+            handleAddProperty={handleAddProperty}
+            handleEditProperty={handleEditProperty}
+            handleDeleteProperty={handleDeleteProperty}
+            handleTogglePublic={handleTogglePublic}
+            handleShare={handleShare}
+            handleAskQuestion={handleAskQuestion}
+            handleContactSubmit={handleContactSubmit}
+            handleUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
+            handleUpdateLocation={handleUpdateLocation}
+            showToast={showToast}
+          />
+        ) : (
+          <AuthPage 
+            onLogin={handleLogin}
+            onGoToHome={() => navigate('/')}
+          />
+        )
+      } />
+      
+      {/* Auth Page */}
+      <Route path="/login" element={
+        isAuthenticated ? (
+          <MainAppContent
+            ownerId={ownerId}
+            navigate={navigate}
+            activeFilter={activeFilter}
+            setActiveFilter={setActiveFilter}
+            myProperties={myProperties}
+            publicProperties={publicProperties}
+            filteredProperties={filteredProperties}
+            loading={loading}
+            showModal={showModal}
+            setShowModal={setShowModal}
+            showFilterMenu={showFilterMenu}
+            setShowFilterMenu={setShowFilterMenu}
+            editingProperty={editingProperty}
+            setEditingProperty={setEditingProperty}
+            toast={toast}
+            setToast={setToast}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchColumn={searchColumn}
+            setSearchColumn={setSearchColumn}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
+            selectedProperty={selectedProperty}
+            setSelectedProperty={setSelectedProperty}
+            showDetailsModal={showDetailsModal}
+            setShowDetailsModal={setShowDetailsModal}
+            showContactModal={showContactModal}
+            setShowContactModal={setShowContactModal}
+            filterMenuRef={filterMenuRef}
+            handleFilterChange={handleFilterChange}
+            handleSearch={handleSearch}
+            handleFilter={handleFilter}
+            handleViewProperty={handleViewProperty}
+            handleAddProperty={handleAddProperty}
+            handleEditProperty={handleEditProperty}
+            handleDeleteProperty={handleDeleteProperty}
+            handleTogglePublic={handleTogglePublic}
+            handleShare={handleShare}
+            handleAskQuestion={handleAskQuestion}
+            handleContactSubmit={handleContactSubmit}
+            handleUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
+            handleUpdateLocation={handleUpdateLocation}
+            showToast={showToast}
+          />
+        ) : (
+          <AuthPage 
+            onLogin={handleLogin}
+            onGoToHome={() => navigate('/')}
+          />
+        )
+      } />
+      
+      {/* Authenticated Routes */}
+      <Route path="/home" element={
+        isAuthenticated ? (
+          <MainAppContent
+            ownerId={ownerId}
+            navigate={navigate}
+            activeFilter={activeFilter}
+            setActiveFilter={setActiveFilter}
+            myProperties={myProperties}
+            publicProperties={publicProperties}
+            filteredProperties={filteredProperties}
+            loading={loading}
+            showModal={showModal}
+            setShowModal={setShowModal}
+            showFilterMenu={showFilterMenu}
+            setShowFilterMenu={setShowFilterMenu}
+            editingProperty={editingProperty}
+            setEditingProperty={setEditingProperty}
+            toast={toast}
+            setToast={setToast}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchColumn={searchColumn}
+            setSearchColumn={setSearchColumn}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
+            selectedProperty={selectedProperty}
+            setSelectedProperty={setSelectedProperty}
+            showDetailsModal={showDetailsModal}
+            setShowDetailsModal={setShowDetailsModal}
+            showContactModal={showContactModal}
+            setShowContactModal={setShowContactModal}
+            filterMenuRef={filterMenuRef}
+            handleFilterChange={handleFilterChange}
+            handleSearch={handleSearch}
+            handleFilter={handleFilter}
+            handleViewProperty={handleViewProperty}
+            handleAddProperty={handleAddProperty}
+            handleEditProperty={handleEditProperty}
+            handleDeleteProperty={handleDeleteProperty}
+            handleTogglePublic={handleTogglePublic}
+            handleShare={handleShare}
+            handleAskQuestion={handleAskQuestion}
+            handleContactSubmit={handleContactSubmit}
+            handleUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
+            handleUpdateLocation={handleUpdateLocation}
+            showToast={showToast}
+          />
+        ) : (
+          <AuthPage 
+            onLogin={handleLogin}
+            onGoToHome={() => navigate('/')}
+          />
+        )
+      } />
+      <Route path="/profile" element={
+        isAuthenticated ? (
+          <ProfilePage 
+            onBack={() => navigate('/home')}
+            onLogout={() => {
+              handleLogout();
+              showToast('Logged out', 'success');
+              navigate('/login');
+            }}
+          />
+        ) : (
+          <AuthPage 
+            onLogin={handleLogin}
+            onGoToHome={() => navigate('/')}
+          />
+        )
+      } />
+    </Routes>
+  );
+}
 
-  if (currentPage === 'profile') {
-    return (
-      <ProfilePage 
-        onBack={() => setCurrentPage('home')}
-        onLogout={() => {
-          handleLogout();
-          showToast('Logged out', 'success');
-        }}
-        onSwitchUser={() => {
-          handleUserIdChange();
-        }}
-      />
-    );
-  }
+// Main App Content Component
+interface MainAppContentProps {
+  ownerId: number;
+  navigate: any;
+  activeFilter: FilterType;
+  setActiveFilter: (filter: FilterType) => void;
+  myProperties: Property[];
+  publicProperties: Property[];
+  filteredProperties: Property[];
+  loading: boolean;
+  showModal: boolean;
+  setShowModal: (show: boolean) => void;
+  showFilterMenu: boolean;
+  setShowFilterMenu: (show: boolean) => void;
+  editingProperty: Property | null;
+  setEditingProperty: (property: Property | null) => void;
+  toast: ToastState | null;
+  setToast: (toast: ToastState | null) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  searchColumn: string;
+  setSearchColumn: (column: string) => void;
+  activeFilters: FilterOptions;
+  setActiveFilters: (filters: FilterOptions) => void;
+  selectedProperty: Property | null;
+  setSelectedProperty: (property: Property | null) => void;
+  showDetailsModal: boolean;
+  setShowDetailsModal: (show: boolean) => void;
+  showContactModal: boolean;
+  setShowContactModal: (show: boolean) => void;
+  filterMenuRef: React.RefObject<HTMLDivElement>;
+  handleFilterChange: (filter: FilterType) => void;
+  handleSearch: (query: string, column?: string) => void;
+  handleFilter: (filters: FilterOptions) => void;
+  handleViewProperty: (property: Property) => void;
+  handleAddProperty: (data: PropertyFormData) => Promise<void>;
+  handleEditProperty: (data: PropertyFormData) => Promise<void>;
+  handleDeleteProperty: (id: number) => Promise<void>;
+  handleTogglePublic: (id: number, isPublic: boolean) => Promise<void>;
+  handleShare: (property: Property) => void;
+  handleAskQuestion: (property: Property) => void;
+  handleContactSubmit: (message: string, phone: string) => Promise<void>;
+  handleUpdateHighlightsAndTags: (id: number, highlights: string, tags: string) => Promise<void>;
+  handleUpdateLocation: (id: number, location: string, locationAccuracy: string) => Promise<void>;
+  showToast: (message: string, type: 'success' | 'error') => void;
+}
 
-  if (currentPage === 'settings') {
-    return (
-      <SettingsPage 
-        onBack={() => setCurrentPage('home')}
-        onLogout={() => {
-          handleLogout();
-          showToast('Logged out', 'success');
-        }}
-        onSwitchUser={() => {
-          handleUserIdChange();
-        }}
-      />
-    );
-  }
+function MainAppContent({
+  ownerId,
+  navigate,
+  activeFilter,
+  setActiveFilter,
+  myProperties,
+  publicProperties,
+  filteredProperties,
+  loading,
+  showModal,
+  setShowModal,
+  showFilterMenu,
+  setShowFilterMenu,
+  editingProperty,
+  setEditingProperty,
+  toast,
+  setToast,
+  searchQuery,
+  setSearchQuery,
+  searchColumn,
+  setSearchColumn,
+  activeFilters,
+  setActiveFilters,
+  selectedProperty,
+  setSelectedProperty,
+  showDetailsModal,
+  setShowDetailsModal,
+  showContactModal,
+  setShowContactModal,
+  filterMenuRef,
+  handleFilterChange,
+  handleSearch,
+  handleFilter,
+  handleViewProperty,
+  handleAddProperty,
+  handleEditProperty,
+  handleDeleteProperty,
+  handleTogglePublic,
+  handleShare,
+  handleAskQuestion,
+  handleContactSubmit,
+  handleUpdateHighlightsAndTags,
+  handleUpdateLocation,
+  showToast,
+}: MainAppContentProps) {
+  const currentProperties = filteredProperties.length > 0 ? filteredProperties : 
+    (activeFilter === 'all' ? [...myProperties, ...publicProperties] : activeFilter === 'my' ? myProperties : publicProperties);
+
+  const getFilterLabel = () => {
+    if (activeFilter === 'all') return 'All Properties';
+    if (activeFilter === 'my') return 'My Properties';
+    return 'Public Properties';
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -578,11 +929,11 @@ function App() {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <button
-                onClick={() => setCurrentPage('settings')}
+                onClick={() => navigate('/profile')}
                 className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Settings"
+                title="Profile"
               >
-                <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </button>
               <div className="relative" ref={filterMenuRef}>
                 <button

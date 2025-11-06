@@ -20,6 +20,7 @@ export const SEARCH_COLUMNS = [
   { value: 'area', label: 'Area' },
   { value: 'type', label: 'Property Type' },
   { value: 'description', label: 'Description' },
+  { value: 'heading', label: 'Heading' },
   { value: 'min_size', label: 'Min Size' },
   { value: 'size_max', label: 'Max Size' },
   { value: 'size_unit', label: 'Size Unit' },

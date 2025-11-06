@@ -44,13 +44,32 @@ export interface ProfileResponse {
   user?: AuthUser;
 }
 
-// Store token in localStorage
+// Store token in localStorage with 30-day expiration
 const TOKEN_KEY = 'propnetwork_auth_token';
+const TOKEN_EXPIRY_KEY = 'propnetwork_auth_token_expiry';
 const USER_ID_KEY = 'propnetwork_user_id';
+const USER_ID_EXPIRY_KEY = 'propnetwork_user_id_expiry';
+const REMEMBER_DAYS = 30;
+const REMEMBER_MS = REMEMBER_DAYS * 24 * 60 * 60 * 1000; // 30 days in milliseconds
 
 export function getStoredToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    const token = localStorage.getItem(TOKEN_KEY);
+    const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+    
+    if (!token || !expiry) {
+      return null;
+    }
+    
+    // Check if token has expired
+    const expiryTime = parseInt(expiry, 10);
+    if (Date.now() > expiryTime) {
+      // Token expired, clear it
+      clearStoredToken();
+      return null;
+    }
+    
+    return token;
   } catch {
     return null;
   }
@@ -58,7 +77,9 @@ export function getStoredToken(): string | null {
 
 export function setStoredToken(token: string): void {
   try {
+    const expiryTime = Date.now() + REMEMBER_MS;
     localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
   } catch (error) {
     console.error('Failed to store token:', error);
   }
@@ -67,7 +88,9 @@ export function setStoredToken(token: string): void {
 export function clearStoredToken(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
     localStorage.removeItem(USER_ID_KEY);
+    localStorage.removeItem(USER_ID_EXPIRY_KEY);
   } catch (error) {
     console.error('Failed to clear token:', error);
   }
@@ -76,7 +99,21 @@ export function clearStoredToken(): void {
 export function getStoredUserId(): number | null {
   try {
     const stored = localStorage.getItem(USER_ID_KEY);
-    return stored ? parseInt(stored, 10) : null;
+    const expiry = localStorage.getItem(USER_ID_EXPIRY_KEY);
+    
+    if (!stored || !expiry) {
+      return null;
+    }
+    
+    // Check if user ID has expired
+    const expiryTime = parseInt(expiry, 10);
+    if (Date.now() > expiryTime) {
+      // Expired, clear it
+      clearStoredToken();
+      return null;
+    }
+    
+    return parseInt(stored, 10);
   } catch {
     return null;
   }
@@ -84,7 +121,9 @@ export function getStoredUserId(): number | null {
 
 export function setStoredUserId(userId: number): void {
   try {
+    const expiryTime = Date.now() + REMEMBER_MS;
     localStorage.setItem(USER_ID_KEY, userId.toString());
+    localStorage.setItem(USER_ID_EXPIRY_KEY, expiryTime.toString());
   } catch (error) {
     console.error('Failed to store user ID:', error);
   }
@@ -230,6 +269,7 @@ export const authApi = {
   },
 
   async updateProfile(updates: {
+    name?: string;
     firm_name?: string;
     area_covers?: string;
     city_covers?: string;
@@ -237,17 +277,28 @@ export const authApi = {
     default_area?: string;
     default_city?: string;
     default_type?: string;
-  }): Promise<ProfileResponse> {
+  }): Promise<{ status: boolean; message: string }> {
     const token = getStoredToken();
     if (!token) {
       return { status: false, message: 'No token found' };
     }
 
     try {
-      // According to PHP file: action=profile with POST and update: true in body
-      const response = await axios.post<ProfileResponse>(
-        `${AUTH_API_BASE_URL}?action=profile`,
-        { update: true, ...updates },
+      // According to PHP file: action=update_profile
+      // Only send fields that are actually set (not undefined)
+      const updateData: Record<string, string> = {};
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.firm_name !== undefined) updateData.firm_name = updates.firm_name;
+      if (updates.area_covers !== undefined) updateData.area_covers = updates.area_covers;
+      if (updates.city_covers !== undefined) updateData.city_covers = updates.city_covers;
+      if (updates.type !== undefined) updateData.type = updates.type;
+      if (updates.default_area !== undefined) updateData.default_area = updates.default_area;
+      if (updates.default_city !== undefined) updateData.default_city = updates.default_city;
+      if (updates.default_type !== undefined) updateData.default_type = updates.default_type;
+
+      const response = await axios.post<{ status: boolean; message: string }>(
+        `${AUTH_API_BASE_URL}?action=update_profile`,
+        updateData,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
