@@ -60,6 +60,7 @@ function App() {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchColumn, setSearchColumn] = useState<string>('');
   const [activeFilters, setActiveFilters] = useState<FilterOptions>({});
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -101,18 +102,21 @@ function App() {
   }, [loadMyProperties, loadPublicProperties, loadAllProperties]);
 
   useEffect(() => {
-    let propertiesToDisplay: Property[] = [];
+    // Only set default properties if there's no active search or filters
+    if (!searchQuery.trim() && Object.keys(activeFilters).length === 0) {
+      let propertiesToDisplay: Property[] = [];
 
-    if (activeFilter === 'all') {
-      propertiesToDisplay = allProperties;
-    } else if (activeFilter === 'my') {
-      propertiesToDisplay = myProperties;
-    } else if (activeFilter === 'public') {
-      propertiesToDisplay = publicProperties;
+      if (activeFilter === 'all') {
+        propertiesToDisplay = allProperties;
+      } else if (activeFilter === 'my') {
+        propertiesToDisplay = myProperties;
+      } else if (activeFilter === 'public') {
+        propertiesToDisplay = publicProperties;
+      }
+
+      setFilteredProperties(propertiesToDisplay);
     }
-
-    setFilteredProperties(propertiesToDisplay);
-  }, [activeFilter, allProperties, myProperties, publicProperties]);
+  }, [activeFilter, allProperties, myProperties, publicProperties, searchQuery, activeFilters]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -220,10 +224,43 @@ function App() {
     }
   };
 
+  // Helper function to apply filters client-side (for combining search + filters)
+  const applyClientSideFilters = useCallback((properties: Property[], filters: FilterOptions): Property[] => {
+    return properties.filter(property => {
+      if (filters.city && property.city !== filters.city) return false;
+      if (filters.area && property.area !== filters.area) return false;
+      if (filters.type && property.type !== filters.type) return false;
+      if (filters.min_price !== undefined && property.price_min < filters.min_price) return false;
+      if (filters.max_price !== undefined && property.price_max > filters.max_price) return false;
+      if (filters.min_size !== undefined && property.min_size < filters.min_size) return false;
+      if (filters.max_size !== undefined && property.size_max > filters.max_size) return false;
+      if (filters.size_unit && property.size_unit !== filters.size_unit) return false;
+      if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
+      if (filters.location && !property.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
+      if (filters.tags && !property.tags?.toLowerCase().includes(filters.tags.toLowerCase())) return false;
+      if (filters.highlights && !property.highlights?.toLowerCase().includes(filters.highlights.toLowerCase())) return false;
+      return true;
+    });
+  }, []);
+
   const handleSearch = useCallback(
     async (query: string, column?: string) => {
       setSearchQuery(query);
-      if (!query.trim()) {
+      if (column !== undefined) {
+        setSearchColumn(column);
+      }
+      
+      // Map activeFilter to API list parameter
+      const listParam: 'mine' | 'public' | 'both' = 
+        activeFilter === 'my' ? 'mine' : 
+        activeFilter === 'public' ? 'public' : 
+        'both';
+
+      // Use the current search column if column parameter is not provided
+      const currentColumn = column !== undefined ? column : searchColumn;
+
+      // If no query and no active filters, show default list
+      if (!query.trim() && Object.keys(activeFilters).length === 0) {
         if (activeFilter === 'all') {
           setFilteredProperties(allProperties);
         } else if (activeFilter === 'my') {
@@ -235,27 +272,39 @@ function App() {
       }
 
       try {
-        const results = await propertyApi.searchProperties(query, column);
-        let filtered = results;
-
-        if (activeFilter === 'my') {
-          filtered = results.filter((p) => p.owner_id === ownerId);
-        } else if (activeFilter === 'public') {
-          filtered = results.filter((p) => p.owner_id !== ownerId && p.is_public === 1);
+        // If there's a search query, use search API
+        if (query.trim()) {
+          const results = await propertyApi.searchProperties(ownerId, listParam, query, currentColumn);
+          // Apply additional filters if any
+          let filtered = results;
+          if (Object.keys(activeFilters).length > 0) {
+            filtered = applyClientSideFilters(results, activeFilters);
+          }
+          setFilteredProperties(filtered);
+        } else if (Object.keys(activeFilters).length > 0) {
+          // If only filters (no search), use filter API
+          const results = await propertyApi.filterProperties(ownerId, listParam, activeFilters);
+          setFilteredProperties(results);
         }
-
-        setFilteredProperties(filtered);
       } catch (error) {
         showToast('Search failed', 'error');
       }
     },
-    [activeFilter, allProperties, myProperties, publicProperties, ownerId]
+    [activeFilter, allProperties, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn]
   );
 
   const handleFilter = useCallback(
     async (filters: FilterOptions) => {
       setActiveFilters(filters);
-      if (Object.keys(filters).length === 0) {
+      
+      // Map activeFilter to API list parameter
+      const listParam: 'mine' | 'public' | 'both' = 
+        activeFilter === 'my' ? 'mine' : 
+        activeFilter === 'public' ? 'public' : 
+        'both';
+
+      // If no filters and no search query, show default list
+      if (Object.keys(filters).length === 0 && !searchQuery.trim()) {
         if (activeFilter === 'all') {
           setFilteredProperties(allProperties);
         } else if (activeFilter === 'my') {
@@ -267,32 +316,35 @@ function App() {
       }
 
       try {
-        const results = await propertyApi.filterProperties(filters);
-        let filtered = results;
-
-        if (activeFilter === 'my') {
-          filtered = results.filter((p) => p.owner_id === ownerId);
-        } else if (activeFilter === 'public') {
-          filtered = results.filter((p) => p.owner_id !== ownerId && p.is_public === 1);
+        // If there's a search query, use search API and apply filters client-side
+        if (searchQuery.trim()) {
+          const results = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn);
+          const filtered = applyClientSideFilters(results, filters);
+          setFilteredProperties(filtered);
+        } else {
+          // If only filters (no search), use filter API
+          const results = await propertyApi.filterProperties(ownerId, listParam, filters);
+          setFilteredProperties(results);
         }
-
-        setFilteredProperties(filtered);
       } catch (error) {
         showToast('Filter failed', 'error');
       }
     },
-    [activeFilter, allProperties, myProperties, publicProperties, ownerId]
+    [activeFilter, allProperties, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters]
   );
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
     // Save to localStorage
     localStorage.setItem(STORAGE_KEYS.ACTIVE_FILTER, filter);
-    // Clear current search and filters when filter type changes
-    // (SearchFilter will restore from localStorage on next render)
-    setSearchQuery('');
-    setActiveFilters({});
     setShowFilterMenu(false);
+    
+    // Re-apply current search/filters with new list scope
+    if (searchQuery.trim()) {
+      handleSearch(searchQuery, searchColumn);
+    } else if (Object.keys(activeFilters).length > 0) {
+      handleFilter(activeFilters);
+    }
   };
 
   const handleUserIdChange = () => {

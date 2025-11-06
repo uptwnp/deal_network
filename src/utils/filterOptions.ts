@@ -11,20 +11,25 @@ export const STORAGE_KEYS = {
 
 /**
  * Search column options for filtering search queries
+ * Values map to API column names: All, All General, or specific column names
  */
 export const SEARCH_COLUMNS = [
-  { value: '', label: 'All Info' },
-  { value: 'general', label: 'All General' },
-  { value: 'area', label: 'Area' },
-  { value: 'heading', label: 'Heading' },
-  { value: 'description', label: 'Description' },
-  { value: 'size', label: 'Size' },
-  { value: 'price', label: 'Price' },
-  { value: 'highlights', label: 'Highlight' },
-  { value: 'tags', label: 'Tags' },
-  { value: 'note_private', label: 'Private info' },
+  { value: '', label: 'All Info' }, // Maps to 'All' in API
+  { value: 'general', label: 'All General' }, // Maps to 'All General' in API
   { value: 'city', label: 'City' },
-  { value: 'type', label: 'Property type' },
+  { value: 'area', label: 'Area' },
+  { value: 'type', label: 'Property Type' },
+  { value: 'description', label: 'Description' },
+  { value: 'min_size', label: 'Min Size' },
+  { value: 'size_max', label: 'Max Size' },
+  { value: 'size_unit', label: 'Size Unit' },
+  { value: 'price_min', label: 'Min Price' },
+  { value: 'price_max', label: 'Max Price' },
+  { value: 'location', label: 'Location' },
+  { value: 'location_accuracy', label: 'Location Accuracy' },
+  { value: 'tags', label: 'Tags' },
+  { value: 'highlights', label: 'Highlights' },
+  { value: 'note_private', label: 'Private Note' },
 ] as const;
 
 /**

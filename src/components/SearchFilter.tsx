@@ -8,6 +8,7 @@ import {
   CITY_OPTIONS,
   AREA_OPTIONS,
   PROPERTY_TYPE_OPTIONS,
+  SIZE_UNIT_OPTIONS,
 } from '../utils/filterOptions';
 
 interface SearchFilterProps {
@@ -131,6 +132,12 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     setFilters(newFilters);
     // Auto-save to localStorage
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+    
+    // Apply filters live as user types/changes
+    const cleanFilters = Object.fromEntries(
+      Object.entries(newFilters).filter(([_, v]) => v !== '' && v !== undefined)
+    );
+    onFilter(cleanFilters);
   };
 
   const applyFilters = () => {
@@ -143,23 +150,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   const handleAreaSelect = (area: string) => {
     setSelectedArea(area);
-    const newFilters = { ...filters, area };
-    setFilters(newFilters);
-    const cleanFilters = Object.fromEntries(
-      Object.entries({ ...newFilters }).filter(([_, v]) => v !== '' && v !== undefined)
-    );
-    onFilter(cleanFilters);
+    handleFilterChange('area', area);
     setShowAreaDropdown(false);
   };
 
   const handleAreaClear = () => {
     setSelectedArea('');
-    const newFilters = { ...filters, area: '' };
-    setFilters(newFilters);
-    const cleanFilters = Object.fromEntries(
-      Object.entries(newFilters).filter(([_, v]) => v !== '' && v !== undefined)
-    );
-    onFilter(cleanFilters);
+    handleFilterChange('area', '');
   };
 
   const clearFilters = () => {
@@ -169,6 +166,9 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       type: '',
       min_price: undefined,
       max_price: undefined,
+      min_size: undefined,
+      max_size: undefined,
+      size_unit: undefined,
     };
     setFilters(emptyFilters);
     setSelectedArea('');
@@ -432,6 +432,48 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                       />
                     </div>
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Size Range
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min Size"
+                        value={filters.min_size || ''}
+                        onChange={(e) =>
+                          handleFilterChange('min_size', e.target.value ? parseFloat(e.target.value) : undefined)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max Size"
+                        value={filters.max_size || ''}
+                        onChange={(e) =>
+                          handleFilterChange('max_size', e.target.value ? parseFloat(e.target.value) : undefined)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Size Unit</label>
+                    <select
+                      value={filters.size_unit || ''}
+                      onChange={(e) => handleFilterChange('size_unit', e.target.value || undefined)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">All Units</option>
+                      {SIZE_UNIT_OPTIONS.map((unit) => (
+                        <option key={unit.value} value={unit.value}>
+                          {unit.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-gray-200">
@@ -571,6 +613,48 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Size Range
+              </label>
+              <div className="flex gap-1.5 sm:gap-2">
+                <input
+                  type="number"
+                  placeholder="Min Size"
+                  value={filters.min_size || ''}
+                  onChange={(e) =>
+                    handleFilterChange('min_size', e.target.value ? parseFloat(e.target.value) : undefined)
+                  }
+                  className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Max Size"
+                  value={filters.max_size || ''}
+                  onChange={(e) =>
+                    handleFilterChange('max_size', e.target.value ? parseFloat(e.target.value) : undefined)
+                  }
+                  className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Size Unit</label>
+              <select
+                value={filters.size_unit || ''}
+                onChange={(e) => handleFilterChange('size_unit', e.target.value || undefined)}
+                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="">All Units</option>
+                {SIZE_UNIT_OPTIONS.map((unit) => (
+                  <option key={unit.value} value={unit.value}>
+                    {unit.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -48,5 +48,14 @@ export interface FilterOptions {
   type?: string;
   min_price?: number;
   max_price?: number;
+  min_size?: number;
+  max_size?: number;
+  size_unit?: string;
+  description?: string;
+  note_private?: string;
+  location?: string;
+  location_accuracy?: string;
+  tags?: string;
+  highlights?: string;
   is_public?: number;
 }

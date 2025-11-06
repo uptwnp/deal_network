@@ -87,24 +87,60 @@ export const propertyApi = {
     return response.data;
   },
 
-  async filterProperties(filters: FilterOptions): Promise<Property[]> {
-    const response = await axios.get(API_BASE_URL, {
-      params: {
-        action: 'filter_properties',
-        ...filters,
-      },
-    });
+  async filterProperties(ownerId: number, list: 'mine' | 'public' | 'both', filters: FilterOptions): Promise<Property[]> {
+    const params: any = {
+      action: 'filter_properties',
+      owner_id: ownerId,
+      list,
+    };
+
+    // Map filter options to API parameters
+    if (filters.city) params.city = filters.city;
+    if (filters.area) params.area = filters.area;
+    if (filters.type) params.type = filters.type;
+    if (filters.description) params.description = filters.description;
+    if (filters.note_private) params.note_private = filters.note_private;
+    if (filters.size_unit) params.size_unit = filters.size_unit;
+    if (filters.location) params.location = filters.location;
+    if (filters.location_accuracy) params.location_accuracy = filters.location_accuracy;
+    if (filters.tags) params.tags = filters.tags;
+    if (filters.highlights) params.highlights = filters.highlights;
+    
+    // Map price filters (API expects price_min/price_max)
+    if (filters.min_price !== undefined) params.price_min = filters.min_price;
+    if (filters.max_price !== undefined) params.price_max = filters.max_price;
+    
+    // Map size filters (API expects min_size/max_size)
+    if (filters.min_size !== undefined) params.min_size = filters.min_size;
+    if (filters.max_size !== undefined) params.max_size = filters.max_size;
+
+    const response = await axios.get(API_BASE_URL, { params });
     return normalizeProperties(response.data);
   },
 
-  async searchProperties(query: string, column?: string): Promise<Property[]> {
-    const response = await axios.get(API_BASE_URL, {
-      params: {
-        action: 'search_properties',
-        query,
-        ...(column && { column }),
-      },
-    });
+  async searchProperties(ownerId: number, list: 'mine' | 'public' | 'both', query: string, column?: string): Promise<Property[]> {
+    const params: any = {
+      action: 'search_properties',
+      owner_id: ownerId,
+      list,
+      query,
+    };
+
+    // Map column values to API expectations
+    if (column) {
+      if (column === '') {
+        params.column = 'All';
+      } else if (column === 'general') {
+        params.column = 'All General';
+      } else {
+        // Use the column value directly as it should match API column names
+        params.column = column;
+      }
+    } else {
+      params.column = 'All';
+    }
+
+    const response = await axios.get(API_BASE_URL, { params });
     return normalizeProperties(response.data);
   },
 };
