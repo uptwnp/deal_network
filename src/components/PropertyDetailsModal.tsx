@@ -134,45 +134,65 @@ export function PropertyDetailsModal({
         </div>
 
         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 md:space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-              Location
-            </h3>
-            <p className="text-lg text-gray-900">
-              {property.area}, {property.city}
-            </p>
-            {property.location && (
-              <p className="text-sm text-gray-600 mt-1">{property.location}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-            <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-              <p className="text-xs text-gray-600 font-semibold uppercase mb-1">Size</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-900">
-                {property.min_size === property.size_max
-                  ? property.min_size
-                  : `${property.min_size}-${property.size_max}`}
-                      <span className="text-xs sm:text-sm text-gray-700"> {property.size_unit}</span>
-              </p>
-        
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex items-start justify-between">
+              <span className="text-sm sm:text-base text-gray-600">Size</span>
+              <div className="text-right">
+                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                  {property.min_size === property.size_max
+                    ? property.min_size
+                    : `${property.min_size}-${property.size_max}`}
+                  <span className="text-sm sm:text-base text-gray-700"> {property.size_unit}</span>
+                </span>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-              <p className="text-xs text-gray-600 font-semibold uppercase mb-1">Price</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-900">
-                {property.price_min === property.price_max
-                  ? `₹${property.price_min}L`
-                  : `₹${property.price_min}-${property.price_max}L`}
-              </p>
+            <div className="flex items-start justify-between">
+              <span className="text-sm sm:text-base text-gray-600">Price</span>
+              <div className="text-right">
+                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                  {(() => {
+                    const minPrice = property.price_min;
+                    const maxPrice = property.price_max;
+                    const useCrores = minPrice >= 100;
+                    
+                    if (useCrores) {
+                      const minCr = (minPrice / 100).toFixed(2).replace(/\.?0+$/, '');
+                      if (minPrice === maxPrice) {
+                        return `₹${minCr} cr`;
+                      } else {
+                        const maxCr = (maxPrice / 100).toFixed(2).replace(/\.?0+$/, '');
+                        return `₹${minCr}-${maxCr} cr`;
+                      }
+                    } else {
+                      return minPrice === maxPrice
+                        ? `₹${minPrice}L`
+                        : `₹${minPrice}-${maxPrice}L`;
+                    }
+                  })()}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-start justify-between">
+              <span className="text-sm sm:text-base text-gray-600">Location</span>
+              <div className="text-right">
+                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                  {property.area}, {property.city}
+                </span>
+                {property.location && (
+                  <p className="text-xs sm:text-sm text-gray-500 mt-0.5">({property.location})</p>
+                )}
+              </div>
             </div>
           </div>
 
           {property.description && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                 Description
               </h3>
-              <p className="text-gray-700 leading-relaxed">{property.description}</p>
+              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                {property.description}
+              </p>
             </div>
           )}
 
@@ -214,13 +234,39 @@ export function PropertyDetailsModal({
             )}
           </div>
 
-          {isOwned && property.note_private && (
+          {isOwned && (
+            <div className="pt-2 pb-2">
+              <button
+                onClick={() => onTogglePublic?.(property.id, property.is_public === 0)}
+                className={`w-full px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg font-semibold text-sm transition-colors ${
+                  property.is_public === 1
+                    ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                    : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {property.is_public === 1 ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span>Public - Visible to everyone</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4" />
+                    <span>Private - Only visible to you</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
-       <div>
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
+          {isOwned && property.note_private && (
+            <div className="pt-3 sm:pt-4 border-t border-gray-200">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                 Note <span className="text-xs text-gray-500 normal-case font-normal">(Only for you)</span>
               </h3>
-              <p className="text-gray-700 leading-relaxed">{property.note_private}</p>
+              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                {property.note_private}
+              </p>
             </div>
           )}
 
@@ -260,12 +306,6 @@ export function PropertyDetailsModal({
             </div>
           )}
 
-          {isOwned && property.is_public === 1 && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <Eye className="w-4 h-4 text-green-700" />
-              <span className="text-sm font-medium text-green-800">This property is visible to everyone</span>
-            </div>
-          )}
      <div className="pt-3 border-t border-gray-200">
                   <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Share</p>
                   <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -291,33 +331,13 @@ export function PropertyDetailsModal({
           <div className="pt-4 sm:pt-6 border-t border-gray-200 space-y-2 sm:space-y-3">
             {isOwned ? (
               <>
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  <button
-                    onClick={() => onEdit?.(property)}
-                    className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => onTogglePublic?.(property.id, property.is_public === 0)}
-                    className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    {property.is_public === 1 ? (
-                      <>
-                        <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">Make Private</span>
-                        <span className="sm:hidden">Private</span>
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">Make Public</span>
-                        <span className="sm:hidden">Public</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={() => onEdit?.(property)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  Edit
+                </button>
            
                 <div className="pt-2 sm:pt-3 border-t border-gray-200">
                   <button
