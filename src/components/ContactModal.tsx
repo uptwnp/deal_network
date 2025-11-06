@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Send } from 'lucide-react';
 import { Property } from '../types/property';
+import { formatPrice } from '../utils/priceFormatter';
 
 interface ContactModalProps {
   property: Property;
@@ -82,7 +83,7 @@ export function ContactModal({
               {property.type} in {property.area}, {property.city}
             </p>
             <p className="text-xs text-blue-800 mt-1">
-              ₹{property.price_min}-{property.price_max}L • {property.size_unit}
+              {formatPrice(property.price_min, property.price_max, true)} • {property.size_unit}
             </p>
           </div>
 

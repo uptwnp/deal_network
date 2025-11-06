@@ -15,6 +15,7 @@ import { propertyApi } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
 import { logoutUser, getCurrentUser } from './types/user';
 import { STORAGE_KEYS } from './utils/filterOptions';
+import { formatPriceWithLabel } from './utils/priceFormatter';
 
 type FilterType = 'all' | 'my' | 'public';
 
@@ -133,97 +134,6 @@ function App() {
     setToast({ message, type });
   };
 
-  const handleAddProperty = async (data: PropertyFormData) => {
-    try {
-      await propertyApi.addProperty(ownerId, data);
-      showToast('Property added successfully', 'success');
-      setShowModal(false);
-      loadMyProperties();
-    } catch (error) {
-      showToast('Failed to add property', 'error');
-    }
-  };
-
-  const handleEditProperty = async (data: PropertyFormData) => {
-    if (!editingProperty) return;
-    try {
-      await propertyApi.updateProperty(editingProperty.id, ownerId, data);
-      showToast('Property updated successfully', 'success');
-      setShowModal(false);
-      setEditingProperty(null);
-      setShowDetailsModal(false);
-      loadMyProperties();
-    } catch (error) {
-      showToast('Failed to update property', 'error');
-    }
-  };
-
-  const handleDeleteProperty = async (id: number) => {
-    try {
-      await propertyApi.deleteProperty(id, ownerId);
-      showToast('Property deleted successfully', 'success');
-      setShowDetailsModal(false);
-      setSelectedProperty(null);
-      loadMyProperties();
-    } catch (error) {
-      showToast('Failed to delete property', 'error');
-    }
-  };
-
-  const handleTogglePublic = async (id: number, isPublic: boolean) => {
-    try {
-      await propertyApi.updateProperty(id, ownerId, { is_public: isPublic ? 1 : 0 });
-      showToast(`Property made ${isPublic ? 'public' : 'private'}`, 'success');
-      loadMyProperties();
-      if (selectedProperty?.id === id) {
-        setSelectedProperty({ ...selectedProperty, is_public: isPublic ? 1 : 0 });
-      }
-    } catch (error) {
-      showToast('Failed to update property', 'error');
-    }
-  };
-
-  const handleUpdateHighlightsAndTags = async (id: number, highlights: string, tags: string) => {
-    try {
-      await propertyApi.updateProperty(id, ownerId, { highlights, tags });
-      showToast('Highlights and tags updated successfully', 'success');
-      loadMyProperties();
-      loadAllProperties();
-      loadPublicProperties();
-      if (selectedProperty?.id === id) {
-        setSelectedProperty({ ...selectedProperty, highlights, tags });
-      }
-    } catch (error) {
-      showToast('Failed to update highlights and tags', 'error');
-    }
-  };
-
-  const handleShare = async (property: Property) => {
-    const sizeText = property.min_size === property.size_max
-      ? `${property.min_size} ${property.size_unit}`
-      : `${property.min_size}-${property.size_max} ${property.size_unit}`;
-    const priceText = property.price_min === property.price_max
-      ? `₹${property.price_min} Lakhs`
-      : `₹${property.price_min}-${property.price_max} Lakhs`;
-    const text = `${property.type} in ${property.area}, ${property.city}\n${property.description}\nSize: ${sizeText}\nPrice: ${priceText}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${property.type} - ${property.area}`,
-          text,
-        });
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          showToast('Failed to share', 'error');
-        }
-      }
-    } else {
-      navigator.clipboard.writeText(text);
-      showToast('Property details copied to clipboard', 'success');
-    }
-  };
-
   // Helper function to apply filters client-side (for combining search + filters)
   const applyClientSideFilters = useCallback((properties: Property[], filters: FilterOptions): Property[] => {
     return properties.filter(property => {
@@ -242,6 +152,162 @@ function App() {
       return true;
     });
   }, []);
+
+  // Helper function to refresh all properties and re-apply filters
+  const refreshPropertiesAndFilters = useCallback(async (updateSelectedProperty?: boolean) => {
+    // Refresh all property lists
+    const [myProps, publicProps, allProps] = await Promise.all([
+      propertyApi.getUserProperties(ownerId),
+      propertyApi.getPublicProperties(ownerId),
+      propertyApi.getAllProperties(ownerId)
+    ]);
+    
+    // Update state
+    setMyProperties(myProps);
+    setPublicProperties(publicProps);
+    setAllProperties(allProps);
+    
+    // Update selectedProperty if modal is open and updateSelectedProperty is true
+    if (updateSelectedProperty && selectedProperty) {
+      const updatedProperty = allProps.find(p => p.id === selectedProperty.id);
+      if (updatedProperty) {
+        setSelectedProperty(updatedProperty);
+      }
+    }
+    
+    // Re-apply active search/filters after refresh
+    if (searchQuery.trim()) {
+      const listParam: 'mine' | 'public' | 'both' = 
+        activeFilter === 'my' ? 'mine' : 
+        activeFilter === 'public' ? 'public' : 
+        'both';
+      try {
+        const results = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn);
+        let filtered = results;
+        if (Object.keys(activeFilters).length > 0) {
+          filtered = applyClientSideFilters(results, activeFilters);
+        }
+        setFilteredProperties(filtered);
+      } catch (error) {
+        // If search fails, use fresh data from state
+        if (activeFilter === 'all') {
+          setFilteredProperties(allProps);
+        } else if (activeFilter === 'my') {
+          setFilteredProperties(myProps);
+        } else if (activeFilter === 'public') {
+          setFilteredProperties(publicProps);
+        }
+      }
+    } else if (Object.keys(activeFilters).length > 0) {
+      const listParam: 'mine' | 'public' | 'both' = 
+        activeFilter === 'my' ? 'mine' : 
+        activeFilter === 'public' ? 'public' : 
+        'both';
+      try {
+        const results = await propertyApi.filterProperties(ownerId, listParam, activeFilters);
+        setFilteredProperties(results);
+      } catch (error) {
+        // If filter fails, use fresh data from state
+        if (activeFilter === 'all') {
+          setFilteredProperties(allProps);
+        } else if (activeFilter === 'my') {
+          setFilteredProperties(myProps);
+        } else if (activeFilter === 'public') {
+          setFilteredProperties(publicProps);
+        }
+      }
+    } else {
+      // No search/filters, use fresh data directly
+      if (activeFilter === 'all') {
+        setFilteredProperties(allProps);
+      } else if (activeFilter === 'my') {
+        setFilteredProperties(myProps);
+      } else if (activeFilter === 'public') {
+        setFilteredProperties(publicProps);
+      }
+    }
+  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty]);
+
+  const handleAddProperty = async (data: PropertyFormData) => {
+    try {
+      await propertyApi.addProperty(ownerId, data);
+      showToast('Property added successfully', 'success');
+      setShowModal(false);
+      await refreshPropertiesAndFilters();
+    } catch (error) {
+      showToast('Failed to add property', 'error');
+    }
+  };
+
+  const handleEditProperty = async (data: PropertyFormData) => {
+    if (!editingProperty) return;
+    try {
+      await propertyApi.updateProperty(editingProperty.id, ownerId, data);
+      showToast('Property updated successfully', 'success');
+      setShowModal(false);
+      setEditingProperty(null);
+      setShowDetailsModal(false);
+      await refreshPropertiesAndFilters();
+    } catch (error) {
+      showToast('Failed to update property', 'error');
+    }
+  };
+
+  const handleDeleteProperty = async (id: number) => {
+    try {
+      await propertyApi.deleteProperty(id, ownerId);
+      showToast('Property deleted successfully', 'success');
+      setShowDetailsModal(false);
+      setSelectedProperty(null);
+      await refreshPropertiesAndFilters();
+    } catch (error) {
+      showToast('Failed to delete property', 'error');
+    }
+  };
+
+  const handleTogglePublic = async (id: number, isPublic: boolean) => {
+    try {
+      await propertyApi.updateProperty(id, ownerId, { is_public: isPublic ? 1 : 0 });
+      showToast(`Property made ${isPublic ? 'public' : 'private'}`, 'success');
+      await refreshPropertiesAndFilters(true);
+    } catch (error) {
+      showToast('Failed to update property', 'error');
+    }
+  };
+
+  const handleUpdateHighlightsAndTags = async (id: number, highlights: string, tags: string) => {
+    try {
+      await propertyApi.updateProperty(id, ownerId, { highlights, tags });
+      showToast('Highlights and tags updated successfully', 'success');
+      await refreshPropertiesAndFilters(true);
+    } catch (error) {
+      showToast('Failed to update highlights and tags', 'error');
+    }
+  };
+
+  const handleShare = async (property: Property) => {
+    const sizeText = property.min_size === property.size_max
+      ? `${property.min_size} ${property.size_unit}`
+      : `${property.min_size}-${property.size_max} ${property.size_unit}`;
+    const priceText = formatPriceWithLabel(property.price_min, property.price_max);
+    const text = `${property.type} in ${property.area}, ${property.city}\n${property.description}\nSize: ${sizeText}\nPrice: ${priceText}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${property.type} - ${property.area}`,
+          text,
+        });
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          showToast('Failed to share', 'error');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(text);
+      showToast('Property details copied to clipboard', 'success');
+    }
+  };
 
   const handleSearch = useCallback(
     async (query: string, column?: string) => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Property } from '../types/property';
+import { formatPrice } from '../utils/priceFormatter';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -59,7 +60,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635] }: Propert
                       {property.area}, {property.city}
                     </p>
                     <p className="text-xs font-medium text-blue-600">
-                      ₹{property.price_min}-{property.price_max}L
+                      {formatPrice(property.price_min, property.price_max, true)}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       {property.min_size}-{property.size_max} {property.size_unit}

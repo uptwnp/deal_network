@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Copy, Share2, Eye, EyeOff, Trash2, MessageCircle, Edit2, Plus } from 'lucide-react';
+import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle } from 'lucide-react';
 import { Property } from '../types/property';
+import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 
 interface PropertyDetailsModalProps {
   property: Property;
@@ -15,14 +16,14 @@ interface PropertyDetailsModalProps {
 }
 
 const HIGHLIGHT_OPTIONS = [
-  'Excellent location',
-  'Ready to move',
-  'Prime property',
-  'Near amenities',
-  'Corner plot',
-  'Main road facing',
-  'Gated community',
-  'Well connected',
+  { text: 'Excellent location', icon: MapPin },
+  { text: 'Ready to move', icon: CheckCircle },
+  { text: 'Prime property', icon: Star },
+  { text: 'Near amenities', icon: Building },
+  { text: 'Corner plot', icon: CornerDownRight },
+  { text: 'Main road facing', icon: Navigation },
+  { text: 'Gated community', icon: Shield },
+  { text: 'Well connected', icon: Wifi },
 ];
 
 const TAG_OPTIONS = [
@@ -71,9 +72,7 @@ export function PropertyDetailsModal({
     const sizeText = property.min_size === property.size_max
       ? `${property.min_size} ${property.size_unit}`
       : `${property.min_size}-${property.size_max} ${property.size_unit}`;
-    const priceText = property.price_min === property.price_max
-      ? `₹${property.price_min} Lakhs`
-      : `₹${property.price_min}-${property.price_max} Lakhs`;
+    const priceText = formatPriceWithLabel(property.price_min, property.price_max);
     const text = `${property.type} in ${property.area}, ${property.city}\n${property.description}\nSize: ${sizeText}\nPrice: ${priceText}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -136,50 +135,41 @@ export function PropertyDetailsModal({
         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 md:space-y-6">
           <div className="space-y-3 sm:space-y-4">
             <div className="flex items-start justify-between">
-              <span className="text-sm sm:text-base text-gray-600">Size</span>
+              <div className="flex items-center gap-2">
+                <Ruler className="w-3.5 h-3.5 text-gray-500" />
+                <span className="text-xs sm:text-sm text-gray-600">Size</span>
+              </div>
               <div className="text-right">
-                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                <span className="text-xs sm:text-sm font-semibold text-gray-900">
                   {property.min_size === property.size_max
                     ? property.min_size
                     : `${property.min_size}-${property.size_max}`}
-                  <span className="text-sm sm:text-base text-gray-700"> {property.size_unit}</span>
+                  <span className="text-xs sm:text-sm text-gray-700"> {property.size_unit}</span>
                 </span>
               </div>
             </div>
             <div className="flex items-start justify-between">
-              <span className="text-sm sm:text-base text-gray-600">Price</span>
+              <div className="flex items-center gap-2">
+                <IndianRupee className="w-3.5 h-3.5 text-gray-500" />
+                <span className="text-xs sm:text-sm text-gray-600">Price</span>
+              </div>
               <div className="text-right">
-                <span className="text-sm sm:text-base font-semibold text-gray-900">
-                  {(() => {
-                    const minPrice = property.price_min;
-                    const maxPrice = property.price_max;
-                    const useCrores = minPrice >= 100;
-                    
-                    if (useCrores) {
-                      const minCr = (minPrice / 100).toFixed(2).replace(/\.?0+$/, '');
-                      if (minPrice === maxPrice) {
-                        return `₹${minCr} cr`;
-                      } else {
-                        const maxCr = (maxPrice / 100).toFixed(2).replace(/\.?0+$/, '');
-                        return `₹${minCr}-${maxCr} cr`;
-                      }
-                    } else {
-                      return minPrice === maxPrice
-                        ? `₹${minPrice}L`
-                        : `₹${minPrice}-${maxPrice}L`;
-                    }
-                  })()}
+                <span className="text-xs sm:text-sm font-semibold text-gray-900">
+                  {formatPrice(property.price_min, property.price_max, true)}
                 </span>
               </div>
             </div>
             <div className="flex items-start justify-between">
-              <span className="text-sm sm:text-base text-gray-600">Location</span>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-gray-500" />
+                <span className="text-xs sm:text-sm text-gray-600">Location</span>
+              </div>
               <div className="text-right">
-                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                <span className="text-xs sm:text-sm font-semibold text-gray-900">
                   {property.area}, {property.city}
                 </span>
                 {property.location && (
-                  <p className="text-xs sm:text-sm text-gray-500 mt-0.5">({property.location})</p>
+                  <p className="text-xs text-gray-500 mt-0.5">({property.location})</p>
                 )}
               </div>
             </div>
@@ -187,7 +177,8 @@ export function PropertyDetailsModal({
 
           {property.description && (
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-gray-500" />
                 Description
               </h3>
               <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
@@ -198,19 +189,20 @@ export function PropertyDetailsModal({
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-gray-500" />
                 Highlights
               </h3>
               {isOwned && (
                 <button
                   onClick={() => setShowHighlightModal(true)}
-                  className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                  className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700"
                 >
                   {selectedHighlights.length > 0 ? (
                     "Manage"
                   ) : (
                     <>
-                      <Plus className="w-4 h-4 inline" /> Add
+                      <Plus className="w-3.5 h-3.5 inline" /> Add
                     </>
                   )}
                 </button>
@@ -218,14 +210,19 @@ export function PropertyDetailsModal({
             </div>
             {selectedHighlights.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {selectedHighlights.map((highlight, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-sm font-medium"
-                  >
-                    {highlight}
-                  </span>
-                ))}
+                {selectedHighlights.map((highlight, idx) => {
+                  const highlightOption = HIGHLIGHT_OPTIONS.find(h => h.text === highlight);
+                  const Icon = highlightOption?.icon || Sparkles;
+                  return (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                    >
+                      <Icon className="w-3 h-3" />
+                      {highlight}
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               isOwned && (
@@ -235,33 +232,48 @@ export function PropertyDetailsModal({
           </div>
 
           {isOwned && (
-            <div className="pt-2 pb-2">
-              <button
-                onClick={() => onTogglePublic?.(property.id, property.is_public === 0)}
-                className={`w-full px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg font-semibold text-sm transition-colors ${
-                  property.is_public === 1
-                    ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                    : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                {property.is_public === 1 ? (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    <span>Public - Visible to everyone</span>
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="w-4 h-4" />
-                    <span>Private - Only visible to you</span>
-                  </>
-                )}
-              </button>
+            <div className="pt-2 border-t border-gray-200">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-900">Privacy</span>
+                  <p className="text-xs text-gray-500 leading-relaxed mt-0.5">
+                    {property.is_public === 1 
+                      ? 'This property is visible to everyone' 
+                      : 'This property is only visible to you'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onTogglePublic?.(property.id, property.is_public === 0)}
+                  className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    property.is_public === 1 
+                      ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                  aria-label={property.is_public === 1 ? 'Make private' : 'Make public'}
+                >
+                  <div className="flex items-center gap-1">
+                    {property.is_public === 1 ? (
+                      <>
+                        <Globe className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">Public</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">Only me</span>
+                      </>
+                    )}
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
 
           {isOwned && property.note_private && (
-            <div className="pt-3 sm:pt-4 border-t border-gray-200">
-              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
+            <div className="pt-2 sm:pt-2 border-t border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-gray-500" />
                 Note <span className="text-xs text-gray-500 normal-case font-normal">(Only for you)</span>
               </h3>
               <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
@@ -273,18 +285,19 @@ export function PropertyDetailsModal({
           {isOwned && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Tag className="w-3.5 h-3.5 text-gray-500" />
                   Tags <span className="text-xs text-gray-500 normal-case font-normal">(Only for you)</span>
                 </h3>
                 <button
                   onClick={() => setShowTagModal(true)}
-                  className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                  className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700"
                 >
                   {selectedTags.length > 0 ? (
                     "Manage"
                   ) : (
                     <>
-                      <Plus className="w-4 h-4 inline" /> Add
+                      <Plus className="w-3.5 h-3.5 inline" /> Add
                     </>
                   )}
                 </button>
@@ -294,8 +307,9 @@ export function PropertyDetailsModal({
                   {selectedTags.map((tag, idx) => (
                     <span
                       key={idx}
-                      className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium"
+                      className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium flex items-center gap-1.5"
                     >
+                      <Tag className="w-3 h-3" />
                       {tag}
                     </span>
                   ))}
@@ -398,41 +412,50 @@ export function PropertyDetailsModal({
               />
 
               <div className="flex flex-wrap gap-2">
-                {HIGHLIGHT_OPTIONS.map((highlight) => (
-                  <button
-                    key={highlight}
-                    type="button"
-                    onClick={() => toggleHighlight(highlight)}
-                    className={`px-4 py-2 rounded-xl transition-colors text-sm ${
-                      selectedHighlights.includes(highlight)
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {highlight}
-                  </button>
-                ))}
+                {HIGHLIGHT_OPTIONS.map((highlight) => {
+                  const Icon = highlight.icon;
+                  return (
+                    <button
+                      key={highlight.text}
+                      type="button"
+                      onClick={() => toggleHighlight(highlight.text)}
+                      className={`px-4 py-2 rounded-xl transition-colors text-sm flex items-center gap-2 ${
+                        selectedHighlights.includes(highlight.text)
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {highlight.text}
+                    </button>
+                  );
+                })}
               </div>
 
               {selectedHighlights.length > 0 && (
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm font-semibold text-gray-700 mb-3">Selected</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedHighlights.map((highlight) => (
-                      <span
-                        key={highlight}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2"
-                      >
-                        {highlight}
-                        <button
-                          type="button"
-                          onClick={() => toggleHighlight(highlight)}
-                          className="hover:bg-blue-100 rounded-full p-0.5"
+                    {selectedHighlights.map((highlight) => {
+                      const highlightOption = HIGHLIGHT_OPTIONS.find(h => h.text === highlight);
+                      const Icon = highlightOption?.icon || Sparkles;
+                      return (
+                        <span
+                          key={highlight}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2"
                         >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
+                          <Icon className="w-3.5 h-3.5" />
+                          {highlight}
+                          <button
+                            type="button"
+                            onClick={() => toggleHighlight(highlight)}
+                            className="hover:bg-blue-100 rounded-full p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -510,6 +533,7 @@ export function PropertyDetailsModal({
                         key={tag}
                         className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2"
                       >
+                        <Tag className="w-3.5 h-3.5" />
                         {tag}
                         <button
                           type="button"

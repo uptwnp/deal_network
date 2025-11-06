@@ -235,10 +235,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="relative px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 sm:gap-2"
+          className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
+          title="Filter"
         >
           <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-          <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Filter</span>
           {activeFilterCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
               {activeFilterCount}
@@ -247,10 +247,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         </button>
         <button
           onClick={() => setShowAreaSection(!showAreaSection)}
-          className="relative px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 sm:gap-2"
+          className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
+          title="Area"
         >
           <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-          <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Area</span>
           {selectedArea && (
             <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
               1

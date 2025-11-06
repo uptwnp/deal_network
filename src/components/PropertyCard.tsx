@@ -1,10 +1,30 @@
-import { Globe, Lock } from 'lucide-react';
+import { Globe, Lock, Ruler, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText } from 'lucide-react';
 import { Property } from '../types/property';
+import { getUserSettings } from '../types/userSettings';
+import { formatPrice } from '../utils/priceFormatter';
 
 interface PropertyCardProps {
   property: Property;
   isOwned: boolean;
   onViewDetails: (property: Property) => void;
+}
+
+// Icon mappings for highlights
+const HIGHLIGHT_ICONS: Record<string, any> = {
+  'Excellent location': MapPin,
+  'Ready to move': CheckCircle,
+  'Prime property': Star,
+  'Near amenities': Building,
+  'Corner plot': CornerDownRight,
+  'Main road facing': Navigation,
+  'Gated community': Shield,
+  'Well connected': Wifi,
+};
+
+// Get icon for highlight text
+function getIconForHighlight(text: string) {
+  const trimmed = text.trim();
+  return HIGHLIGHT_ICONS[trimmed] || Sparkles;
 }
 
 // Get type-specific styling
@@ -37,6 +57,8 @@ export function PropertyCard({
   onViewDetails,
 }: PropertyCardProps) {
   const typeStyles = getPropertyTypeStyles(property.type);
+  const userSettings = getUserSettings();
+  const userCity = userSettings.city || '';
   
   // Trim description to 200 characters
   const trimmedDescription = property.description.length > 200 
@@ -44,14 +66,17 @@ export function PropertyCard({
     : property.description;
   
   // Format price
-  const priceText = property.price_min === property.price_max
-    ? `₹${property.price_min}L`
-    : `₹${property.price_min}-${property.price_max}L`;
+  const priceText = formatPrice(property.price_min, property.price_max);
   
   // Format size
   const sizeText = property.min_size === property.size_max
     ? `${property.min_size} ${property.size_unit}`
     : `${property.min_size}-${property.size_max} ${property.size_unit}`;
+  
+  // Format location - show city only if it's not the user's city
+  const locationText = property.city.toLowerCase() === userCity.toLowerCase()
+    ? property.area
+    : `${property.area}, ${property.city}`;
   
   // Format created date
   const formatCreatedDate = (dateString: string) => {
@@ -83,29 +108,39 @@ export function PropertyCard({
     >
      <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
-            {sizeText} {property.type} in {property.area}, {property.city}
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight mb-1">
+            {sizeText} {property.type} in {locationText}
           </h3>
         </div>
         <div className="flex-shrink-0">
-          <div className="text-lg sm:text-2xl font-bold text-gray-900">
-            {priceText}
+          <div className="flex items-center gap-0 text-lg sm:text-2xl font-bold text-gray-900">
+            <IndianRupee className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>{priceText}</span>
           </div>
         </div>
       </div>
-      <p className="text-xs sm:text-sm text-gray-700 mb-2 sm:mb-3 leading-relaxed">{trimmedDescription}</p>
+      {property.description && (
+        <div className="flex items-start gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs sm:text-sm text-gray-700 leading-relaxed flex-1">{trimmedDescription}</p>
+        </div>
+      )}
 
       <div className="space-y-1.5 sm:space-y-2">
         {property.highlights && (
           <div className="flex flex-wrap gap-1">
-            {property.highlights.split(',').slice(0, 3).map((highlight, idx) => (
-              <span
-                key={idx}
-                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs ${typeStyles.bgColor} ${typeStyles.iconColor} rounded`}
-              >
-                {highlight.trim()}
-              </span>
-            ))}
+            {property.highlights.split(',').slice(0, 3).map((highlight, idx) => {
+              const Icon = getIconForHighlight(highlight);
+              return (
+                <span
+                  key={idx}
+                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs ${typeStyles.bgColor} ${typeStyles.iconColor} rounded flex items-center gap-1`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {highlight.trim()}
+                </span>
+              );
+            })}
             {property.highlights.split(',').length > 3 && (
               <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-700 rounded">
                 +{property.highlights.split(',').length - 3}
@@ -122,8 +157,9 @@ export function PropertyCard({
             {property.tags && property.tags.split(',').slice(0, 3).map((tag, idx) => (
               <span
                 key={idx}
-                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-600 rounded"
+                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-600 rounded flex items-center gap-1"
               >
+                <Tag className="w-3 h-3" />
                 {tag.trim()}
               </span>
             ))}

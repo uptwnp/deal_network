@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { X, MapPin, ChevronDown } from 'lucide-react';
+import { X, MapPin, ChevronDown, Ruler, IndianRupee, FileText, Lock, Globe } from 'lucide-react';
 import { Property, PropertyFormData } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
 import {
@@ -350,7 +350,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
           <div>
             <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Ruler className="w-3.5 h-3.5 text-gray-500" />
                 <span>Size (in </span>
                 <span className="relative inline-block" ref={sizeUnitDropdownRef}>
                   <button
@@ -436,7 +437,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
           <div>
             <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <IndianRupee className="w-3.5 h-3.5 text-gray-500" />
                 Price (in lakhs)
               </label>
               <button
@@ -488,7 +490,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
+            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2 flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-gray-500" />
               Description
             </label>
             <textarea
@@ -503,7 +506,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
+            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2 flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-gray-500" />
               Private notes <span className="text-xs text-gray-500 normal-case">(Only for you)</span>
             </label>
             <textarea
@@ -517,27 +521,42 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
             <p className="text-xs text-gray-500 mt-1">Add private details like plot number, deal price, owner info, etc</p>
           </div>
 
-          <div 
-            className="flex items-center justify-between w-full py-3 sm:py-4 px-3 sm:px-4 border-2 border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
-            onClick={() => setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }))}
-          >
-            <label 
-              className="text-sm sm:text-base font-medium text-gray-900 cursor-pointer"
-              onClick={(e) => e.preventDefault()}
-            >
-              Make this property visible to everyone
-            </label>
-            <input
-              type="checkbox"
-              id="is_public"
-              checked={formData.is_public === 1}
-              readOnly
-              onClick={(e) => {
-                e.stopPropagation();
-                setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }));
-              }}
-              className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 bg-white border-2 border-gray-500 rounded focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer checked:bg-blue-600 checked:border-blue-600 flex-shrink-0"
-            />
+          <div className="pt-2 border-t border-gray-200">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <span className="text-xs sm:text-sm font-semibold text-gray-900">Privacy</span>
+                <p className="text-xs text-gray-500 leading-relaxed mt-0.5">
+                  {formData.is_public === 1 
+                    ? 'This property is visible to everyone' 
+                    : 'This property is only visible to you'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }))}
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  formData.is_public === 1 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' 
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label={formData.is_public === 1 ? 'Make private' : 'Make public'}
+              >
+                <div className="flex items-center gap-1">
+                  {formData.is_public === 1 ? (
+                    <>
+                      <Globe className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium">Public</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium">Only me</span>
+                    </>
+                  )}
+                </div>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 pt-3 sm:pt-4">
