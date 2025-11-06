@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Property, PropertyFormData, FilterOptions } from '../types/property';
+import { getStoredToken } from './authApi';
 
 const API_BASE_URL = 'https://prop.digiheadway.in/api/network.php';
 
@@ -8,6 +9,15 @@ function validateOwnerId(ownerId: number): void {
   if (!ownerId || ownerId <= 0 || isNaN(ownerId)) {
     throw new Error('Invalid owner_id: owner_id must be a positive number');
   }
+}
+
+// Get authorization headers with Bearer token
+function getAuthHeaders(): { Authorization?: string } {
+  const token = getStoredToken();
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
 }
 
 function normalizeProperty(data: any): Property {
@@ -41,21 +51,30 @@ export const propertyApi = {
   async getUserProperties(ownerId: number): Promise<Property[]> {
     validateOwnerId(ownerId);
     const url = `${API_BASE_URL}?action=get_user_properties&owner_id=${ownerId}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true, // Include cookies for token
+    });
     return normalizeProperties(response.data);
   },
 
   async getPublicProperties(ownerId: number): Promise<Property[]> {
     validateOwnerId(ownerId);
     const url = `${API_BASE_URL}?action=get_public_properties&owner_id=${ownerId}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true,
+    });
     return normalizeProperties(response.data);
   },
 
   async getAllProperties(ownerId: number): Promise<Property[]> {
     validateOwnerId(ownerId);
     const url = `${API_BASE_URL}?action=get_all_properties&owner_id=${ownerId}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true,
+    });
     return normalizeProperties(response.data);
   },
 
@@ -67,6 +86,13 @@ export const propertyApi = {
       {
         owner_id: ownerId,
         ...data,
+      },
+      {
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
       }
     );
     // Check for error in response
@@ -85,6 +111,13 @@ export const propertyApi = {
         id,
         owner_id: ownerId,
         ...data,
+      },
+      {
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
       }
     );
     // Check for error in response
@@ -97,7 +130,10 @@ export const propertyApi = {
   async deleteProperty(id: number, ownerId: number): Promise<{ success: boolean }> {
     validateOwnerId(ownerId);
     const url = `${API_BASE_URL}?action=delete_property&id=${id}&owner_id=${ownerId}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true,
+    });
     // Check for error in response
     if (response.data && typeof response.data === 'object' && 'error' in response.data) {
       throw new Error(response.data.error || 'Failed to delete property');
@@ -133,7 +169,10 @@ export const propertyApi = {
     if (filters.max_size !== undefined) queryParams.append('max_size', filters.max_size.toString());
 
     const url = `${API_BASE_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true,
+    });
     return normalizeProperties(response.data);
   },
 
@@ -160,7 +199,10 @@ export const propertyApi = {
     queryParams.append('column', columnValue);
 
     const url = `${API_BASE_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true,
+    });
     return normalizeProperties(response.data);
   },
 };

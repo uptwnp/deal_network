@@ -2,13 +2,22 @@ export interface User {
   id: number;
   name: string;
   phone: string;
-  address: string;
-  firmName: string;
-  pin: string;
+  address?: string;
+  firmName?: string;
+  firm_name?: string;
+  pin?: string;
   city?: string;
   area?: string;
   propertyType?: string;
-  createdAt: number;
+  area_covers?: string;
+  city_covers?: string;
+  type?: string;
+  default_area?: string;
+  default_city?: string;
+  default_type?: string;
+  token?: string;
+  createdAt?: number;
+  created_on?: string;
 }
 
 const STORAGE_KEY = 'propnetwork_users';
@@ -54,7 +63,13 @@ export function getCurrentUser(): User | null {
 export function setCurrentUser(user: User | null): void {
   try {
     if (user) {
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      // Normalize user data (handle both firmName and firm_name)
+      const normalizedUser: User = {
+        ...user,
+        firmName: user.firmName || user.firm_name,
+        firm_name: user.firm_name || user.firmName,
+      };
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
     } else {
       localStorage.removeItem(CURRENT_USER_KEY);
     }

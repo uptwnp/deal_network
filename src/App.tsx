@@ -14,6 +14,7 @@ import { useAuth } from './contexts/AuthContext';
 import { propertyApi } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
 import { logoutUser, getCurrentUser } from './types/user';
+import { authApi } from './services/authApi';
 import { STORAGE_KEYS } from './utils/filterOptions';
 import { formatPriceWithLabel } from './utils/priceFormatter';
 
@@ -489,7 +490,8 @@ function App() {
   };
 
   const handleLogout = () => {
-    logoutUser();
+    authApi.logout(); // Clear token from storage
+    logoutUser(); // Clear user from local storage
     setUser(null);
     setShowLandingPage(true);
     try {
@@ -507,6 +509,7 @@ function App() {
         isAuthenticated={isAuthenticated}
         onGoToLogin={() => {
           // Clear auth and show login page
+          authApi.logout();
           logoutUser();
           setUser(null);
           setShowLandingPage(false);
