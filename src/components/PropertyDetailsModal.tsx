@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, Calendar } from 'lucide-react';
+import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
 import { Property } from '../types/property';
 import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
+import { HIGHLIGHT_OPTIONS, TAG_OPTIONS } from '../utils/filterOptions';
 
 interface PropertyDetailsModalProps {
   property: Property;
@@ -16,27 +17,38 @@ interface PropertyDetailsModalProps {
   onUpdateLocation?: (id: number, location: string, locationAccuracy: string) => void;
 }
 
-const HIGHLIGHT_OPTIONS = [
-  { text: 'Excellent location', icon: MapPin },
-  { text: 'Ready to move', icon: CheckCircle },
-  { text: 'Prime property', icon: Star },
-  { text: 'Near amenities', icon: Building },
-  { text: 'Corner plot', icon: CornerDownRight },
-  { text: 'Main road facing', icon: Navigation },
-  { text: 'Gated community', icon: Shield },
-  { text: 'Well connected', icon: Wifi },
-];
+// Map highlight text to icons
+const getHighlightIcon = (highlight: string) => {
+  const iconMap: Record<string, any> = {
+    'Corner': CornerDownRight,
+    'Urgent Sale': AlertCircle,
+    'On 12 Meter': Navigation,
+    'On 18 Meter': Navigation,
+    'On 24 Meter': Navigation,
+    'On Wide Road': Navigation,
+    'Prime Location': MapPin,
+    'Two Side Open': CornerDownRight,
+    'Park Facing': TreePine,
+    'East Facing': Navigation,
+    'South Facing': Navigation,
+    '3 Side Open': CornerDownRight,
+    'Gated Society': Shield,
+    'Good Connectivity': Wifi,
+    'Multipurpose': Building,
+    'Green Belt': TreePine,
+    'Extra Space': Home,
+    'Luxury Builtup': Star,
+    'Very Less Price': DollarSign,
+    'Great Investment': TrendingUp,
+  };
+  return iconMap[highlight] || Sparkles;
+};
 
-const TAG_OPTIONS = [
-  'Corner',
-  'Main Road',
-  'Near School',
-  'Near Hospital',
-  'Park View',
-  'Market Nearby',
-  'Metro Access',
-  'Airport Nearby',
-];
+// Convert highlight options to format with icons
+const HIGHLIGHT_OPTIONS_WITH_ICONS = HIGHLIGHT_OPTIONS.map(text => ({
+  text,
+  icon: getHighlightIcon(text),
+}));
 
 // Helper function to check if location has lat/long format
 function hasLocationCoordinates(location: string | undefined): boolean {
@@ -44,6 +56,26 @@ function hasLocationCoordinates(location: string | undefined): boolean {
   // Check if location is in "lat,long" format (e.g., "28.7041,77.1025")
   const latLongPattern = /^-?\d+\.?\d*,-?\d+\.?\d*$/;
   return latLongPattern.test(location.trim());
+}
+
+// Get type-specific styling for highlights
+function getHighlightStyles(type: string) {
+  const typeLower = type.toLowerCase();
+  const isPlot = typeLower.includes('plot');
+  
+  if (isPlot) {
+    // Plot - gray color
+    return {
+      bgColor: 'bg-gray-50',
+      textColor: 'text-gray-700',
+    };
+  } else {
+    // Other - orange color
+    return {
+      bgColor: 'bg-orange-50',
+      textColor: 'text-orange-700',
+    };
+  }
 }
 
 export function PropertyDetailsModal({
@@ -58,6 +90,7 @@ export function PropertyDetailsModal({
   onUpdateHighlightsAndTags,
   onUpdateLocation,
 }: PropertyDetailsModalProps) {
+  const highlightStyles = getHighlightStyles(property.type);
   const [copied, setCopied] = useState(false);
   const [copiedLocation, setCopiedLocation] = useState(false);
   const [showHighlightModal, setShowHighlightModal] = useState(false);
@@ -242,7 +275,6 @@ export function PropertyDetailsModal({
                   </>
                 ) : (
                   <>
-                    <span className="text-sm sm:text-base text-gray-500">Not set</span>
                     {isOwned && (
                       <button
                         onClick={() => setShowLocationModal(true)}
@@ -309,12 +341,11 @@ export function PropertyDetailsModal({
             {selectedHighlights.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {selectedHighlights.map((highlight, idx) => {
-                  const highlightOption = HIGHLIGHT_OPTIONS.find(h => h.text === highlight);
-                  const Icon = highlightOption?.icon || Sparkles;
+                  const Icon = getHighlightIcon(highlight);
                   return (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                      className={`px-2.5 py-1 ${highlightStyles.bgColor} ${highlightStyles.textColor} rounded-lg text-xs font-medium flex items-center gap-1.5`}
                     >
                       <Icon className="w-3 h-3" />
                       {highlight}
@@ -519,7 +550,7 @@ export function PropertyDetailsModal({
               />
 
               <div className="flex flex-wrap gap-2">
-                {HIGHLIGHT_OPTIONS.map((highlight) => {
+                {HIGHLIGHT_OPTIONS_WITH_ICONS.map((highlight) => {
                   const Icon = highlight.icon;
                   return (
                     <button
@@ -544,19 +575,18 @@ export function PropertyDetailsModal({
                   <p className="text-sm font-semibold text-gray-700 mb-3">Selected</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedHighlights.map((highlight) => {
-                      const highlightOption = HIGHLIGHT_OPTIONS.find(h => h.text === highlight);
-                      const Icon = highlightOption?.icon || Sparkles;
+                      const Icon = getHighlightIcon(highlight);
                       return (
                         <span
                           key={highlight}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2"
+                          className={`px-3 py-1.5 ${highlightStyles.bgColor} ${highlightStyles.textColor} rounded-lg text-sm font-medium flex items-center gap-2`}
                         >
                           <Icon className="w-3.5 h-3.5" />
                           {highlight}
                           <button
                             type="button"
                             onClick={() => toggleHighlight(highlight)}
-                            className="hover:bg-blue-100 rounded-full p-0.5"
+                            className={`hover:opacity-80 rounded-full p-0.5`}
                           >
                             <X className="w-3 h-3" />
                           </button>

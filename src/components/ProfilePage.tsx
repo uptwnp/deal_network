@@ -498,7 +498,7 @@ export function ProfilePage({ onBack, onLogout, onSwitchUser }: ProfilePageProps
                 >
                   {SIZE_UNITS.map(unit => (
                     <option key={unit} value={unit}>
-                      {unit === 'Sqyd' ? 'Sq. Yard' : unit === 'Sqft' ? 'Sq. Ft' : unit}
+                      {unit === 'Gaj' ? 'Gaj' : unit === 'Sqft' ? 'Sq. Ft' : unit}
                     </option>
                   ))}
                 </select>

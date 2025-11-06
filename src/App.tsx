@@ -7,6 +7,7 @@ import { PropertyDetailsModal } from './components/PropertyDetailsModal';
 import { ContactModal } from './components/ContactModal';
 import { SearchFilter } from './components/SearchFilter';
 import { ProfilePage } from './components/ProfilePage';
+import { SettingsPage } from './components/SettingsPage';
 import { HomePage } from './components/HomePage';
 import { AuthPage } from './components/AuthPage';
 import { Toast } from './components/Toast';
@@ -37,7 +38,7 @@ function App() {
       return true;
     }
   });
-  const [currentPage, setCurrentPage] = useState<'home' | 'profile'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'profile' | 'settings'>('home');
   
   // Load persisted activeFilter from localStorage
   const loadPersistedFilter = (): FilterType => {
@@ -550,6 +551,21 @@ function App() {
     );
   }
 
+  if (currentPage === 'settings') {
+    return (
+      <SettingsPage 
+        onBack={() => setCurrentPage('home')}
+        onLogout={() => {
+          handleLogout();
+          showToast('Logged out', 'success');
+        }}
+        onSwitchUser={() => {
+          handleUserIdChange();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
@@ -562,9 +578,9 @@ function App() {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <button
-                onClick={() => setCurrentPage('profile')}
+                onClick={() => setCurrentPage('settings')}
                 className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Profile & Settings"
+                title="Settings"
               >
                 <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </button>

@@ -37,10 +37,8 @@ export const SEARCH_COLUMNS = [
  */
 export const CITY_OPTIONS = [
   'Panipat',
-  'Delhi',
-  'Gurgaon',
-  'Noida',
-  'Faridabad',
+  'Karnal',
+  'Sonipat',
 ] as const;
 
 /**
@@ -48,45 +46,52 @@ export const CITY_OPTIONS = [
  */
 export const CITY_OPTIONS_WITH_LABELS = [
   { value: 'Panipat', label: 'Panipat' },
-  { value: 'Delhi', label: 'Delhi' },
-  { value: 'Gurgaon', label: 'Gurgaon' },
-  { value: 'Noida', label: 'Noida' },
-  { value: 'Faridabad', label: 'Faridabad' },
+  { value: 'Karnal', label: 'Karnal' },
+  { value: 'Sonipat', label: 'Sonipat' },
 ] as const;
 
 /**
- * Available area options
+ * Available area options (primarily for Panipat city)
  */
 export const AREA_OPTIONS = [
-  'Sector 1',
-  'Sector 2',
-  'Sector 3',
-  'Sector 4',
-  'Sector 5',
   'Sector 6',
   'Sector 7',
   'Sector 8',
-  'Sector 9',
-  'Sector 10',
+  'Sector 11',
   'Sector 12',
-  'Sector 13',
-  'Sector 14',
-  'Sector 15',
-  'Sector 16',
-  'Sector 17',
   'Sector 18',
-  'Sector 19',
-  'Sector 20',
-  'Sector 21',
-  'Sector 22',
-  'Sector 23',
   'Sector 24',
   'Sector 25',
-  'Model Town',
-  'Civil Lines',
-  'GT Road',
-  'Huda Sector',
-  'Industrial Area',
+  'TDI City',
+  'Ansal',
+  'M3M',
+  'Vrinda Enclave',
+  'Yamuna Enclave',
+  'Eldeco Estate One',
+  'Eldeco Paradiso',
+  'DLF',
+  'Maxwell Ceremony',
+  'Tehsil Camp',
+  'Patel Nagar',
+  'Preet Vihar',
+  'Modal Town',
+  'Virat Nagar Phase 1',
+  'Virat Nagar Phase 2',
+  'Virat Nagar Phase 3',
+  'Virak Nagar',
+  'Ram Nagar',
+  'Mukhija',
+  'New Mukhija',
+  'Raj Nagar',
+  'The Address',
+  'PBM Enclave',
+  'Malik Enclave',
+  'Jeetram Nagar',
+  'Bagat Sing Colony',
+  'Vasant Kunj',
+  '8 Marla',
+  'Radhe Vihar',
+  'Shanti Nagar',
 ] as const;
 
 /**
@@ -94,11 +99,22 @@ export const AREA_OPTIONS = [
  */
 export const PROPERTY_TYPES = [
   'Residential Plot',
+  'Residential House',
+  'Independent Floor',
+  'Flat/Apartment',
   'Commercial Plot',
-  'House',
-  'Apartment',
+  'Shop',
+  'Showroom',
+  'Commercial Builtup',
+  'SCO Plot',
+  'SCO Builtup',
+  'Industrial Land',
+  'Factory',
+  'Warehouse',
   'Agriculture Land',
-  'Industrial Plot',
+  'Ploting Land',
+  'Labour Quarter',
+  'Other',
 ] as const;
 
 /**
@@ -106,26 +122,76 @@ export const PROPERTY_TYPES = [
  */
 export const PROPERTY_TYPE_OPTIONS = [
   { value: 'Residential Plot', label: 'Residential Plot' },
+  { value: 'Residential House', label: 'Residential House' },
+  { value: 'Independent Floor', label: 'Independent Floor' },
+  { value: 'Flat/Apartment', label: 'Flat/Apartment' },
   { value: 'Commercial Plot', label: 'Commercial Plot' },
-  { value: 'House', label: 'House' },
-  { value: 'Apartment', label: 'Apartment' },
+  { value: 'Shop', label: 'Shop' },
+  { value: 'Showroom', label: 'Showroom' },
+  { value: 'Commercial Builtup', label: 'Commercial Builtup' },
+  { value: 'SCO Plot', label: 'SCO Plot' },
+  { value: 'SCO Builtup', label: 'SCO Builtup' },
+  { value: 'Industrial Land', label: 'Industrial Land' },
+  { value: 'Factory', label: 'Factory' },
+  { value: 'Warehouse', label: 'Warehouse' },
   { value: 'Agriculture Land', label: 'Agriculture Land' },
-  { value: 'Industrial Plot', label: 'Industrial Plot' },
+  { value: 'Ploting Land', label: 'Ploting Land' },
+  { value: 'Labour Quarter', label: 'Labour Quarter' },
+  { value: 'Other', label: 'Other' },
 ] as const;
 
 /**
  * Available size unit options
  */
-export const SIZE_UNITS = ['Sqyd', 'Sqft', 'Acre', 'Marla', 'Kanal'] as const;
+export const SIZE_UNITS = ['Gaj', 'Sqft', 'Marla', 'Kanal', 'Acre'] as const;
 
 /**
  * Size unit options with labels (for dropdowns)
  */
 export const SIZE_UNIT_OPTIONS = [
-  { value: 'Sqyd', label: 'Sq. Yard' },
+  { value: 'Gaj', label: 'Gaj' },
   { value: 'Sqft', label: 'Sq. Ft' },
-  { value: 'Acre', label: 'Acre' },
   { value: 'Marla', label: 'Marla' },
   { value: 'Kanal', label: 'Kanal' },
+  { value: 'Acre', label: 'Acre' },
+] as const;
+
+/**
+ * Available highlight options for properties
+ */
+export const HIGHLIGHT_OPTIONS = [
+  'Corner',
+  'Urgent Sale',
+  'On 12 Meter',
+  'On 18 Meter',
+  'On 24 Meter',
+  'On Wide Road',
+  'Prime Location',
+  'Two Side Open',
+  'Park Facing',
+  'East Facing',
+  'South Facing',
+  '3 Side Open',
+  'Gated Society',
+  'Good Connectivity',
+  'Multipurpose',
+  'Green Belt',
+  'Extra Space',
+  'Luxury Builtup',
+  'Very Less Price',
+  'Great Investment',
+] as const;
+
+/**
+ * Available tag options for properties
+ */
+export const TAG_OPTIONS = [
+  'Indirect',
+  'On Priority',
+  'High Demand',
+  'Focus',
+  'Pending Work',
+  'List 1',
+  'List 2',
 ] as const;
 

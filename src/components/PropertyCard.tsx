@@ -1,4 +1,4 @@
-import { Globe, Lock, Ruler, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText } from 'lucide-react';
+import { Globe, Lock, Ruler, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
 import { Property } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
 import { formatPrice } from '../utils/priceFormatter';
@@ -11,6 +11,27 @@ interface PropertyCardProps {
 
 // Icon mappings for highlights
 const HIGHLIGHT_ICONS: Record<string, any> = {
+  'Corner': CornerDownRight,
+  'Urgent Sale': AlertCircle,
+  'On 12 Meter': Navigation,
+  'On 18 Meter': Navigation,
+  'On 24 Meter': Navigation,
+  'On Wide Road': Navigation,
+  'Prime Location': MapPin,
+  'Two Side Open': CornerDownRight,
+  'Park Facing': TreePine,
+  'East Facing': Navigation,
+  'South Facing': Navigation,
+  '3 Side Open': CornerDownRight,
+  'Gated Society': Shield,
+  'Good Connectivity': Wifi,
+  'Multipurpose': Building,
+  'Green Belt': TreePine,
+  'Extra Space': Home,
+  'Luxury Builtup': Star,
+  'Very Less Price': DollarSign,
+  'Great Investment': TrendingUp,
+  // Legacy support
   'Excellent location': MapPin,
   'Ready to move': CheckCircle,
   'Prime property': Star,
@@ -39,6 +60,7 @@ function getPropertyTypeStyles(type: string) {
       hoverBorderColor: 'hover:border-l-gray-400',
       bgColor: 'bg-gray-50',
       accentColor: 'bg-gray-100',
+      iconColor: 'text-gray-700',
     };
   } else {
     // Other - orange color
@@ -47,6 +69,7 @@ function getPropertyTypeStyles(type: string) {
       hoverBorderColor: 'hover:border-l-orange-600',
       bgColor: 'bg-orange-50',
       accentColor: 'bg-orange-100',
+      iconColor: 'text-orange-700',
     };
   }
 }
@@ -134,7 +157,7 @@ export function PropertyCard({
               return (
                 <span
                   key={idx}
-                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs ${typeStyles.bgColor} ${typeStyles.iconColor} rounded flex items-center gap-1`}
+                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs text-gray-700 bg-gray-100 rounded flex items-center gap-1`}
                 >
                   <Icon className="w-3 h-3" />
                   {highlight.trim()}

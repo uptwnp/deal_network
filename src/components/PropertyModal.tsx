@@ -62,7 +62,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       note_private: '',
       min_size: undefined,
       size_max: undefined,
-      size_unit: userSettings.defaultSizeUnit || 'Sqyd',
+      size_unit: userSettings.defaultSizeUnit || 'Gaj',
       price_min: undefined,
       price_max: undefined,
       location: '',

@@ -11,7 +11,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   city: 'Panipat',
   preferredAreas: [],
   preferredPropertyTypes: [],
-  defaultSizeUnit: 'Sqyd',
+  defaultSizeUnit: 'Gaj',
 };
 
 const STORAGE_KEY = 'propnetwork_user_settings';

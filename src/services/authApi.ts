@@ -197,23 +197,33 @@ export const authApi = {
   async getProfile(): Promise<ProfileResponse> {
     const token = getStoredToken();
     if (!token) {
+      console.warn('No token found for getProfile');
       return { status: false, message: 'No token found' };
     }
 
     try {
+      // According to PHP file: action=me or action=profile with GET
       const response = await axios.get<ProfileResponse>(
         `${AUTH_API_BASE_URL}?action=me`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
+          withCredentials: true,
+          timeout: 10000, // 10 second timeout
         }
       );
       
+      console.log('getProfile API response:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('getProfile API error:', error);
       if (error.response?.data) {
+        console.error('Error response data:', error.response.data);
         return error.response.data;
+      }
+      if (error.code === 'ECONNABORTED') {
+        return { status: false, message: 'Request timeout. Please check your connection.' };
       }
       throw new Error(error.message || 'Failed to get profile');
     }
@@ -234,6 +244,7 @@ export const authApi = {
     }
 
     try {
+      // According to PHP file: action=profile with POST and update: true in body
       const response = await axios.post<ProfileResponse>(
         `${AUTH_API_BASE_URL}?action=profile`,
         { update: true, ...updates },
@@ -242,6 +253,7 @@ export const authApi = {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          withCredentials: true,
         }
       );
       
@@ -251,6 +263,36 @@ export const authApi = {
         return error.response.data;
       }
       throw new Error(error.message || 'Failed to update profile');
+    }
+  },
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<{ status: boolean; message: string }> {
+    const token = getStoredToken();
+    if (!token) {
+      return { status: false, message: 'No token found' };
+    }
+
+    try {
+      // Note: This endpoint doesn't exist in the PHP file yet
+      // You'll need to add it to network-auth.php
+      const response = await axios.post<{ status: boolean; message: string }>(
+        `${AUTH_API_BASE_URL}?action=change_password`,
+        { old_password: oldPassword, new_password: newPassword },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+      
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw new Error(error.message || 'Failed to change password. This feature may not be implemented yet.');
     }
   },
 
