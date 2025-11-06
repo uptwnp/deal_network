@@ -89,7 +89,7 @@ export function PublicPropertyPage() {
 
   const handleContact = () => {
     if (property) {
-      const phone = '9518091945'; // Default contact
+      const phone = '919710858000'; // Default contact
       const message = `Hi, I'm interested in this property: ${property.type} in ${property.area}, ${property.city}`;
       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, '_blank');

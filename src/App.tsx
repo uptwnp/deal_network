@@ -1064,7 +1064,7 @@ function MainAppContent({
       {showContactModal && selectedProperty && (
         <ContactModal
           property={selectedProperty}
-          ownerPhone="9518091945"
+          ownerPhone="919710858000"
           senderId={ownerId}
           onClose={() => {
             setShowContactModal(false);
