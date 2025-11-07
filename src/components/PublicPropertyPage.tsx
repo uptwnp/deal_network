@@ -174,7 +174,7 @@ export function PublicPropertyPage() {
               </Link>
               <div className="flex items-center gap-2">
                 <Home className="w-5 h-5 text-blue-600" />
-                <h1 className="text-xl font-semibold text-gray-900">PropNetwork</h1>
+                <h1 className="text-xl font-semibold text-gray-900">Dealer Network</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ export function PublicPropertyPage() {
                 to="/login"
                 className="block w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors text-center"
               >
-                Join PropNetwork to See More Properties
+                Join Dealer Network to See More Properties
               </Link>
             </div>
           </div>
@@ -336,7 +336,7 @@ export function PublicPropertyPage() {
         <div className="bg-blue-600 rounded-lg p-6 text-white mb-6">
           <div className="flex items-start gap-4">
             <div className="flex-1">
-              <h3 className="text-xl font-bold mb-2">Join PropNetwork Today! 🚀</h3>
+              <h3 className="text-xl font-bold mb-2">Join Dealer Network Today! 🚀</h3>
               <p className="text-blue-100 mb-4">
                 Connect with property dealers, discover exclusive listings, and grow your real estate network.
               </p>

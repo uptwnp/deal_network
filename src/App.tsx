@@ -12,7 +12,7 @@ import { HomePage } from './components/HomePage';
 import { AuthPage } from './components/AuthPage';
 import { PublicPropertyPage } from './components/PublicPropertyPage';
 import { Toast } from './components/Toast';
-import { InstallPrompt } from './components/InstallPrompt';
+import { InstallPromptCard } from './components/InstallPrompt';
 import { useAuth } from './contexts/AuthContext';
 import { propertyApi } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
@@ -928,7 +928,7 @@ function MainAppContent({
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-3">
               <Home className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">PropNetwork</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Dealer Network</h1>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1011,22 +1011,25 @@ function MainAppContent({
                 <PropertyCardSkeleton key={index} noTopBorder={index === 0} />
               ))}
             </div>
-          ) : currentProperties.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
-              <p className="text-sm sm:text-base text-gray-500">
-                {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
-              </p>
-            </div>
           ) : (
             <div className="space-y-3 sm:space-y-4">
-              {currentProperties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  isOwned={property.owner_id === ownerId}
-                  onViewDetails={handleViewProperty}
-                />
-              ))}
+              <InstallPromptCard />
+              {currentProperties.length === 0 ? (
+                <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
+                  <p className="text-sm sm:text-base text-gray-500">
+                    {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
+                  </p>
+                </div>
+              ) : (
+                currentProperties.map((property) => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    isOwned={property.owner_id === ownerId}
+                    onViewDetails={handleViewProperty}
+                  />
+                ))
+              )}
             </div>
           )}
         </div>
@@ -1079,8 +1082,6 @@ function MainAppContent({
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
-      <InstallPrompt />
 
       <button
         onClick={() => {

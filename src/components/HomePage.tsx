@@ -1,4 +1,5 @@
 import { Home, Search, Share2, Smartphone, ArrowRight } from 'lucide-react';
+import { InstallPromptCard } from './InstallPrompt';
 
 interface HomePageProps {
   onGetStarted: () => void;
@@ -50,6 +51,11 @@ export function HomePage({ onGetStarted, isAuthenticated = false, onGoToLogin, o
             <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
           </button>
         </div>
+      </div>
+
+      {/* Install Prompt Section */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+        <InstallPromptCard />
       </div>
 
       {/* Features Section */}

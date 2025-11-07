@@ -10,9 +10,9 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Agent Property Network App',
-        short_name: 'Property Network',
-        description: 'Network for real estate agents to share property deals',
+        name: 'Dealer Network',
+        short_name: 'Dealer Network',
+        description: 'Network for real estate dealers to share property deals',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
