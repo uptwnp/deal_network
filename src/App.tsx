@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Home, Globe, ChevronDown, User } from 'lucide-react';
+import { Plus, Home, Globe, ChevronDown, User, MapPin, List } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { PropertyModal } from './components/PropertyModal';
@@ -13,6 +13,7 @@ import { AuthPage } from './components/AuthPage';
 import { PublicPropertyPage } from './components/PublicPropertyPage';
 import { Toast } from './components/Toast';
 import { InstallPromptCard } from './components/InstallPrompt';
+import { PropertyMap } from './components/PropertyMap';
 import { useAuth } from './contexts/AuthContext';
 import { propertyApi } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
@@ -912,6 +913,8 @@ function MainAppContent({
   handleUpdateLocation,
   showToast,
 }: MainAppContentProps) {
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  
   const currentProperties = filteredProperties.length > 0 ? filteredProperties : 
     (activeFilter === 'all' ? [...myProperties, ...publicProperties] : activeFilter === 'my' ? myProperties : publicProperties);
 
@@ -919,6 +922,37 @@ function MainAppContent({
     if (activeFilter === 'all') return 'All Properties';
     if (activeFilter === 'my') return 'My Properties';
     return 'Public Properties';
+  };
+
+  // Calculate map center from properties with coordinates
+  const getMapCenter = (): [number, number] => {
+    const propertiesWithCoords = currentProperties.filter(
+      (p) => p.location && p.location.includes(',')
+    );
+    
+    if (propertiesWithCoords.length === 0) {
+      return [29.3909, 76.9635]; // Default: Panipat
+    }
+    
+    // Calculate average center of all properties
+    let totalLat = 0;
+    let totalLng = 0;
+    let count = 0;
+    
+    propertiesWithCoords.forEach((property) => {
+      const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        totalLat += coords[0];
+        totalLng += coords[1];
+        count++;
+      }
+    });
+    
+    if (count > 0) {
+      return [totalLat / count, totalLng / count];
+    }
+    
+    return [29.3909, 76.9635]; // Default: Panipat
   };
 
   return (
@@ -938,6 +972,19 @@ function MainAppContent({
                 title="Profile"
               >
                 <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              </button>
+              <button
+                onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+                className={`p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors ${
+                  viewMode === 'map' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
+                }`}
+                title={viewMode === 'list' ? 'Switch to Map View' : 'Switch to List View'}
+              >
+                {viewMode === 'list' ? (
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <List className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
               </button>
               <div className="relative" ref={filterMenuRef}>
                 <button
@@ -1006,10 +1053,35 @@ function MainAppContent({
 
         <div className="mt-4 sm:mt-6">
           {loading ? (
-            <div className="space-y-3 sm:space-y-4">
-              {[...Array(3)].map((_, index) => (
-                <PropertyCardSkeleton key={index} noTopBorder={index === 0} />
-              ))}
+            viewMode === 'list' ? (
+              <div className="space-y-3 sm:space-y-4">
+                {[...Array(3)].map((_, index) => (
+                  <PropertyCardSkeleton key={index} noTopBorder={index === 0} />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200 h-[600px] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Loading map...</p>
+                </div>
+              </div>
+            )
+          ) : viewMode === 'map' ? (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
+              {currentProperties.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm sm:text-base text-gray-500">
+                    {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
+                  </p>
+                </div>
+              ) : (
+                <PropertyMap 
+                  properties={currentProperties} 
+                  center={getMapCenter()}
+                  onMarkerClick={handleViewProperty}
+                />
+              )}
             </div>
           ) : (
             <div className="space-y-3 sm:space-y-4">

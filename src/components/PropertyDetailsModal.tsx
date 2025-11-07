@@ -1063,6 +1063,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                     zoom={13}
                     className="h-full w-full"
                     scrollWheelZoom={true}
+                    style={{ position: 'relative', zIndex: 1 }}
                   >
                     <MapCenterUpdater center={mapCenter} />
                     <TileLayerSwitcher isSatelliteView={isSatelliteView} />
@@ -1077,31 +1078,40 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                     )}
                   </MapContainer>
                   
-                  {/* Satellite View Toggle Button - Top Right */}
-                  <button
-                    type="button"
-                    onClick={() => setIsSatelliteView(!isSatelliteView)}
-                    className={`absolute top-2 right-2 z-[1000] flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg shadow-lg transition-colors backdrop-blur-sm ${
-                      isSatelliteView
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                    }`}
-                    title={isSatelliteView ? 'Switch to Map View' : 'Switch to Satellite View'}
-                  >
-                    <Satellite className="w-4 h-4" />
-                    <span className="hidden sm:inline">{isSatelliteView ? 'Satellite' : 'Map'}</span>
-                  </button>
+                  {/* Map Control Buttons Container */}
+                  <div className="absolute inset-0 pointer-events-none z-[2000]" style={{ zIndex: 2000 }}>
+                    {/* Satellite View Toggle Button - Top Right */}
+                    <button
+                      type="button"
+                      onClick={() => setIsSatelliteView(!isSatelliteView)}
+                      className={`absolute top-2 right-2 pointer-events-auto flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg shadow-lg transition-colors ${
+                        isSatelliteView
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                      }`}
+                      title={isSatelliteView ? 'Switch to Map View' : 'Switch to Satellite View'}
+                    >
+                      <Satellite 
+                        className="w-4 h-4 flex-shrink-0" 
+                        strokeWidth={2.5}
+                      />
+                      <span className="hidden sm:inline">{isSatelliteView ? 'Satellite' : 'Map'}</span>
+                    </button>
 
-                  {/* Current Location Button - Bottom Right */}
-                  <button
-                    type="button"
-                    onClick={handleGetCurrentLocation}
-                    disabled={isGettingLocation}
-                    className="absolute bottom-2 right-2 z-[1000] flex items-center justify-center w-10 h-10 bg-white text-blue-600 hover:bg-blue-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
-                    title="Get Current Location"
-                  >
-                    <Navigation className={`w-5 h-5 ${isGettingLocation ? 'animate-spin' : ''}`} />
-                  </button>
+                    {/* Current Location Button - Bottom Right */}
+                    <button
+                      type="button"
+                      onClick={handleGetCurrentLocation}
+                      disabled={isGettingLocation}
+                      className="absolute bottom-2 right-2 pointer-events-auto flex items-center justify-center w-10 h-10 bg-white text-blue-600 hover:bg-blue-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+                      title="Get Current Location"
+                    >
+                      <Navigation 
+                        className={`w-5 h-5 flex-shrink-0 ${isGettingLocation ? 'animate-spin' : ''}`} 
+                        strokeWidth={2.5}
+                      />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
