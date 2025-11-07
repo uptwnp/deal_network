@@ -1,8 +1,21 @@
 import { useState, useEffect } from 'react';
-import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info } from 'lucide-react';
+import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info, Satellite } from 'lucide-react';
 import { Property } from '../types/property';
 import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 import { HIGHLIGHT_OPTIONS, TAG_OPTIONS } from '../utils/filterOptions';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useAuth } from '../contexts/AuthContext';
+import type { LeafletMouseEvent } from 'leaflet';
+
+// Fix Leaflet default icon
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 interface PropertyDetailsModalProps {
   property: Property;
@@ -767,7 +780,82 @@ interface LocationModalProps {
   onSave: (location: string, locationAccuracy: string) => void;
 }
 
+// Component to handle map clicks
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (e: LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      onMapClick(lat, lng);
+    },
+  });
+  return null;
+}
+
+// Component to update map center
+function MapCenterUpdater({ center }: { center: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom());
+  }, [center, map]);
+  return null;
+}
+
+// Component to handle tile layer switching
+function TileLayerSwitcher({ isSatelliteView }: { isSatelliteView: boolean }) {
+  // Use key prop to force remount when switching views for smoother transition
+  return isSatelliteView ? (
+    <TileLayer
+      key="satellite"
+      attribution='&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.esri.com/en-us/legal/terms/full-master-agreement">Esri Terms of Use</a>'
+      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      maxZoom={19}
+    />
+  ) : (
+    <TileLayer
+      key="map"
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      maxZoom={19}
+    />
+  );
+}
+
+// Geocode city name to coordinates using OpenStreetMap Nominatim (free, no key required)
+async function geocodeCity(cityName: string): Promise<[number, number] | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName + ', Haryana, India')}&limit=1`,
+      {
+        headers: {
+          'User-Agent': 'PropertyNetwork/1.0' // Required by Nominatim
+        }
+      }
+    );
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    }
+  } catch (error) {
+    console.error('Geocoding error:', error);
+  }
+  return null;
+}
+
 function LocationModal({ property, onClose, onSave }: LocationModalProps) {
+  const { user } = useAuth();
+  const [selectedPosition, setSelectedPosition] = useState<[number, number] | null>(() => {
+    // Check if property has location coordinates
+    const hasCoords = /^-?\d+\.?\d*,-?\d+\.?\d*$/.test((property.location || '').trim());
+    if (hasCoords) {
+      const parts = property.location.split(',').map(c => parseFloat(c.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return [parts[0], parts[1]];
+      }
+    }
+    return null;
+  });
+  const [mapCenter, setMapCenter] = useState<[number, number]>([29.3909, 76.9635]); // Default: Panipat
+  const [isLoadingCity, setIsLoadingCity] = useState(true);
   const [latLongInput, setLatLongInput] = useState(() => {
     // Check if property has location coordinates
     const hasCoords = /^-?\d+\.?\d*,-?\d+\.?\d*$/.test((property.location || '').trim());
@@ -777,13 +865,80 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
     return property.location_accuracy ? parseFloat(property.location_accuracy) || 500 : 500;
   });
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isSatelliteView, setIsSatelliteView] = useState(false);
+
+  // Initialize map center based on user's default city or property city
+  useEffect(() => {
+    const initializeMapCenter = async () => {
+      setIsLoadingCity(true);
+      const cityName = user?.default_city || property.city || 'Panipat';
+      
+      // Check if property already has location
+      const hasCoords = /^-?\d+\.?\d*,-?\d+\.?\d*$/.test((property.location || '').trim());
+      if (hasCoords) {
+        const parts = property.location.split(',').map(c => parseFloat(c.trim()));
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          setMapCenter([parts[0], parts[1]]);
+          setIsLoadingCity(false);
+          return;
+        }
+      }
+      
+      // Try to geocode the city
+      const coords = await geocodeCity(cityName);
+      if (coords) {
+        setMapCenter(coords);
+        // Set the selected position to city center if no existing location
+        setSelectedPosition(coords);
+        setLatLongInput(`${coords[0].toFixed(6)},${coords[1].toFixed(6)}`);
+      } else {
+        // Fallback to default coordinates (Panipat)
+        const defaultCoords: [number, number] = [29.3909, 76.9635];
+        setMapCenter(defaultCoords);
+        setSelectedPosition(defaultCoords);
+        setLatLongInput(`${defaultCoords[0].toFixed(6)},${defaultCoords[1].toFixed(6)}`);
+      }
+      setIsLoadingCity(false);
+    };
+
+    initializeMapCenter();
+  }, [user?.default_city, property.city, property.location]); // Run when user or property changes
 
   // Update state when property changes
   useEffect(() => {
     const hasCoords = /^-?\d+\.?\d*,-?\d+\.?\d*$/.test((property.location || '').trim());
-    setLatLongInput(hasCoords ? property.location : '');
+    if (hasCoords) {
+      const parts = property.location.split(',').map(c => parseFloat(c.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        setSelectedPosition([parts[0], parts[1]]);
+        setLatLongInput(property.location);
+      }
+    }
     setRadius(property.location_accuracy ? parseFloat(property.location_accuracy) || 500 : 500);
   }, [property.location, property.location_accuracy]);
+
+  const handleMapClick = (lat: number, lng: number) => {
+    setSelectedPosition([lat, lng]);
+    setLatLongInput(`${lat.toFixed(6)},${lng.toFixed(6)}`);
+  };
+
+  const handleInputChange = (value: string) => {
+    setLatLongInput(value);
+    // Try to parse and update marker position
+    const latLongPattern = /^-?\d+\.?\d*,-?\d+\.?\d*$/;
+    if (latLongPattern.test(value.trim())) {
+      const parts = value.split(',').map(c => parseFloat(c.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        const lat = parts[0];
+        const lng = parts[1];
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          setSelectedPosition([lat, lng]);
+          // Update map center to show the new position
+          setMapCenter([lat, lng]);
+        }
+      }
+    }
+  };
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -797,7 +952,9 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
+        setSelectedPosition([lat, lng]);
         setLatLongInput(`${lat.toFixed(6)},${lng.toFixed(6)}`);
+        setMapCenter([lat, lng]);
         setIsGettingLocation(false);
       },
       (error) => {
@@ -867,13 +1024,13 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    setLatLongInput(pastedText.trim());
+    handleInputChange(pastedText.trim());
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[98vh] sm:max-h-[80vh] overflow-y-auto animate-slide-up">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[98vh] sm:max-h-[90vh] overflow-y-auto animate-slide-up">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900">
             {hasLocationCoordinates(property.location) ? 'Edit Location' : 'Add Location'}
           </h3>
@@ -886,37 +1043,95 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
         </div>
 
         <div className="p-4 sm:p-6 space-y-6">
+          {/* Map Section */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Latitude, Longitude
-              </label>
-              <button
-                type="button"
-                onClick={handleGetCurrentLocation}
-                disabled={isGettingLocation}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Navigation className={`w-3.5 h-3.5 ${isGettingLocation ? 'animate-spin' : ''}`} />
-                {isGettingLocation ? 'Getting Location...' : 'Use GPS'}
-              </button>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Click on the map to select location
+            </label>
+            <div className="relative w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-gray-300">
+              {isLoadingCity ? (
+                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600">Loading map...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <MapContainer
+                    center={mapCenter}
+                    zoom={13}
+                    className="h-full w-full"
+                    scrollWheelZoom={true}
+                  >
+                    <MapCenterUpdater center={mapCenter} />
+                    <TileLayerSwitcher isSatelliteView={isSatelliteView} />
+                    <MapClickHandler onMapClick={handleMapClick} />
+                    {selectedPosition && (
+                      <Marker position={selectedPosition}>
+                        <Popup>
+                          Selected Location<br />
+                          {selectedPosition[0].toFixed(6)}, {selectedPosition[1].toFixed(6)}
+                        </Popup>
+                      </Marker>
+                    )}
+                  </MapContainer>
+                  
+                  {/* Satellite View Toggle Button - Top Right */}
+                  <button
+                    type="button"
+                    onClick={() => setIsSatelliteView(!isSatelliteView)}
+                    className={`absolute top-2 right-2 z-[1000] flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg shadow-lg transition-colors backdrop-blur-sm ${
+                      isSatelliteView
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                    }`}
+                    title={isSatelliteView ? 'Switch to Map View' : 'Switch to Satellite View'}
+                  >
+                    <Satellite className="w-4 h-4" />
+                    <span className="hidden sm:inline">{isSatelliteView ? 'Satellite' : 'Map'}</span>
+                  </button>
+
+                  {/* Current Location Button - Bottom Right */}
+                  <button
+                    type="button"
+                    onClick={handleGetCurrentLocation}
+                    disabled={isGettingLocation}
+                    className="absolute bottom-2 right-2 z-[1000] flex items-center justify-center w-10 h-10 bg-white text-blue-600 hover:bg-blue-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+                    title="Get Current Location"
+                  >
+                    <Navigation className={`w-5 h-5 ${isGettingLocation ? 'animate-spin' : ''}`} />
+                  </button>
+                </>
+              )}
             </div>
+            <p className="text-xs text-gray-500 mt-1.5">
+              Click anywhere on the map to set the location. The map is centered on {user?.default_city || property.city || 'Panipat'}.
+            </p>
+          </div>
+
+          {/* Input Section */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Latitude, Longitude
+            </label>
             <input
               type="text"
               value={latLongInput}
-              onChange={(e) => setLatLongInput(e.target.value)}
+              onChange={(e) => handleInputChange(e.target.value)}
               onPaste={handlePaste}
               placeholder="Paste lat,long here (e.g., 28.7041,77.1025)"
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
             />
             <p className="text-xs text-gray-500 mt-1.5">
-              Format: latitude,longitude (e.g., 28.7041,77.1025) or click "Use GPS" to get your current location
+              Format: latitude,longitude (e.g., 28.7041,77.1025). You can also paste coordinates or use GPS.
             </p>
           </div>
 
+          {/* Radius Section */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Radius: {radius}m
+              Location Accuracy Radius: {radius}m
             </label>
             <input
               type="range"
@@ -932,8 +1147,12 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
               <span>2500m</span>
               <span>5000m</span>
             </div>
+            <p className="text-xs text-gray-500 mt-1.5">
+              This radius indicates the accuracy of the location. A smaller radius means more precise location.
+            </p>
           </div>
 
+          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-4">
             <button
               type="button"
