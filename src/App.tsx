@@ -4,7 +4,7 @@ import { Plus, Home, Globe, ChevronDown, User } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { PropertyModal } from './components/PropertyModal';
-import { PropertyDetailsModal } from './ciomponents/PropertyDetailsModal';
+import { PropertyDetailsModal } from './components/PropertyDetailsModal';
 import { ContactModal } from './components/ContactModal';
 import { SearchFilter } from './components/SearchFilter';
 import { ProfilePage } from './components/ProfilePage';

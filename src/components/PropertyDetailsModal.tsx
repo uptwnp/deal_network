@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
+import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info } from 'lucide-react';
 import { Property } from '../types/property';
 import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 import { HIGHLIGHT_OPTIONS, TAG_OPTIONS } from '../utils/filterOptions';
@@ -97,6 +97,8 @@ export function PropertyDetailsModal({
   const [showTagModal, setShowTagModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showNoteTooltip, setShowNoteTooltip] = useState(false);
+  const [showLocationLockTooltip, setShowLocationLockTooltip] = useState(false);
+  const [showPrivacyInfoTooltip, setShowPrivacyInfoTooltip] = useState(false);
   const [selectedHighlights, setSelectedHighlights] = useState<string[]>(
     property.highlights ? property.highlights.split(',').map(h => h.trim()).filter(Boolean) : []
   );
@@ -239,7 +241,7 @@ export function PropertyDetailsModal({
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-500" />
+                <Building className="w-4 h-4 text-gray-500" />
                 <span className="text-sm sm:text-base text-gray-600" >Area</span>
               </div>
               <div className="text-right">
@@ -252,6 +254,22 @@ export function PropertyDetailsModal({
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-500" />
                 <span className="text-sm sm:text-base text-gray-600" >Location</span>
+                <div className="relative">
+                  <button
+                    onMouseEnter={() => setShowLocationLockTooltip(true)}
+                    onMouseLeave={() => setShowLocationLockTooltip(false)}
+                    onClick={() => setShowLocationLockTooltip(!showLocationLockTooltip)}
+                    className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-gray-400" />
+                  </button>
+                  {showLocationLockTooltip && (
+                    <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded z-50 pointer-events-none min-w-[200px] sm:min-w-[250px] max-w-[280px] sm:max-w-[320px]">
+                      Location is only visible to you. Others cannot see the exact coordinates.
+                      <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="text-right flex items-center gap-2 flex-wrap justify-end">
                 {hasLocation ? (
@@ -364,7 +382,27 @@ export function PropertyDetailsModal({
             <div className="pt-2 border-t border-gray-200">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1">
-                  <span className="text-xs sm:text-sm font-semibold text-gray-900">Privacy</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs sm:text-sm font-semibold text-gray-900">Privacy</span>
+                    <div className="relative">
+                      <button
+                        onMouseEnter={() => setShowPrivacyInfoTooltip(true)}
+                        onMouseLeave={() => setShowPrivacyInfoTooltip(false)}
+                        onClick={() => setShowPrivacyInfoTooltip(!showPrivacyInfoTooltip)}
+                        className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <Info className="w-3.5 h-3.5 text-gray-400" />
+                      </button>
+                      {showPrivacyInfoTooltip && (
+                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded z-50 pointer-events-none min-w-[200px] sm:min-w-[250px] max-w-[280px] sm:max-w-[320px]">
+                          {property.is_public === 1 
+                            ? 'Public properties can be viewed by anyone and shared via link. Private properties are only visible to you.' 
+                            : 'Private properties are only visible to you. Make it public to allow others to view and share it.'}
+                          <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <p className="text-xs text-gray-500 leading-relaxed mt-0.5">
                     {property.is_public === 1 
                       ? 'This property is visible to everyone' 
@@ -412,9 +450,9 @@ export function PropertyDetailsModal({
                 >
                   <Lock className="w-3 h-3 text-gray-400" />
                   {showNoteTooltip && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-xs rounded z-50 pointer-events-none max-w-[200px] sm:max-w-none text-center">
+                    <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded z-50 pointer-events-none min-w-[200px] sm:min-w-[250px] max-w-[280px] sm:max-w-[320px]">
                       This note is visible only to you even if you share the property to public
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                      <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                     </div>
                   )}
                 </span>
