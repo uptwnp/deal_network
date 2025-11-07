@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info, Satellite } from 'lucide-react';
+import { X, Copy, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info, Satellite, Map as MapIcon } from 'lucide-react';
 import { Property } from '../types/property';
 import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 import { HIGHLIGHT_OPTIONS, TAG_OPTIONS } from '../utils/filterOptions';
@@ -110,6 +110,7 @@ export function PropertyDetailsModal({
   const [showHighlightModal, setShowHighlightModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showLocationViewModal, setShowLocationViewModal] = useState(false);
   const [showNoteTooltip, setShowNoteTooltip] = useState(false);
   const [showLocationLockTooltip, setShowLocationLockTooltip] = useState(false);
   const [showPrivacyInfoTooltip, setShowPrivacyInfoTooltip] = useState(false);
@@ -133,11 +134,16 @@ export function PropertyDetailsModal({
   const locationCoords = parseLocation(property.location);
   const hasLocation = hasLocationCoordinates(property.location);
 
-  // Open location in map
+  // Open location in map modal
   const handleOpenInMap = () => {
     if (!locationCoords) return;
+    setShowLocationViewModal(true);
+  };
+
+  // Open location in Google Maps
+  const handleOpenInGoogleMaps = () => {
+    if (!locationCoords) return;
     const { lat, lng } = locationCoords;
-    // Open in Google Maps
     const url = `https://www.google.com/maps?q=${lat},${lng}`;
     window.open(url, '_blank');
   };
@@ -778,6 +784,15 @@ export function PropertyDetailsModal({
           }}
         />
       )}
+
+      {showLocationViewModal && locationCoords && (
+        <LocationViewModal
+          propertyLocation={locationCoords}
+          property={property}
+          onClose={() => setShowLocationViewModal(false)}
+          onOpenInGoogleMaps={handleOpenInGoogleMaps}
+        />
+      )}
     </div>
   );
 }
@@ -1096,7 +1111,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                   </MapContainer>
                   
                   {/* Map Control Buttons Container */}
-                  <div className="absolute inset-0 pointer-events-none z-[2000]" style={{ zIndex: 2000 }}>
+                  <div className="absolute inset-0 pointer-events-none z-[2]">
                     {/* Satellite View Toggle Button - Top Right */}
                     <button
                       type="button"
@@ -1196,6 +1211,225 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
               Cancel
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Location View Modal Component - Shows property location in map with satellite view
+interface LocationViewModalProps {
+  propertyLocation: { lat: number; lng: number };
+  property: Property;
+  onClose: () => void;
+  onOpenInGoogleMaps: () => void;
+}
+
+// Component to update map bounds to show both property and user location
+function MapBoundsUpdater({ propertyLocation, userLocation, hasUserLocation, isInitialLoad }: { propertyLocation: [number, number]; userLocation: [number, number] | null; hasUserLocation: boolean; isInitialLoad: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    // Only update bounds on initial load or when user location first becomes available
+    if (isInitialLoad) {
+      if (hasUserLocation && userLocation) {
+        // Create bounds that include both locations
+        const bounds = L.latLngBounds([propertyLocation, userLocation]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      } else {
+        // Just center on property location
+        map.setView(propertyLocation, 15);
+      }
+    }
+  }, [propertyLocation, userLocation, hasUserLocation, isInitialLoad, map]);
+  return null;
+}
+
+function LocationViewModal({ propertyLocation, property, onClose, onOpenInGoogleMaps }: LocationViewModalProps) {
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(true);
+  const [isSatelliteView, setIsSatelliteView] = useState(true); // Default to satellite view
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const mapCenter: [number, number] = userLocation 
+    ? [(propertyLocation.lat + userLocation[0]) / 2, (propertyLocation.lng + userLocation[1]) / 2]
+    : [propertyLocation.lat, propertyLocation.lng];
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    lockBodyScroll();
+    return () => {
+      unlockBodyScroll();
+    };
+  }, []);
+
+  // Get user's current location
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setIsGettingLocation(false);
+      setIsInitialLoad(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setUserLocation([lat, lng]);
+        setIsGettingLocation(false);
+        // Wait a bit before marking initial load as complete to allow map to fit bounds
+        setTimeout(() => setIsInitialLoad(false), 500);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        setIsInitialLoad(false);
+        // Silently fail - user location is optional
+        console.log('Could not get user location:', error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  }, []);
+
+
+  // Create custom icons for markers
+  const propertyIcon = L.icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+
+  // Create a blue circle marker icon for user location
+  const userIcon = L.divIcon({
+    className: 'custom-user-marker',
+    html: `<div style="
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #3b82f6;
+      border: 4px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    "></div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  });
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-4xl mobile-modal-content sm:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+            <MapIcon className="w-5 h-5" />
+            Property Location
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 relative min-h-[400px] sm:min-h-[500px]">
+          {isGettingLocation ? (
+            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-600">Loading map and your location...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <MapContainer
+                center={mapCenter}
+                zoom={userLocation ? 13 : 15}
+                className="h-full w-full"
+                scrollWheelZoom={true}
+                style={{ position: 'relative', zIndex: 1 }}
+              >
+                <MapBoundsUpdater 
+                  propertyLocation={[propertyLocation.lat, propertyLocation.lng]} 
+                  userLocation={userLocation}
+                  hasUserLocation={!!userLocation}
+                  isInitialLoad={isInitialLoad}
+                />
+                <TileLayerSwitcher isSatelliteView={isSatelliteView} />
+                
+                {/* Property Location Marker */}
+                <Marker 
+                  position={[propertyLocation.lat, propertyLocation.lng]}
+                  icon={propertyIcon}
+                >
+                  <Popup>
+                    <div className="p-2">
+                      <h3 className="font-semibold text-sm mb-1">{property.type} #{property.id}</h3>
+                      <p className="text-xs text-gray-600 mb-1">
+                        {property.area}, {property.city}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {propertyLocation.lat.toFixed(6)}, {propertyLocation.lng.toFixed(6)}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+
+                {/* User Location Marker */}
+                {userLocation && (
+                  <Marker 
+                    position={userLocation}
+                    icon={userIcon}
+                  >
+                    <Popup>
+                      <div className="p-2">
+                        <h3 className="font-semibold text-sm mb-1">Your Location</h3>
+                        <p className="text-xs text-gray-500">
+                          {userLocation[0].toFixed(6)}, {userLocation[1].toFixed(6)}
+                        </p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+              </MapContainer>
+              
+              {/* Map Control Buttons Container */}
+              <div className="absolute inset-0 pointer-events-none z-[2]">
+                {/* Satellite View Toggle Button - Top Right */}
+                <button
+                  type="button"
+                  onClick={() => setIsSatelliteView(!isSatelliteView)}
+                  className={`absolute top-2 right-2 pointer-events-auto flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg shadow-lg transition-colors ${
+                    isSatelliteView
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                  }`}
+                  title={isSatelliteView ? 'Switch to Map View' : 'Switch to Satellite View'}
+                >
+                  <Satellite 
+                    className="w-4 h-4 flex-shrink-0" 
+                    strokeWidth={2.5}
+                  />
+                  <span className="hidden sm:inline">{isSatelliteView ? 'Satellite' : 'Map'}</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Full Width Button to Open in Google Maps */}
+        <div className="border-t border-gray-200 p-4 sm:p-6 bg-white">
+          <button
+            onClick={onOpenInGoogleMaps}
+            className="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-center gap-2 bg-blue-600 text-white text-sm sm:text-base font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            <MapIcon className="w-5 h-5" />
+            Open in Google Maps
+          </button>
         </div>
       </div>
     </div>
