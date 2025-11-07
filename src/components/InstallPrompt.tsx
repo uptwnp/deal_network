@@ -28,10 +28,21 @@ export function InstallPrompt() {
       
       setIsInstalled(isStandaloneMode);
       
-      // Also check localStorage for dismissed state
-      const dismissed = localStorage.getItem('pwa-install-dismissed');
-      if (dismissed === 'true') {
-        setIsDismissed(true);
+      // Check localStorage for dismissed state with timestamp
+      const dismissedTimestamp = localStorage.getItem('pwa-install-dismissed');
+      if (dismissedTimestamp) {
+        const dismissedTime = parseInt(dismissedTimestamp, 10);
+        const currentTime = Date.now();
+        const twoMinutesInMs = 2 * 60 * 1000; // 2 minutes in milliseconds
+        
+        // If dismissed less than 2 minutes ago, consider it dismissed
+        if (currentTime - dismissedTime < twoMinutesInMs) {
+          setIsDismissed(true);
+        } else {
+          // More than 2 minutes have passed, clear the dismissal
+          localStorage.removeItem('pwa-install-dismissed');
+          setIsDismissed(false);
+        }
       }
     };
 
@@ -62,11 +73,27 @@ export function InstallPrompt() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Set up interval to re-check dismissal status every 30 seconds
+    const checkInterval = setInterval(() => {
+      const dismissedTimestamp = localStorage.getItem('pwa-install-dismissed');
+      if (dismissedTimestamp) {
+        const dismissedTime = parseInt(dismissedTimestamp, 10);
+        const currentTime = Date.now();
+        const twoMinutesInMs = 2 * 60 * 1000;
+        
+        if (currentTime - dismissedTime >= twoMinutesInMs) {
+          localStorage.removeItem('pwa-install-dismissed');
+          setIsDismissed(false);
+        }
+      }
+    }, 30000); // Check every 30 seconds
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(checkInterval);
     };
   }, []);
 
@@ -108,7 +135,8 @@ export function InstallPrompt() {
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    localStorage.setItem('pwa-install-dismissed', 'true');
+    // Store current timestamp instead of just 'true'
+    localStorage.setItem('pwa-install-dismissed', Date.now().toString());
     setDeferredPrompt(null);
   };
 
