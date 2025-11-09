@@ -987,14 +987,6 @@ function MainAppContent({
 
   // Calculate map center from properties with coordinates
   const getMapCenter = (): [number, number] => {
-    // If a property is selected and has coordinates, center on it
-    if (selectedProperty && selectedProperty.location && selectedProperty.location.includes(',')) {
-      const coords = selectedProperty.location.split(',').map((c) => parseFloat(c.trim()));
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        return [coords[0], coords[1]];
-      }
-    }
-    
     const propertiesWithCoords = currentProperties.filter(
       (p) => p.location && p.location.includes(',')
     );

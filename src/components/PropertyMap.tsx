@@ -138,28 +138,21 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
               <Marker 
                 key={`marker-${property.id}`}
                 position={[coords[0], coords[1]]}
-                eventHandlers={{
-                  click: () => {
-                    if (onMarkerClick) {
-                      onMarkerClick(property);
-                    }
-                  },
-                }}
               >
                 <Popup>
-                  <div className="p-2">
-                    <h3 className="font-semibold text-sm mb-1">{property.type}</h3>
-                    <p className="text-xs text-gray-600 mb-2">
+                  <div className="p-1.5">
+                    <h3 className="font-semibold text-xs mb-0.5">{property.type}</h3>
+                    <p className="text-xs text-gray-600 mb-1">
                       {property.area}, {property.city}
                     </p>
-                    <p className="text-xs font-medium text-blue-600">
+                    <p className="text-xs font-medium text-blue-600 mb-0.5">
                       {formatPrice(property.price_min, property.price_max, true)}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500">
                       {property.min_size}-{property.size_max} {property.size_unit}
                     </p>
                     {property.location_accuracy && (
-                      <p className="text-xs text-blue-600 mt-1">
+                      <p className="text-xs text-blue-600 mt-0.5">
                         Accuracy: {property.location_accuracy}m
                       </p>
                     )}
@@ -169,7 +162,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
                           e.stopPropagation();
                           onMarkerClick(property);
                         }}
-                        className="mt-2 w-full px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                        className="mt-1.5 w-full px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
                       >
                         View Details
                       </button>
