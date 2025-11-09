@@ -1365,17 +1365,17 @@ export function LocationModal({ property, onClose, onSave }: LocationModalProps)
           <div className="grid grid-cols-2 gap-3 pt-4">
             <button
               type="button"
-              onClick={handleSave}
-              className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
-            >
-              Save
-            </button>
-            <button
-              type="button"
               onClick={onClose}
               className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+            >
+              Save
             </button>
           </div>
         </div>

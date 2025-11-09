@@ -5,6 +5,7 @@ import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 import { HIGHLIGHT_OPTIONS, TAG_OPTIONS } from '../utils/filterOptions';
 import { LocationModal } from './LocationModal';
 import { LocationViewModal } from './LocationViewModal';
+import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock';
 
 interface PropertyDetailsModalProps {
   property: Property;
@@ -221,9 +222,9 @@ export function PropertyDetailsModal({
 
   // Lock body scroll when modal is open
   useEffect(() => {
-    document.body.classList.add('modal-open');
+    lockBodyScroll();
     return () => {
-      document.body.classList.remove('modal-open');
+      unlockBodyScroll();
     };
   }, []);
 

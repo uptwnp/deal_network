@@ -101,3 +101,31 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
+
+/* Hide browser loading progress bar and any loading indicators */
+progress,
+[role="progressbar"],
+.loading-bar,
+.progress-bar,
+#loading-bar,
+.loading-progress {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Hide browser's native loading indicator if possible */
+html::-webkit-scrollbar-track {
+  display: none;
+}
+
+/* Prevent any loading bar from appearing */
+body::before,
+body::after,
+html::before,
+html::after {
+  content: none !important;
+}
