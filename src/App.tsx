@@ -205,6 +205,37 @@ function App() {
     }
   }, [activeFilter, myProperties, publicProperties, searchQuery, activeFilters]);
 
+  // Re-apply filters after properties are loaded (fixes issue where filters applied before properties load)
+  const filtersReappliedRef = useRef<string>('');
+  useEffect(() => {
+    // Only re-apply if we have active filters and properties have been loaded
+    const hasProperties = (activeFilter === 'all' && (myProperties.length > 0 || publicProperties.length > 0)) ||
+                          (activeFilter === 'my' && myProperties.length > 0) ||
+                          (activeFilter === 'public' && publicProperties.length > 0);
+    
+    // Create a key from activeFilters to track if we've already re-applied for these specific filters
+    const filtersKey = JSON.stringify(activeFilters);
+    
+    // Check if filters were applied before properties loaded
+    // Only re-apply if: filters exist, properties are loaded, no search query, and we haven't re-applied for these filters yet
+    const shouldReapply = Object.keys(activeFilters).length > 0 && 
+                         hasProperties && 
+                         !searchQuery.trim() &&
+                         filtersReappliedRef.current !== filtersKey;
+    
+    if (shouldReapply) {
+      filtersReappliedRef.current = filtersKey;
+      // Re-apply filters after properties are loaded
+      handleFilter(activeFilters);
+    }
+    
+    // Reset flag when filters are cleared
+    if (Object.keys(activeFilters).length === 0) {
+      filtersReappliedRef.current = '';
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myProperties, publicProperties, activeFilter, activeFilters, searchQuery]); // Only re-run when properties change
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
