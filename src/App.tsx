@@ -199,6 +199,8 @@ function App() {
         propertiesToDisplay = publicProperties;
       }
 
+      // Always update filteredProperties when there's no active search/filter
+      // This ensures it stays in sync with the base properties
       setFilteredProperties(propertiesToDisplay);
     }
   }, [activeFilter, myProperties, publicProperties, searchQuery, activeFilters]);
@@ -513,14 +515,18 @@ function App() {
           if (Object.keys(activeFilters).length > 0) {
             filtered = applyClientSideFilters(results, activeFilters);
           }
+          // Always set filteredProperties, even if empty (to show "no results")
           setFilteredProperties(filtered);
         } else if (Object.keys(activeFilters).length > 0) {
           // If only filters (no search), use filter API
           const results = await propertyApi.filterProperties(ownerId, listParam, activeFilters);
+          // Always set filteredProperties, even if empty (to show "no results")
           setFilteredProperties(results);
         }
       } catch (error) {
         showToast('Search failed', 'error');
+        // On error, set empty array to show "no results" instead of falling back to base properties
+        setFilteredProperties([]);
       }
     },
     [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn]
@@ -528,6 +534,7 @@ function App() {
 
   const handleFilter = useCallback(
     async (filters: FilterOptions) => {
+      // Update activeFilters immediately
       setActiveFilters(filters);
       
       // Map activeFilter to API list parameter
@@ -557,13 +564,16 @@ function App() {
         } else {
           // If only filters (no search), use filter API
           const results = await propertyApi.filterProperties(ownerId, listParam, filters);
+          // Always set filteredProperties, even if empty (to show "no results")
           setFilteredProperties(results);
         }
       } catch (error) {
         showToast('Filter failed', 'error');
+        // On error, set empty array to show "no results" instead of falling back to base properties
+        setFilteredProperties([]);
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters]
+    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast]
   );
 
   const handleFilterChange = (filter: FilterType) => {
@@ -581,27 +591,28 @@ function App() {
   };
 
   const handleClearSearchAndFilters = useCallback(() => {
-    setSearchQuery('');
-    setActiveFilters({});
-    // Clear from localStorage
+    // Clear from localStorage first
     localStorage.removeItem(STORAGE_KEYS.SEARCH_QUERY);
     localStorage.removeItem(STORAGE_KEYS.FILTERS);
     localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
-    // Force SearchFilter to reset by changing key
+    
+    // Clear state - this will trigger the useEffect to reset filteredProperties
+    setSearchQuery('');
+    setActiveFilters({});
+    
+    // Force SearchFilter to reset by changing key - this will cause it to remount
     setSearchFilterKey(prev => prev + 1);
-    // Trigger search with empty query to clear results
-    handleSearch('', searchColumn);
-    // Also clear filters
-    handleFilter({});
-    // Reset to default list
+    
+    // Reset filteredProperties immediately based on current filter
+    // This ensures properties show up immediately after clearing
     if (activeFilter === 'all') {
       setFilteredProperties([...myProperties, ...publicProperties]);
     } else if (activeFilter === 'my') {
       setFilteredProperties(myProperties);
-    } else if (activeFilter === 'public') {
+    } else {
       setFilteredProperties(publicProperties);
     }
-  }, [activeFilter, myProperties, publicProperties, handleSearch, handleFilter, searchColumn]);
+  }, [activeFilter, myProperties, publicProperties]);
 
   const handleUserIdChange = () => {
     const newId = prompt('Enter Owner ID:', ownerId.toString());
@@ -1080,17 +1091,24 @@ function MainAppContent({
   // Check if search or filters are active
   const hasActiveSearchOrFilter = searchQuery.trim().length > 0 || Object.keys(activeFilters).length > 0;
   
+  // Get the base properties based on active filter
+  const getBaseProperties = () => {
+    if (activeFilter === 'all') {
+      return [...myProperties, ...publicProperties];
+    } else if (activeFilter === 'my') {
+      return myProperties;
+    } else {
+      return publicProperties;
+    }
+  };
+  
+  const baseProperties = getBaseProperties();
+  
   // If search/filter is active, always use filteredProperties (even if empty - shows "no results")
-  // Otherwise, fall back to default list
-  const currentProperties = hasActiveSearchOrFilter 
+  // Only fall back to base properties if there's no active search/filter
+  const currentProperties = hasActiveSearchOrFilter
     ? filteredProperties 
-    : (filteredProperties.length > 0 
-        ? filteredProperties 
-        : (activeFilter === 'all' 
-            ? [...myProperties, ...publicProperties] 
-            : activeFilter === 'my' 
-              ? myProperties 
-              : publicProperties));
+    : baseProperties;
 
   const getFilterLabel = () => {
     if (activeFilter === 'all') return 'All Properties';
