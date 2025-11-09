@@ -142,30 +142,8 @@ export function registerUser(userData: Omit<User, 'id' | 'createdAt'>): User {
   return newUser;
 }
 
-// Initialize test user if no users exist
-export function initializeTestUser(): void {
-  const users = getAllUsers();
-  if (users.length === 0) {
-    const testUser: User = {
-      id: 1,
-      name: 'Test User',
-      phone: '1234567890',
-      address: '123 Test Street',
-      firmName: 'Test Firm',
-      pin: '1234',
-      createdAt: Date.now(),
-    };
-    users.push(testUser);
-    saveAllUsers(users);
-    saveNextUserId(2);
-  }
-}
-
 // Login with phone and PIN
 export function loginUser(phone: string, pin: string): User | null {
-  // Initialize test user if no users exist
-  initializeTestUser();
-  
   const users = getAllUsers();
   const user = users.find(u => u.phone === phone && u.pin === pin);
   

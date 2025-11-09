@@ -14,8 +14,8 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
 
   // Login form state
-  const [loginPhone, setLoginPhone] = useState('1234567890');
-  const [loginPin, setLoginPin] = useState('1234');
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginPin, setLoginPin] = useState('');
 
   // Signup form state
   const [signupName, setSignupName] = useState('');

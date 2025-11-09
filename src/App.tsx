@@ -321,10 +321,47 @@ function App() {
 
   const handleAddProperty = async (data: PropertyFormData) => {
     try {
-      await propertyApi.addProperty(ownerId, data);
+      const response = await propertyApi.addProperty(ownerId, data);
+      const newPropertyId = response.id;
       showToast('Property added successfully', 'success');
       setShowModal(false);
-      await refreshPropertiesAndFilters();
+      
+      // Fetch the newly added property directly since we know it will be in user's properties
+      // This is more reliable than waiting for state updates
+      try {
+        const myProps = await propertyApi.getUserProperties(ownerId);
+        const newProperty = myProps.find(p => p.id === newPropertyId);
+        
+        if (newProperty) {
+          // Update state with refreshed properties
+          setMyProperties(myProps);
+          
+          // Clear any active filters/search so the new property is visible
+          setSearchQuery('');
+          setActiveFilters({});
+          
+          // Switch to 'my' filter if not already, so the property is visible in the list
+          if (activeFilter !== 'my') {
+            setActiveFilter('my');
+            // Update filtered properties for 'my' filter
+            setFilteredProperties(myProps);
+          } else {
+            // Already on 'my' filter, just update the filtered properties
+            setFilteredProperties(myProps);
+          }
+          
+          // Set the newly added property as selected and open detail modal
+          setSelectedProperty(newProperty);
+          setShowDetailsModal(true);
+        } else {
+          // Property not found (shouldn't happen), just refresh normally
+          await refreshPropertiesAndFilters();
+        }
+      } catch (error) {
+        console.error('Failed to fetch newly added property:', error);
+        // Fallback: just refresh properties normally
+        await refreshPropertiesAndFilters();
+      }
     } catch (error) {
       showToast('Failed to add property', 'error');
     }

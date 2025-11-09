@@ -20,15 +20,16 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 // ===== DB =====
-$host = "localhost";
-$user = "u240376517_propdb";
-$pass = "Y*Q;5gIOp2";
-$dbname = "u240376517_propdb";
-
-$conn = new mysqli($host, $user, $pass, $dbname);
-if ($conn->connect_error) {
-    die(json_encode(["error" => "Database connection failed"]));
-}
+// TODO: Replace with environment variables or secure configuration
+// Example:
+// $host = "localhost";
+// $user = "your_db_user";
+// $pass = "your_db_password";
+// $dbname = "your_db_name";
+// $conn = new mysqli($host, $user, $pass, $dbname);
+// if ($conn->connect_error) {
+//     die(json_encode(["error" => "Database connection failed"]));
+// }
 
 // ===== Helpers =====
 function clean($data)

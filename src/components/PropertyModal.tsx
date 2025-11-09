@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, MapPin, ChevronDown, Ruler, IndianRupee, FileText, Lock, Globe } from 'lucide-react';
 import { Property, PropertyFormData } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
+import { useAuth } from '../contexts/AuthContext';
 import {
   AREA_OPTIONS,
   CITY_OPTIONS_WITH_LABELS,
@@ -23,6 +24,7 @@ const LAST_UNIT_KEY = 'propnetwork_last_unit';
 
 export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProps) {
   const [showNoteTooltip, setShowNoteTooltip] = useState(false);
+  const { user } = useAuth();
   
   // Load draft from localStorage if no property (new property) - memoize to prevent re-renders
   const draftData = useMemo(() => {
@@ -49,8 +51,30 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
   }, []);
 
-  // Get user settings for defaults
+  // Get user settings for defaults (fallback for size unit)
   const userSettings = getUserSettings();
+  
+  // Parse user's default values from AuthContext
+  // default_area and default_type are stored as comma-separated strings
+  const getDefaultArea = (): string => {
+    if (user?.default_area) {
+      const areas = user.default_area.split(',').map(a => a.trim()).filter(a => a);
+      if (areas.length > 0) return areas[0];
+    }
+    return '';
+  };
+  
+  const getDefaultType = (): string => {
+    if (user?.default_type) {
+      const types = user.default_type.split(',').map(t => t.trim()).filter(t => t);
+      if (types.length > 0) return types[0];
+    }
+    return '';
+  };
+  
+  const getUserDefaultCity = (): string => {
+    return user?.default_city || '';
+  };
 
   const [formData, setFormData] = useState<PropertyFormData>(
     property ? {
@@ -72,9 +96,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       public_rating: property.public_rating || 0,
       my_rating: property.my_rating || 0,
     } : (draftData || {
-      city: getLastSelections.city || userSettings.city || 'Panipat',
-      area: getLastSelections.area || (userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : ''),
-      type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
+      // Priority: last selections > user defaults > userSettings > fallback
+      city: getLastSelections.city || getUserDefaultCity() || userSettings.city || 'Panipat',
+      area: getLastSelections.area || getDefaultArea() || (userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : ''),
+      type: getDefaultType() || (userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : ''),
       description: '',
       note_private: '',
       min_size: undefined,
@@ -175,6 +200,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
   }, [formData.size_unit, property]);
 
+  // Update formData when property changes (for editing)
   useEffect(() => {
     if (property) {
       setFormData({
@@ -212,6 +238,49 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       }
     }
   }, [property, draftData]);
+
+  // Update defaults when user object becomes available (for new properties only)
+  // This handles the case where user loads after component mounts
+  useEffect(() => {
+    // Only update for new properties (not editing) and when no draft exists
+    if (!property && !draftData && user) {
+      setFormData(prev => {
+        const updates: Partial<PropertyFormData> = {};
+        let hasUpdates = false;
+
+        // Update city if it's using the fallback value or empty
+        // Check if current city is the fallback, or if user has a default city that's different
+        const currentCity = prev.city || '';
+        const fallbackCity = userSettings.city || 'Panipat';
+        const userDefaultCity = user.default_city || '';
+        
+        if (userDefaultCity && (currentCity === fallbackCity || !currentCity)) {
+          updates.city = userDefaultCity;
+          hasUpdates = true;
+        }
+
+        // Update area if empty and user has a default area
+        if (!prev.area && user.default_area) {
+          const areas = user.default_area.split(',').map(a => a.trim()).filter(a => a);
+          if (areas.length > 0) {
+            updates.area = areas[0];
+            hasUpdates = true;
+          }
+        }
+
+        // Update type if empty and user has a default type
+        if (!prev.type && user.default_type) {
+          const types = user.default_type.split(',').map(t => t.trim()).filter(t => t);
+          if (types.length > 0) {
+            updates.type = types[0];
+            hasUpdates = true;
+          }
+        }
+
+        return hasUpdates ? { ...prev, ...updates } : prev;
+      });
+    }
+  }, [user?.default_city, user?.default_area, user?.default_type, property, draftData, userSettings.city]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
