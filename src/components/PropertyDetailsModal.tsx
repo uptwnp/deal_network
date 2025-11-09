@@ -805,11 +805,15 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 }
 
 // Component to update map center
-function MapCenterUpdater({ center }: { center: [number, number] }) {
+function MapCenterUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
+    if (zoom !== undefined) {
+      map.setView(center, zoom);
+    } else {
+      map.setView(center, map.getZoom());
+    }
+  }, [center, zoom, map]);
   return null;
 }
 
@@ -1207,7 +1211,9 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
     return null;
   });
   const [mapCenter, setMapCenter] = useState<[number, number]>([29.3909, 76.9635]); // Default: Panipat
+  const [mapZoom, setMapZoom] = useState<number | undefined>(undefined);
   const [isLoadingCity, setIsLoadingCity] = useState(true);
+  const [showSearchSection, setShowSearchSection] = useState(false);
   const [radius, setRadius] = useState(() => {
     return accuracyField ? parseFloat(accuracyField) || 0 : 0;
   });
@@ -1399,6 +1405,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
       if (result) {
         setSelectedPosition(result.coords);
         setMapCenter(result.coords);
+        setMapZoom(16); // Zoom in 3 levels from default 13 for closer view
         // If landmark checkbox is checked, auto-generate landmark position
         if (addLandmark) {
           const [landmarkLat, landmarkLng] = calculateLandmarkLocation(
@@ -1432,6 +1439,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
     const lng = parseFloat(suggestion.lon);
     setSelectedPosition([lat, lng]);
     setMapCenter([lat, lng]);
+    setMapZoom(16); // Zoom in 3 levels from default 13 for closer view
     // If landmark checkbox is checked, auto-generate landmark position
     if (addLandmark) {
       const [landmarkLat, landmarkLng] = calculateLandmarkLocation(
@@ -1497,6 +1505,8 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
 
   const handleMapClick = (lat: number, lng: number) => {
     setSelectedPosition([lat, lng]);
+    setMapCenter([lat, lng]);
+    setMapZoom(16); // Zoom in 3 levels from default 13 for closer view
     // If landmark checkbox is checked, auto-generate landmark position
     if (addLandmark) {
       const [landmarkLat, landmarkLng] = calculateLandmarkLocation(
@@ -1539,6 +1549,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
         const lng = position.coords.longitude;
         setSelectedPosition([lat, lng]);
         setMapCenter([lat, lng]);
+        setMapZoom(16); // Zoom in 3 levels from default 13 for closer view
         // If landmark checkbox is checked, auto-generate landmark position
         if (addLandmark) {
           const [landmarkLat, landmarkLng] = calculateLandmarkLocation(
@@ -1664,10 +1675,11 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
 
         <div className="p-4 sm:p-6 space-y-6">
           {/* Search Section - First field above map */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Search Location
-            </label>
+          {showSearchSection && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Search Location
+              </label>
             <div className="relative" ref={searchInputRef}>
               <div className="relative">
                 <input
@@ -1694,6 +1706,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                         if (result) {
                           setSelectedPosition(result.coords);
                           setMapCenter(result.coords);
+                          setMapZoom(16); // Zoom in 3 levels from default 13 for closer view
                           // If landmark checkbox is checked, auto-generate landmark position
                           if (addLandmark) {
                             const [landmarkLat, landmarkLng] = calculateLandmarkLocation(
@@ -1776,11 +1789,19 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
               If search doesn't work, click on the map to select location directly.
             </p>
           </div>
+          )}
 
           {/* Map Section */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Click on the map to select location
+              Click on the map to select location or{' '}
+              <button
+                type="button"
+                onClick={() => setShowSearchSection(!showSearchSection)}
+                className="text-blue-600 underline hover:text-blue-700 font-semibold"
+              >
+                Enter location
+              </button>
             </label>
             <div className="relative w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-gray-300">
               {isLoadingCity ? (
@@ -1799,7 +1820,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                     scrollWheelZoom={true}
                     style={{ position: 'relative', zIndex: 1 }}
                   >
-                    <MapCenterUpdater center={mapCenter} />
+                    <MapCenterUpdater center={mapCenter} zoom={mapZoom} />
                     <TileLayerSwitcher isSatelliteView={isSatelliteView} />
                     <MapClickHandler onMapClick={handleMapClick} />
                     
@@ -1825,8 +1846,8 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                             center={selectedPosition}
                             radius={radius}
                             pathOptions={{
-                              color: '#ef4444',
-                              fillColor: '#ef4444',
+                              color: '#16a34a',
+                              fillColor: '#16a34a',
                               fillOpacity: 0.1,
                               weight: 2,
                               opacity: 0.5,
@@ -1841,19 +1862,13 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                               const marker = e.target;
                               const position = marker.getLatLng();
                               setSelectedPosition([position.lat, position.lng]);
-                              // If landmark checkbox is checked, recalculate landmark position
-                              if (addLandmark && landmarkPosition) {
-                                const distance = calculateDistance(
-                                  position.lat,
-                                  position.lng,
-                                  landmarkPosition[0],
-                                  landmarkPosition[1]
-                                );
-                                // Keep landmark at same distance but adjust direction
+                              setMapCenter([position.lat, position.lng]);
+                              // If landmark checkbox is checked, recalculate landmark position with same distance and direction
+                              if (addLandmark) {
                                 const [landmarkLat, landmarkLng] = calculateLandmarkLocation(
                                   position.lat,
                                   position.lng,
-                                  distance,
+                                  landmarkDistance,
                                   landmarkDirection
                                 );
                                 setLandmarkPosition([landmarkLat, landmarkLng]);
@@ -1862,29 +1877,23 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                           }}
                           icon={L.divIcon({
                             className: 'custom-private-marker',
-                            html: `<div style="
-                              width: 30px;
-                              height: 30px;
-                              background-color: #ef4444;
-                              border: 3px solid white;
-                              border-radius: 50%;
-                              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                            ">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                            html: `<div style="position: relative; width: 30px; height: 41px;">
+                              <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                                <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#16a34a"/>
+                                <circle cx="15" cy="15" r="6" fill="white"/>
+                                <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#16a34a" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                                </svg>
                               </svg>
                             </div>`,
-                            iconSize: [30, 30],
-                            iconAnchor: [15, 15],
-                            popupAnchor: [0, -15]
+                            iconSize: [30, 41],
+                            iconAnchor: [15, 41],
+                            popupAnchor: [0, -41]
                           })}
                         >
                           <Popup>
                             <div className="flex items-center gap-2">
-                              <Lock className="w-4 h-4 text-red-600" />
+                              <Lock className="w-4 h-4 text-green-700" />
                               <span className="font-semibold">Exact Location (Private)</span>
                             </div>
                             <div className="mt-1 text-sm">
@@ -1912,15 +1921,21 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                             setLandmarkPosition([position.lat, position.lng]);
                           },
                         }}
-                        icon={L.icon({
-                          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-                          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-                          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-                          iconSize: [25, 41],
-                          iconAnchor: [12, 41],
-                          popupAnchor: [1, -34],
-                          shadowSize: [41, 41]
-                        })}
+                         icon={L.divIcon({
+                           className: 'custom-landmark-marker',
+                           html: `<div style="position: relative; width: 30px; height: 41px; opacity: 0.7;">
+                              <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                                <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#2563eb"/>
+                                <circle cx="15" cy="15" r="6" fill="white"/>
+                                <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                                </svg>
+                              </svg>
+                            </div>`,
+                            iconSize: [30, 41],
+                            iconAnchor: [15, 41],
+                            popupAnchor: [0, -41]
+                          })}
                       >
                         <Popup>
                           <div className="flex items-center gap-2">
@@ -1993,9 +2008,9 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                   <span className="font-semibold">Exact Location:</span> {selectedPosition[0].toFixed(6)}, {selectedPosition[1].toFixed(6)}
                   {landmarkPosition && addLandmark && (
                     <>
-                      <br />
+                   <span className="text-gray-500"> | </span>
                       <span className="font-semibold">Landmark Location:</span> {landmarkPosition[0].toFixed(6)}, {landmarkPosition[1].toFixed(6)}
-                      <br />
+                      <span className="text-gray-500"> | </span>
                       <span className="font-semibold">Distance:</span> {Math.round(calculateDistance(
                         selectedPosition[0],
                         selectedPosition[1],
@@ -2027,7 +2042,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
             />
           
             <p className="text-xs text-gray-500 mt-1.5">
-              This radius indicates the accuracy of the exact location. A smaller radius means more precise location. 
+              This radius indicates the accuracy of the exact location. 
             </p>
           </div>
 
@@ -2060,7 +2075,7 @@ function LocationModal({ property, onClose, onSave }: LocationModalProps) {
                   selectedPosition[1],
                   landmarkPosition[0],
                   landmarkPosition[1]
-                )) : landmarkDistance} meters away for public view.
+                )) : landmarkDistance} meters away for public view. (Only visible if property is public)
               </label>
             </div>
           )}
@@ -2279,51 +2294,38 @@ function LocationViewModal({ propertyLocation, property, onClose, onOpenInGoogle
 
 
   // Create custom icons for markers
-  // Exact location icon (red, private)
+  // Exact location icon (green pin with lock inside)
   const exactLocationIcon = L.divIcon({
     className: 'custom-private-marker',
-    html: `<div style="
-      width: 30px;
-      height: 30px;
-      background-color: #ef4444;
-      border: 3px solid white;
-      border-radius: 50%;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    ">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+    html: `<div style="position: relative; width: 30px; height: 41px;">
+      <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+        <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#16a34a"/>
+        <circle cx="15" cy="15" r="6" fill="white"/>
+        <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#16a34a" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+        </svg>
       </svg>
     </div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -15]
+    iconSize: [30, 41],
+    iconAnchor: [15, 41],
+    popupAnchor: [0, -41]
   });
 
-  // Landmark location icon (blue, faded, public)
+  // Landmark location icon (blue pin with globe inside, faded)
   const landmarkLocationIcon = L.divIcon({
     className: 'custom-landmark-marker',
-    html: `<div style="
-      width: 30px;
-      height: 30px;
-      background-color: #3b82f6;
-      border: 3px solid white;
-      border-radius: 50%;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.7;
-    ">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    html: `<div style="position: relative; width: 30px; height: 41px; opacity: 0.7;">
+      <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+        <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#2563eb"/>
+        <circle cx="15" cy="15" r="6" fill="white"/>
+        <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
       </svg>
     </div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -15]
+    iconSize: [30, 41],
+    iconAnchor: [15, 41],
+    popupAnchor: [0, -41]
   });
 
   // Create a blue circle marker icon for user location
@@ -2405,8 +2407,8 @@ function LocationViewModal({ propertyLocation, property, onClose, onOpenInGoogle
                     center={[propertyLocation.lat, propertyLocation.lng]}
                     radius={parseFloat(property.location_accuracy) || 500}
                     pathOptions={{
-                      color: '#ef4444',
-                      fillColor: '#ef4444',
+                      color: '#22c55e',
+                      fillColor: '#22c55e',
                       fillOpacity: 0.1,
                       weight: 2,
                       opacity: 0.5,
@@ -2422,7 +2424,7 @@ function LocationViewModal({ propertyLocation, property, onClose, onOpenInGoogle
                   <Popup>
                     <div className="p-2">
                       <div className="flex items-center gap-2 mb-1">
-                        <Lock className="w-4 h-4 text-red-600" />
+                        <Lock className="w-4 h-4 text-green-700" />
                         <h3 className="font-semibold text-sm">Exact Location (Private)</h3>
                       </div>
                       <p className="text-xs text-gray-600 mb-1">
@@ -2432,7 +2434,7 @@ function LocationViewModal({ propertyLocation, property, onClose, onOpenInGoogle
                         {propertyLocation.lat.toFixed(6)}, {propertyLocation.lng.toFixed(6)}
                       </p>
                       {property.location_accuracy && (
-                        <p className="text-xs text-red-600 mt-1">
+                        <p className="text-xs text-green-700 mt-1">
                           Accuracy: {property.location_accuracy}m
                         </p>
                       )}
