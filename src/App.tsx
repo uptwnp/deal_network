@@ -55,6 +55,15 @@ function App() {
     return 'all';
   };
 
+  // Load persisted search column from localStorage
+  const loadPersistedSearchColumn = (): string => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.SEARCH_COLUMN);
+      return saved || 'general';
+    } catch {}
+    return 'general';
+  };
+
   const [activeFilter, setActiveFilter] = useState<FilterType>(loadPersistedFilter());
   const [myProperties, setMyProperties] = useState<Property[]>([]);
   const [publicProperties, setPublicProperties] = useState<Property[]>([]);
@@ -67,7 +76,7 @@ function App() {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchColumn, setSearchColumn] = useState<string>('');
+  const [searchColumn, setSearchColumn] = useState<string>(loadPersistedSearchColumn());
   const [activeFilters, setActiveFilters] = useState<FilterOptions>({});
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);

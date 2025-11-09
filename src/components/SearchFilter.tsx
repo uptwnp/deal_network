@@ -21,7 +21,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const loadPersistedState = () => {
     try {
       const savedQuery = localStorage.getItem(STORAGE_KEYS.SEARCH_QUERY) || '';
-      const savedColumn = localStorage.getItem(STORAGE_KEYS.SEARCH_COLUMN) || '';
+      const savedColumn = localStorage.getItem(STORAGE_KEYS.SEARCH_COLUMN) || 'general';
       const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
       const savedArea = localStorage.getItem(STORAGE_KEYS.SELECTED_AREA) || '';
       const userSettings = getUserSettings();
@@ -45,7 +45,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       const userSettings = getUserSettings();
       return {
         query: '',
-        column: '',
+        column: 'general',
         filters: {
           city: userSettings.city || '',
           area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',

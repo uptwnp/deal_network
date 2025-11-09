@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { X, MapPin, ChevronDown, Ruler, IndianRupee, FileText, Lock, Globe } from 'lucide-react';
+import { X, MapPin, ChevronDown, Ruler, IndianRupee, FileText, Lock, Globe, Plus } from 'lucide-react';
 import { Property, PropertyFormData } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
 import { useAuth } from '../contexts/AuthContext';
@@ -408,21 +408,49 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
               {showAreaSuggestions && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {AREA_OPTIONS.filter(area =>
-                    area.toLowerCase().includes(formData.area.toLowerCase())
-                  ).map((area, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, area }));
-                        setShowAreaSuggestions(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
-                    >
-                      {area}
-                    </button>
-                  ))}
+                  {(() => {
+                    const searchQuery = formData.area.toLowerCase().trim();
+                    const filteredAreas = AREA_OPTIONS.filter(area =>
+                      area.toLowerCase().includes(searchQuery)
+                    );
+                    const exactMatch = AREA_OPTIONS.some(area => 
+                      area.toLowerCase() === searchQuery
+                    );
+                    const showAddNew = searchQuery.length > 0 && !exactMatch;
+                    
+                    return (
+                      <>
+                        {filteredAreas.map((area, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, area }));
+                              setShowAreaSuggestions(false);
+                            }}
+                            className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                          >
+                            {area}
+                          </button>
+                        ))}
+                        {showAddNew && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, area: formData.area.trim() }));
+                              setShowAreaSuggestions(false);
+                            }}
+                            className="w-full px-3 py-1.5 text-left hover:bg-green-50 text-xs text-green-700 font-medium border-t border-gray-200"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Plus className="w-3.5 h-3.5" />
+                              Add new: {formData.area.trim()}
+                            </span>
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

@@ -26,8 +26,6 @@ export const SEARCH_COLUMNS = [
   { value: 'size_unit', label: 'Size Unit' },
   { value: 'price_min', label: 'Min Price' },
   { value: 'price_max', label: 'Max Price' },
-  { value: 'location', label: 'Location' },
-  { value: 'location_accuracy', label: 'Location Accuracy' },
   { value: 'tags', label: 'Tags' },
   { value: 'highlights', label: 'Highlights' },
   { value: 'note_private', label: 'Private Note' },

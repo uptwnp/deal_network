@@ -26,6 +26,13 @@ interface ProfileData {
   created_on: string;
 }
 
+// Helper to get first value from comma-separated string (for single-select fields)
+const getFirstValue = (value: string): string => {
+  if (!value) return '';
+  const items = value.split(',').map(i => i.trim()).filter(i => i);
+  return items.length > 0 ? items[0] : '';
+};
+
 export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
   const { user, setUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,9 +50,9 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
         area_covers: user.area_covers || '',
         city_covers: user.city_covers || '',
         type: user.type || '',
-        default_area: user.default_area || '',
+        default_area: getFirstValue(user.default_area || ''),
         default_city: user.default_city || '',
-        default_type: user.default_type || '',
+        default_type: getFirstValue(user.default_type || ''),
         created_on: user.created_on || '',
       };
     }
@@ -63,8 +70,6 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
       created_on: '',
     };
   });
-  const [showAreaDropdown, setShowAreaDropdown] = useState(false);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showCityCoversDropdown, setShowCityCoversDropdown] = useState(false);
   const [showAreaCoversDropdown, setShowAreaCoversDropdown] = useState(false);
   const [showDealsInDropdown, setShowDealsInDropdown] = useState(false);
@@ -73,8 +78,6 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
   const [loading, setLoading] = useState(!user);
   const [error, setError] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const areaDropdownRef = useRef<HTMLDivElement>(null);
-  const typeDropdownRef = useRef<HTMLDivElement>(null);
   const cityCoversDropdownRef = useRef<HTMLDivElement>(null);
   const areaCoversDropdownRef = useRef<HTMLDivElement>(null);
   const dealsInDropdownRef = useRef<HTMLDivElement>(null);
@@ -117,9 +120,9 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             area_covers: response.user.area_covers || '',
             city_covers: response.user.city_covers || '',
             type: response.user.type || '',
-            default_area: response.user.default_area || '',
+            default_area: getFirstValue(response.user.default_area || ''),
             default_city: response.user.default_city || '',
-            default_type: response.user.default_type || '',
+            default_type: getFirstValue(response.user.default_type || ''),
             created_on: response.user.created_on || '',
           });
         } else {
@@ -175,12 +178,6 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (areaDropdownRef.current && !areaDropdownRef.current.contains(event.target as Node)) {
-        setShowAreaDropdown(false);
-      }
-      if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target as Node)) {
-        setShowTypeDropdown(false);
-      }
       if (cityCoversDropdownRef.current && !cityCoversDropdownRef.current.contains(event.target as Node)) {
         setShowCityCoversDropdown(false);
       }
@@ -409,154 +406,34 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
                   </select>
                 </div>
 
-                {/* Default Areas */}
+                {/* Default Area */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Areas</label>
-                  <div className="relative" ref={areaDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowAreaDropdown(!showAreaDropdown)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
-                    >
-                      <span className="text-gray-700">
-                        {getArrayItems(profileData.default_area).length > 0
-                          ? `✨ ${getArrayItems(profileData.default_area).length} area${getArrayItems(profileData.default_area).length > 1 ? 's' : ''} selected`
-                          : 'Click to select default areas'}
-                      </span>
-                      <svg
-                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAreaDropdown ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {showAreaDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                        {AREA_OPTIONS.map(area => {
-                          const isSelected = getArrayItems(profileData.default_area).includes(area);
-                          return (
-                            <button
-                              key={area}
-                              type="button"
-                              onClick={() => setProfileData({ ...profileData, default_area: toggleArrayItem(profileData.default_area, area) })}
-                              className={`w-full px-3 py-2 text-left text-sm transition-all ${
-                                isSelected
-                                  ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
-                                  : 'text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {}}
-                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span>{area}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  {getArrayItems(profileData.default_area).length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {getArrayItems(profileData.default_area).map(area => (
-                        <span
-                          key={area}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
-                        >
-                          {area}
-                          <button
-                            type="button"
-                            onClick={() => setProfileData({ ...profileData, default_area: toggleArrayItem(profileData.default_area, area) })}
-                            className="hover:scale-110 transition-transform font-bold"
-                            aria-label={`Remove ${area}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Area</label>
+                  <select
+                    value={profileData.default_area}
+                    onChange={(e) => setProfileData({ ...profileData, default_area: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 text-sm"
+                  >
+                    <option value="">Select default area</option>
+                    {AREA_OPTIONS.map(area => (
+                      <option key={area} value={area}>{area}</option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Default Property Types */}
+                {/* Default Property Type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Property Types</label>
-                  <div className="relative" ref={typeDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:border-blue-400 transition-all text-sm"
-                    >
-                      <span className="text-gray-700">
-                        {getArrayItems(profileData.default_type).length > 0
-                          ? `🏠 ${getArrayItems(profileData.default_type).length} type${getArrayItems(profileData.default_type).length > 1 ? 's' : ''} selected`
-                          : 'Click to choose default property types'}
-                      </span>
-                      <svg
-                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showTypeDropdown ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {showTypeDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                        {PROPERTY_TYPES.map(type => {
-                          const isSelected = getArrayItems(profileData.default_type).includes(type);
-                          return (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() => setProfileData({ ...profileData, default_type: toggleArrayItem(profileData.default_type, type) })}
-                              className={`w-full px-3 py-2 text-left text-sm transition-all ${
-                                isSelected
-                                  ? 'bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500'
-                                  : 'text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {}}
-                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span>{type}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  {getArrayItems(profileData.default_type).length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {getArrayItems(profileData.default_type).map(type => (
-                        <span
-                          key={type}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium flex items-center gap-1"
-                        >
-                          {type}
-                          <button
-                            type="button"
-                            onClick={() => setProfileData({ ...profileData, default_type: toggleArrayItem(profileData.default_type, type) })}
-                            className="hover:scale-110 transition-transform font-bold"
-                            aria-label={`Remove ${type}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Property Type</label>
+                  <select
+                    value={profileData.default_type}
+                    onChange={(e) => setProfileData({ ...profileData, default_type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 text-sm"
+                  >
+                    <option value="">Select default property type</option>
+                    {PROPERTY_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
                 </div>
 
                     {/* Save Button for Preferences */}
