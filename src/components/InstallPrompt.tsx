@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, X, Smartphone, Globe, Zap, Bell, Sparkles } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -182,96 +182,43 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
 
   return (
     <div 
-      className={`w-full relative overflow-hidden rounded-2xl transition-all duration-500 ${
+      className={`w-full relative overflow-hidden rounded-lg transition-all duration-500 ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
       }`}
     >
-      {/* Main card with gradient background */}
-      <div className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-1 rounded-2xl shadow-2xl">
-        <div className="bg-white rounded-xl p-5 sm:p-6">
-          {/* Close button */}
+      {/* Main card - double header height (h-28 = 7rem, sm:h-32 = 8rem) */}
+      <div className="relative bg-white border border-gray-200 rounded-lg shadow-md h-28 sm:h-32">
+        <div className="h-full flex items-center px-4 sm:px-6 relative">
+          {/* Close button - positioned at top right */}
           <button
             onClick={handleDismiss}
-            className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all z-10"
+            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all z-10"
             aria-label="Dismiss"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
 
-          {/* Header section */}
-          <div className="flex items-start gap-4 mb-4 pr-8">
-            {/* Icon with animated background */}
-            <div className="relative flex-shrink-0">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
-              <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-lg">
-                <Smartphone className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-              </div>
-            </div>
-            
-            <div className="flex-1 min-w-0 pt-1">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">
+          {/* Content section */}
+          <div className="flex items-center justify-between w-full pr-8">
+            {/* Left side - Title and description */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">
                 Install Dealer Network
               </h3>
-              <p className="text-sm sm:text-base text-gray-600">
-                Get faster access and a better experience
+              <p className="text-xs sm:text-sm text-gray-600">
+                Get faster access and a better experience on your device
               </p>
             </div>
-          </div>
 
-          {/* Benefits grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-              <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg">
-                <Zap className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Faster</div>
-                <div className="text-xs text-gray-600">Quick loading</div>
-              </div>
+            {/* Right side - Install button */}
+            <div className="flex-shrink-0 ml-4">
+              <button
+                onClick={handleInstall}
+                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                Install
+              </button>
             </div>
-            
-            <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-              <div className="flex-shrink-0 p-2 bg-indigo-100 rounded-lg">
-                <Globe className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Offline</div>
-                <div className="text-xs text-gray-600">Works offline</div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
-              <div className="flex-shrink-0 p-2 bg-purple-100 rounded-lg">
-                <Bell className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Notifications</div>
-                <div className="text-xs text-gray-600">Stay updated</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Description */}
-          <p className="text-sm text-gray-700 mb-5 leading-relaxed">
-            Install our app to access properties faster, work offline, and get instant notifications about new listings.
-          </p>
-
-          {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleInstall}
-              className="flex-1 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Download className="w-5 h-5" />
-              <span>Install Now</span>
-              <Sparkles className="w-4 h-4 opacity-80" />
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="px-6 py-3.5 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all duration-200 border-2 border-gray-200"
-            >
-              Maybe Later
-            </button>
           </div>
         </div>
       </div>
