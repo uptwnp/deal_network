@@ -202,62 +202,73 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
     return null;
   }
 
-  // Styled like PropertyCard with blue/orange accent
+  // Modern, attractive design with gradient and better visual hierarchy
   return (
-    <div className="w-full bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-3 sm:p-4 border-l-4 border-l-blue-500 border-t border-r border-b border-gray-200 text-left hover:border-l-blue-600 relative">
-      <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight mb-1">
-            Install Dealer Network App
-          </h3>
-        </div>
-        <div className="flex-shrink-0">
+    <div className="w-full bg-gradient-to-br from-blue-50 via-white to-orange-50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-5 border border-blue-100/50 relative overflow-hidden group">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-200/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      
+      <div className="relative z-10">
+        {/* Header with icon and close button */}
+        <div className="flex items-start gap-3 sm:gap-4 mb-3">
+          <div className="flex-shrink-0 p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md group-hover:shadow-lg transition-shadow">
+            <Smartphone className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">
+              Install Dealer Network App
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-600">
+              Get the full experience
+            </p>
+          </div>
           <button
             onClick={handleDismiss}
-            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
             aria-label="Dismiss"
           >
             <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
-      </div>
-      
-      <div className="flex items-start gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-        <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs sm:text-sm text-gray-700 leading-relaxed flex-1">
+        
+        {/* Description */}
+        <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-4 pl-0.5">
           Install our app for quick access, offline support, and a better experience. Get instant notifications and faster loading.
         </p>
-      </div>
 
-      <div className="flex flex-wrap gap-1 mb-2">
-        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded flex items-center gap-1">
-          <Globe className="w-3 h-3" />
-          Offline Support
-        </span>
-        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded flex items-center gap-1">
-          <Download className="w-3 h-3" />
-          Quick Access
-        </span>
-        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded flex items-center gap-1">
-          <Smartphone className="w-3 h-3" />
-          App-like Experience
-        </span>
-      </div>
+        {/* Feature badges */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className="px-3 py-1.5 text-xs sm:text-sm bg-white/80 backdrop-blur-sm text-blue-700 rounded-lg flex items-center gap-1.5 shadow-sm border border-blue-100 font-medium">
+            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+            Offline Support
+          </span>
+          <span className="px-3 py-1.5 text-xs sm:text-sm bg-white/80 backdrop-blur-sm text-blue-700 rounded-lg flex items-center gap-1.5 shadow-sm border border-blue-100 font-medium">
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+            Quick Access
+          </span>
+          <span className="px-3 py-1.5 text-xs sm:text-sm bg-white/80 backdrop-blur-sm text-blue-700 rounded-lg flex items-center gap-1.5 shadow-sm border border-blue-100 font-medium">
+            <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+            App-like Experience
+          </span>
+        </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 mt-3">
-        <button
-          onClick={handleInstall}
-          className="px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 flex-1"
-        >
-          <Download className="w-4 h-4" />
-          Install App
-        </button>
-        <button
-          onClick={handleDismiss}
-          className="px-4 py-2 text-gray-600 text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
-        >
-          Not now
-        </button>
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <button
+            onClick={handleInstall}
+            className="px-5 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm sm:text-base font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 flex-1 shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Install App</span>
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="px-5 py-2.5 sm:py-3 text-gray-700 text-sm sm:text-base font-medium rounded-lg hover:bg-white/60 transition-all duration-200 border border-gray-200 bg-white/40 backdrop-blur-sm"
+          >
+            Not now
+          </button>
+        </div>
       </div>
     </div>
   );

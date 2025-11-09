@@ -116,12 +116,14 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
+  // Debounced search - triggers after user stops typing for 300ms
   useEffect(() => {
     const timer = setTimeout(() => {
       onSearch(searchQuery, searchColumn || undefined);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, searchColumn, onSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, searchColumn]); // Removed onSearch from deps to prevent infinite loops
 
   useEffect(() => {
     setSelectedArea(filters.area || '');
@@ -182,9 +184,24 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   const selectedColumnLabel = SEARCH_COLUMNS.find(col => col.value === searchColumn)?.label || 'All Info';
 
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    // Immediately trigger search on Enter or form submit
+    onSearch(searchQuery, searchColumn || undefined);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchSubmit();
+    }
+  };
+
   return (
     <div className="space-y-2 sm:space-y-3">
-      <div className="flex gap-1.5 sm:gap-2">
+      <form onSubmit={handleSearchSubmit} className="flex gap-1.5 sm:gap-2">
         <div className="relative flex-1 flex">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -197,6 +214,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 // Auto-save to localStorage
                 localStorage.setItem(STORAGE_KEYS.SEARCH_QUERY, e.target.value);
               }}
+              onKeyDown={handleKeyDown}
               className="w-full h-9 sm:h-10 pl-8 sm:pl-10 pr-3 sm:pr-4 border border-r-0 border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
@@ -234,6 +252,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
           </div>
         </div>
         <button
+          type="button"
           onClick={() => setShowFilters(!showFilters)}
           className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
           title="Filter"
@@ -246,6 +265,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
           )}
         </button>
         <button
+          type="button"
           onClick={() => setShowAreaSection(!showAreaSection)}
           className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
           title="Area"
@@ -257,7 +277,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </span>
           )}
         </button>
-      </div>
+      </form>
 
       {showAreaSection && (
         <div className="flex gap-1.5 sm:gap-2 w-full">

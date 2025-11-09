@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Home, Globe, ChevronDown, User, MapPin, List } from 'lucide-react';
+import { Plus, Home, Globe, ChevronDown, User, MapPin, List, X } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { SearchFilter } from './components/SearchFilter';
@@ -83,6 +83,7 @@ function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [searchFilterKey, setSearchFilterKey] = useState(0); // Key to force SearchFilter reset
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
   const loadMyProperties = useCallback(async () => {
@@ -579,6 +580,29 @@ function App() {
     }
   };
 
+  const handleClearSearchAndFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveFilters({});
+    // Clear from localStorage
+    localStorage.removeItem(STORAGE_KEYS.SEARCH_QUERY);
+    localStorage.removeItem(STORAGE_KEYS.FILTERS);
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
+    // Force SearchFilter to reset by changing key
+    setSearchFilterKey(prev => prev + 1);
+    // Trigger search with empty query to clear results
+    handleSearch('', searchColumn);
+    // Also clear filters
+    handleFilter({});
+    // Reset to default list
+    if (activeFilter === 'all') {
+      setFilteredProperties([...myProperties, ...publicProperties]);
+    } else if (activeFilter === 'my') {
+      setFilteredProperties(myProperties);
+    } else if (activeFilter === 'public') {
+      setFilteredProperties(publicProperties);
+    }
+  }, [activeFilter, myProperties, publicProperties, handleSearch, handleFilter, searchColumn]);
+
   const handleUserIdChange = () => {
     const newId = prompt('Enter Owner ID:', ownerId.toString());
     if (newId && !isNaN(parseInt(newId))) {
@@ -758,6 +782,7 @@ function App() {
             handleUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
             handleUpdateLocation={handleUpdateLocation}
             handleUpdateLandmarkLocation={handleUpdateLandmarkLocation}
+            handleClearSearchAndFilters={handleClearSearchAndFilters}
             showToast={showToast}
           />
         ) : (
@@ -824,6 +849,7 @@ function App() {
             handleUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
             handleUpdateLocation={handleUpdateLocation}
             handleUpdateLandmarkLocation={handleUpdateLandmarkLocation}
+            handleClearSearchAndFilters={handleClearSearchAndFilters}
             showToast={showToast}
           />
         ) : (
@@ -890,6 +916,7 @@ function App() {
             handleUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
             handleUpdateLocation={handleUpdateLocation}
             handleUpdateLandmarkLocation={handleUpdateLandmarkLocation}
+            handleClearSearchAndFilters={handleClearSearchAndFilters}
             showToast={showToast}
           />
         ) : (
@@ -992,6 +1019,7 @@ interface MainAppContentProps {
   handleUpdateHighlightsAndTags: (id: number, highlights: string, tags: string) => Promise<void>;
   handleUpdateLocation: (id: number, location: string, locationAccuracy: string) => Promise<void>;
   handleUpdateLandmarkLocation: (id: number, landmarkLocation: string, landmarkLocationDistance: string) => Promise<void>;
+  handleClearSearchAndFilters: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
 
@@ -1039,12 +1067,25 @@ function MainAppContent({
   handleUpdateHighlightsAndTags,
   handleUpdateLocation,
   handleUpdateLandmarkLocation,
+  handleClearSearchAndFilters,
   showToast,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   
-  const currentProperties = filteredProperties.length > 0 ? filteredProperties : 
-    (activeFilter === 'all' ? [...myProperties, ...publicProperties] : activeFilter === 'my' ? myProperties : publicProperties);
+  // Check if search or filters are active
+  const hasActiveSearchOrFilter = searchQuery.trim().length > 0 || Object.keys(activeFilters).length > 0;
+  
+  // If search/filter is active, always use filteredProperties (even if empty - shows "no results")
+  // Otherwise, fall back to default list
+  const currentProperties = hasActiveSearchOrFilter 
+    ? filteredProperties 
+    : (filteredProperties.length > 0 
+        ? filteredProperties 
+        : (activeFilter === 'all' 
+            ? [...myProperties, ...publicProperties] 
+            : activeFilter === 'my' 
+              ? myProperties 
+              : publicProperties));
 
   const getFilterLabel = () => {
     if (activeFilter === 'all') return 'All Properties';
@@ -1175,6 +1216,7 @@ function MainAppContent({
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         <SearchFilter
+          key={searchFilterKey}
           onSearch={handleSearch}
           onFilter={handleFilter}
         />
@@ -1199,9 +1241,24 @@ function MainAppContent({
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
               {currentProperties.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
-                  <p className="text-sm sm:text-base text-gray-500">
-                    {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
-                  </p>
+                  <div className="text-center">
+                    <p className="text-sm sm:text-base text-gray-500 mb-3">
+                      {hasActiveSearchOrFilter 
+                        ? 'No properties found matching your search or filters.' 
+                        : activeFilter === 'my' 
+                          ? 'No properties yet. Add your first property!' 
+                          : 'No properties available'}
+                    </p>
+                    {hasActiveSearchOrFilter && (
+                      <button
+                        onClick={handleClearSearchAndFilters}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Clear Search & Filters
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <Suspense fallback={
@@ -1225,9 +1282,22 @@ function MainAppContent({
               <InstallPromptCard />
               {currentProperties.length === 0 ? (
                 <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
-                  <p className="text-sm sm:text-base text-gray-500">
-                    {activeFilter === 'my' ? 'No properties yet. Add your first property!' : 'No properties available'}
+                  <p className="text-sm sm:text-base text-gray-500 mb-4">
+                    {hasActiveSearchOrFilter 
+                      ? 'No properties found matching your search or filters.' 
+                      : activeFilter === 'my' 
+                        ? 'No properties yet. Add your first property!' 
+                        : 'No properties available'}
                   </p>
+                  {hasActiveSearchOrFilter && (
+                    <button
+                      onClick={handleClearSearchAndFilters}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                      Clear Search & Filters
+                    </button>
+                  )}
                 </div>
               ) : (
                 currentProperties.map((property) => (
