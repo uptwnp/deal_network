@@ -51,6 +51,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
 
   const locationCoords = parseLocation(property.location);
   const hasLocation = hasLocationCoordinates(property.location);
+  const landmarkCoords = parseLocation(property.landmark_location);
+  const hasLandmarkLocation = hasLocationCoordinates(property.landmark_location);
   const shareUrl = property.is_public === 1 
     ? `${window.location.origin}/property/${property.id}`
     : undefined;
@@ -112,10 +114,22 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
 
     // Landmark
     if (selectedFields.landmarkLink && property.landmark_location) {
-      const landmarkText = property.landmark_location_distance
-        ? `Landmark: ${property.landmark_location} (${property.landmark_location_distance} away)`
-        : `Landmark: ${property.landmark_location}`;
-      parts.push(landmarkText);
+      if (hasLandmarkLocation && landmarkCoords) {
+        // If landmark has coordinates, create Google Maps link
+        const googleMapsUrl = `https://www.google.com/maps?q=${landmarkCoords.lat},${landmarkCoords.lng}`;
+        const landmarkText = property.landmark_location_distance
+          ? `Landmark: ${googleMapsUrl} (${property.landmark_location_distance} away)`
+          : `Landmark: ${googleMapsUrl}`;
+        parts.push(landmarkText);
+      } else {
+        // If landmark is just text, create a search link
+        const searchQuery = encodeURIComponent(property.landmark_location);
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+        const landmarkText = property.landmark_location_distance
+          ? `Landmark: ${googleMapsUrl} (${property.landmark_location_distance} away)`
+          : `Landmark: ${googleMapsUrl}`;
+        parts.push(landmarkText);
+      }
     }
 
     // Separator and View Link

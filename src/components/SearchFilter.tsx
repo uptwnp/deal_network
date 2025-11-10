@@ -27,9 +27,9 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       const savedArea = localStorage.getItem(STORAGE_KEYS.SELECTED_AREA) || '';
       const userSettings = getUserSettings();
       
-      // Use user settings as defaults if no saved filters
+      // Use user settings as defaults if no saved filters (but don't auto-select city)
       const defaultFilters: FilterOptions = savedFilters ? JSON.parse(savedFilters) : {
-        city: userSettings.city || '',
+        city: '', // Don't auto-select city - let user choose
         area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
         type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
         min_price: userSettings.defaultPriceMin,
@@ -48,7 +48,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         query: '',
         column: 'general',
         filters: {
-          city: userSettings.city || '',
+          city: '', // Don't auto-select city - let user choose
           area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
           type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
           min_price: userSettings.defaultPriceMin,
@@ -426,7 +426,21 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                       </div>
                     </button>
                     {showCityDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleFilterChange('city', '');
+                            setShowCityDropdown(false);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                            !filters.city
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          All Cities
+                        </button>
                         {(cityOptions.length > 0 ? cityOptions : CITY_OPTIONS).map((city, idx) => (
                           <button
                             key={idx}
@@ -624,7 +638,21 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 </div>
               </button>
               {showCityDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFilterChange('city', '');
+                      setShowCityDropdown(false);
+                    }}
+                    className={`w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-left text-xs sm:text-sm transition-colors ${
+                      !filters.city
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    All Cities
+                  </button>
                   {(cityOptions.length > 0 ? cityOptions : CITY_OPTIONS).map((city, idx) => (
                     <button
                       key={idx}

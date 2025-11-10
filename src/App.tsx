@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Home, Globe, ChevronDown, User, MapPin, List, X, Users } from 'lucide-react';
+import { Plus, Home, Globe, ChevronDown, User, MapPin, List, X, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { SearchFilter } from './components/SearchFilter';
 import { Toast } from './components/Toast';
 import { InstallPromptCard } from './components/InstallPrompt';
 import { useAuth } from './contexts/AuthContext';
-import { propertyApi } from './services/api';
+import { propertyApi, PaginationOptions, PaginationMeta } from './services/api';
 import { Property, PropertyFormData, FilterOptions } from './types/property';
 import { logoutUser, getCurrentUser } from './types/user';
 import { authApi } from './services/authApi';
@@ -95,8 +95,11 @@ function App() {
   const [publicProperties, setPublicProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState<PaginationOptions>({ page: 1, per_page: 40 });
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
   const loadingRef = useRef(false);
-  const loadedDataRef = useRef<{ ownerId: number; my: boolean; public: boolean } | null>(null);
+  const loadedDataRef = useRef<{ ownerId: number; my: boolean; public: boolean; page?: number; per_page?: number } | null>(null);
+  const forceReloadRef = useRef(false);
   const isRefreshingRef = useRef(false);
   const refreshInProgressRef = useRef(false);
   const [showModal, setShowModal] = useState(false);
@@ -112,27 +115,31 @@ function App() {
   const [searchFilterKey, setSearchFilterKey] = useState(0); // Key to force SearchFilter reset
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
-  const loadMyProperties = useCallback(async () => {
+  const loadMyProperties = useCallback(async (paginationOptions?: PaginationOptions) => {
     if (!ownerId || ownerId <= 0) return;
     try {
-      const data = await propertyApi.getUserProperties(ownerId);
-      setMyProperties(data);
+      const paginationParams = paginationOptions || pagination;
+      const response = await propertyApi.getUserProperties(ownerId, paginationParams);
+      setMyProperties(response.data);
+      setPaginationMeta(response.meta);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load properties';
-      showToast(errorMessage, 'error');
+      setToast({ message: errorMessage, type: 'error' });
     }
-  }, [ownerId]);
+  }, [ownerId, pagination]);
 
-  const loadPublicProperties = useCallback(async () => {
+  const loadPublicProperties = useCallback(async (paginationOptions?: PaginationOptions) => {
     if (!ownerId || ownerId <= 0) return;
     try {
-      const data = await propertyApi.getPublicProperties(ownerId);
-      setPublicProperties(data);
+      const paginationParams = paginationOptions || pagination;
+      const response = await propertyApi.getPublicProperties(ownerId, paginationParams);
+      setPublicProperties(response.data);
+      setPaginationMeta(response.meta);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load public properties';
-      showToast(errorMessage, 'error');
+      setToast({ message: errorMessage, type: 'error' });
     }
-  }, [ownerId]);
+  }, [ownerId, pagination]);
 
 
   useEffect(() => {
@@ -176,35 +183,89 @@ function App() {
     const hasMy = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.my;
     const hasPublic = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.public;
     
-    // If we have all the data we need, don't load
-    if (needsMy && needsPublic && hasMy && hasPublic) return;
-    if (needsMy && !needsPublic && hasMy) return;
-    if (!needsMy && needsPublic && hasPublic) return;
+    // Check if pagination has changed - if so, we need to reload
+    const paginationChanged = loadedDataRef.current?.page !== pagination.page || 
+                              loadedDataRef.current?.per_page !== pagination.per_page;
+    
+    // If force reload is set, always reload
+    const shouldForceReload = forceReloadRef.current;
+    if (shouldForceReload) {
+      forceReloadRef.current = false;
+    }
+    
+    // If we have all the data we need and not forcing reload and pagination hasn't changed, don't load
+    if (!shouldForceReload && !paginationChanged) {
+      if (needsMy && needsPublic && hasMy && hasPublic) return;
+      if (needsMy && !needsPublic && hasMy) return;
+      if (!needsMy && needsPublic && hasPublic) return;
+    }
     
     loadingRef.current = true;
     setLoading(true);
     
     // Initialize loaded data ref if needed
-    if (!loadedDataRef.current || loadedDataRef.current.ownerId !== ownerId) {
-      loadedDataRef.current = { ownerId, my: false, public: false };
+    if (!loadedDataRef.current || loadedDataRef.current.ownerId !== ownerId || shouldForceReload || paginationChanged) {
+      loadedDataRef.current = { 
+        ownerId, 
+        my: false, 
+        public: false,
+        page: pagination.page,
+        per_page: pagination.per_page
+      };
     }
     
     // Only load the properties needed based on the active filter
     const loadPromises: Promise<void>[] = [];
     
-    if (needsMy && !hasMy) {
+    // If 'all' filter, use getAllProperties for efficiency (single API call)
+    if (activeFilter === 'all' && (!hasMy || !hasPublic || shouldForceReload || paginationChanged)) {
       loadPromises.push(
-        loadMyProperties().then(() => {
-          if (loadedDataRef.current) loadedDataRef.current.my = true;
-        })
+        (async () => {
+          try {
+            const response = await propertyApi.getAllProperties(ownerId, pagination);
+            const allProps = response.data;
+            // Split results: my properties have owner_id === ownerId, public properties have owner_id !== ownerId
+            const myProps = allProps.filter(p => p.owner_id === ownerId);
+            const publicProps = allProps.filter(p => p.owner_id !== ownerId);
+            setMyProperties(myProps);
+            setPublicProperties(publicProps);
+            setPaginationMeta(response.meta);
+            if (loadedDataRef.current) {
+              loadedDataRef.current.my = true;
+              loadedDataRef.current.public = true;
+              loadedDataRef.current.page = pagination.page;
+              loadedDataRef.current.per_page = pagination.per_page;
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to load properties';
+            setToast({ message: errorMessage, type: 'error' });
+          }
+        })()
       );
-    }
-    if (needsPublic && !hasPublic) {
-      loadPromises.push(
-        loadPublicProperties().then(() => {
-          if (loadedDataRef.current) loadedDataRef.current.public = true;
-        })
-      );
+    } else {
+      // Load separately for 'my' or 'public' filters
+      if (needsMy && (!hasMy || shouldForceReload || paginationChanged)) {
+        loadPromises.push(
+          loadMyProperties(pagination).then(() => {
+            if (loadedDataRef.current) {
+              loadedDataRef.current.my = true;
+              loadedDataRef.current.page = pagination.page;
+              loadedDataRef.current.per_page = pagination.per_page;
+            }
+          })
+        );
+      }
+      if (needsPublic && (!hasPublic || shouldForceReload || paginationChanged)) {
+        loadPromises.push(
+          loadPublicProperties(pagination).then(() => {
+            if (loadedDataRef.current) {
+              loadedDataRef.current.public = true;
+              loadedDataRef.current.page = pagination.page;
+              loadedDataRef.current.per_page = pagination.per_page;
+            }
+          })
+        );
+      }
     }
     
     if (loadPromises.length === 0) {
@@ -220,7 +281,7 @@ function App() {
       loadingRef.current = false;
       setLoading(false);
     });
-  }, [ownerId, location.pathname, isAuthenticated, activeFilter, loadMyProperties, loadPublicProperties, activeFilters, searchQuery]);
+  }, [ownerId, location.pathname, isAuthenticated, activeFilter, loadMyProperties, loadPublicProperties, activeFilters, searchQuery, pagination]);
 
   useEffect(() => {
     // Only set default properties if there's no active search or filters
@@ -469,36 +530,31 @@ function App() {
     
     // No filters/search - load properties normally
     // Refresh property lists based on active filter (only load what's needed)
-    const loadPromises: Promise<Property[]>[] = [];
-    
-    if (activeFilter === 'my') {
-      loadPromises.push(propertyApi.getUserProperties(ownerId));
-    } else if (activeFilter === 'public') {
-      loadPromises.push(propertyApi.getPublicProperties(ownerId));
-    } else if (activeFilter === 'all') {
-      // For 'all', load both lists
-      loadPromises.push(propertyApi.getUserProperties(ownerId), propertyApi.getPublicProperties(ownerId));
-    }
-    
-    const loadedResults = await Promise.all(loadPromises);
-    
-    // Update state based on what was loaded
     let myProps: Property[] = [];
     let publicProps: Property[] = [];
     
     if (activeFilter === 'my') {
-      myProps = loadedResults[0];
+      const response = await propertyApi.getUserProperties(ownerId, pagination);
+      myProps = response.data;
       setMyProperties(myProps);
+      setPaginationMeta(response.meta);
       if (loadedDataRef.current) loadedDataRef.current.my = true;
     } else if (activeFilter === 'public') {
-      publicProps = loadedResults[0];
+      const response = await propertyApi.getPublicProperties(ownerId, pagination);
+      publicProps = response.data;
       setPublicProperties(publicProps);
+      setPaginationMeta(response.meta);
       if (loadedDataRef.current) loadedDataRef.current.public = true;
     } else if (activeFilter === 'all') {
-      myProps = loadedResults[0];
-      publicProps = loadedResults[1];
+      // Use getAllProperties endpoint for efficiency (single API call)
+      const response = await propertyApi.getAllProperties(ownerId, pagination);
+      const allProps = response.data;
+      // Split results: my properties have owner_id === ownerId, public properties have owner_id !== ownerId
+      myProps = allProps.filter(p => p.owner_id === ownerId);
+      publicProps = allProps.filter(p => p.owner_id !== ownerId);
       setMyProperties(myProps);
       setPublicProperties(publicProps);
+      setPaginationMeta(response.meta);
       if (loadedDataRef.current) {
         loadedDataRef.current.my = true;
         loadedDataRef.current.public = true;
@@ -528,7 +584,7 @@ function App() {
     setTimeout(() => {
       isRefreshingRef.current = false;
     }, 100);
-  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty, showToast]);
+  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty, showToast, pagination]);
 
   const handleAddProperty = async (data: PropertyFormData) => {
     try {
@@ -547,12 +603,14 @@ function App() {
       // Fetch the newly added property directly since we know it will be in user's properties
       // This is more reliable than waiting for state updates
       try {
-        const myProps = await propertyApi.getUserProperties(ownerId);
+        const response = await propertyApi.getUserProperties(ownerId, { page: 1, per_page: 40 });
+        const myProps = response.data;
         const newProperty = myProps.find(p => p.id === newPropertyId);
         
         if (newProperty) {
           // Update state with refreshed properties
           setMyProperties(myProps);
+          setPaginationMeta(response.meta);
           
           // Clear any active filters/search so the new property is visible
           setSearchQuery('');
@@ -694,6 +752,9 @@ function App() {
         setSearchColumn(column);
       }
       
+      // Reset pagination to page 1 when search changes
+      setPagination({ page: 1, per_page: 40 });
+      
       // Map activeFilter to API list parameter
       const listParam: 'mine' | 'public' | 'both' = 
         activeFilter === 'my' ? 'mine' : 
@@ -744,13 +805,16 @@ function App() {
         setLoading(false);
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast]
+    [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast, setPagination]
   );
 
   const handleFilter = useCallback(
     async (filters: FilterOptions) => {
       // Update activeFilters immediately
       setActiveFilters(filters);
+      
+      // Reset pagination to page 1 when filters change
+      setPagination({ page: 1, per_page: 40 });
       
       // Map activeFilter to API list parameter
       const listParam: 'mine' | 'public' | 'both' = 
@@ -795,14 +859,21 @@ function App() {
         setLoading(false);
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast]
+    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast, setPagination]
   );
 
   const handleFilterChange = (filter: FilterType) => {
+    // Force reload when switching tabs
+    forceReloadRef.current = true;
     setActiveFilter(filter);
+    // Reset pagination to first page when switching tabs
+    setPagination({ page: 1, per_page: 40 });
     // Save to localStorage
     localStorage.setItem(STORAGE_KEYS.ACTIVE_FILTER, filter);
     setShowFilterMenu(false);
+    
+    // Clear filtered properties to show loading state
+    setFilteredProperties([]);
     
     // Re-apply current search/filters with new list scope
     if (searchQuery.trim()) {
@@ -810,6 +881,7 @@ function App() {
     } else if (Object.keys(activeFilters).length > 0) {
       handleFilter(activeFilters);
     }
+    // If no search/filters, the useEffect will trigger the load
   };
 
   const handleClearSearchAndFilters = useCallback(() => {
@@ -821,6 +893,9 @@ function App() {
     // Clear state - this will trigger the useEffect to reset filteredProperties
     setSearchQuery('');
     setActiveFilters({});
+    
+    // Reset pagination to page 1 when clearing filters
+    setPagination({ page: 1, per_page: 40 });
     
     // Force SearchFilter to reset by changing key - this will cause it to remount
     setSearchFilterKey(prev => prev + 1);
@@ -834,7 +909,7 @@ function App() {
     } else {
       setFilteredProperties(publicProperties);
     }
-  }, [activeFilter, myProperties, publicProperties]);
+  }, [activeFilter, myProperties, publicProperties, setPagination]);
 
   const handleUserIdChange = () => {
     const newId = prompt('Enter Owner ID:', ownerId.toString());
@@ -1022,6 +1097,9 @@ function App() {
             handleClearSearchAndFilters={handleClearSearchAndFilters}
             showToast={showToast}
             searchFilterKey={searchFilterKey}
+            pagination={pagination}
+            setPagination={setPagination}
+            paginationMeta={paginationMeta}
           />
         ) : (
           <Suspense fallback={
@@ -1090,6 +1168,9 @@ function App() {
             handleClearSearchAndFilters={handleClearSearchAndFilters}
             showToast={showToast}
             searchFilterKey={searchFilterKey}
+            pagination={pagination}
+            setPagination={setPagination}
+            paginationMeta={paginationMeta}
           />
         ) : (
           <Suspense fallback={
@@ -1158,6 +1239,9 @@ function App() {
             handleClearSearchAndFilters={handleClearSearchAndFilters}
             showToast={showToast}
             searchFilterKey={searchFilterKey}
+            pagination={pagination}
+            setPagination={setPagination}
+            paginationMeta={paginationMeta}
           />
         ) : (
           <Suspense fallback={
@@ -1262,6 +1346,9 @@ interface MainAppContentProps {
   handleClearSearchAndFilters: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
   searchFilterKey: number;
+  pagination: PaginationOptions;
+  setPagination: (pagination: PaginationOptions) => void;
+  paginationMeta: PaginationMeta | null;
 }
 
 function MainAppContent({
@@ -1311,6 +1398,9 @@ function MainAppContent({
   handleClearSearchAndFilters,
   showToast,
   searchFilterKey,
+  pagination,
+  setPagination,
+  paginationMeta,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   
@@ -1335,6 +1425,33 @@ function MainAppContent({
   const currentProperties = hasActiveSearchOrFilter
     ? filteredProperties 
     : baseProperties;
+
+  // Determine if there's a next page
+  // Only show pagination when there's no active search/filter (pagination only works for base lists)
+  // Use pagination metadata if available, otherwise fall back to checking array length
+  const shouldShowPagination = !hasActiveSearchOrFilter;
+  const currentPage = paginationMeta?.page || pagination.page || 1;
+  const totalPages = paginationMeta?.total_pages || 1;
+  const hasNextPage = shouldShowPagination && currentPage < totalPages;
+  const hasPreviousPage = shouldShowPagination && currentPage > 1;
+
+  // Handle pagination navigation
+  // Note: Pagination only works for base property lists, not for filtered/search results
+  const handleNextPage = () => {
+    if (hasNextPage && shouldShowPagination) {
+      setPagination({ ...pagination, page: currentPage + 1 });
+      // Scroll to top when changing pages
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (hasPreviousPage && shouldShowPagination) {
+      setPagination({ ...pagination, page: currentPage - 1 });
+      // Scroll to top when changing pages
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const getFilterLabel = () => {
     if (activeFilter === 'all') return 'All Properties';
@@ -1550,14 +1667,63 @@ function MainAppContent({
                   )}
                 </div>
               ) : (
-                currentProperties.map((property) => (
-                  <PropertyCard
-                    key={property.id}
-                    property={property}
-                    isOwned={property.owner_id === ownerId}
-                    onViewDetails={handleViewProperty}
-                  />
-                ))
+                <>
+                  {currentProperties.map((property) => (
+                    <PropertyCard
+                      key={property.id}
+                      property={property}
+                      isOwned={property.owner_id === ownerId}
+                      onViewDetails={handleViewProperty}
+                    />
+                  ))}
+                  
+                  {/* Pagination Controls - Only show for base lists, not filtered/search results */}
+                  {shouldShowPagination && (hasNextPage || hasPreviousPage) && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={handlePreviousPage}
+                          disabled={!hasPreviousPage}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                            hasPreviousPage
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          <span className="hidden sm:inline">Previous</span>
+                        </button>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">
+                            Page <span className="font-semibold">{currentPage}</span>
+                            {totalPages > 1 && (
+                              <span className="text-gray-500"> of {totalPages}</span>
+                            )}
+                          </span>
+                          {paginationMeta?.total !== undefined && (
+                            <span className="text-sm text-gray-500">
+                              ({paginationMeta.total} {paginationMeta.total === 1 ? 'property' : 'properties'})
+                            </span>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={handleNextPage}
+                          disabled={!hasNextPage}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                            hasNextPage
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <span className="hidden sm:inline">Next</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -94,42 +94,141 @@ function normalizeProperties(data: any): Property[] {
     // to prevent processing invalid data
     throw new Error(errorMessage);
   }
-  // Ensure data is an array
-  if (!Array.isArray(data)) {
-    return [];
+  
+  // Handle new response format with meta and data fields
+  if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+    return data.data.map(normalizeProperty);
   }
-  return data.map(normalizeProperty);
+  
+  // Handle old format (direct array) for backward compatibility
+  if (Array.isArray(data)) {
+    return data.map(normalizeProperty);
+  }
+  
+  return [];
+}
+
+function extractPaginationMeta(data: any): PaginationMeta | null {
+  // Check if response has meta field with pagination info
+  if (data && typeof data === 'object' && 'meta' in data && data.meta) {
+    const meta = data.meta;
+    if (typeof meta === 'object' && 'page' in meta && 'per_page' in meta) {
+      return {
+        page: Number(meta.page) || 1,
+        per_page: Number(meta.per_page) || 40,
+        total: meta.total !== undefined ? Number(meta.total) : 0,
+        total_pages: meta.total_pages !== undefined ? Number(meta.total_pages) : 0,
+        page_results: meta.page_results !== undefined ? Number(meta.page_results) : 0,
+      };
+    }
+  }
+  return null;
+}
+
+export interface PaginationOptions {
+  page?: number;
+  per_page?: number;
+}
+
+export interface PaginationMeta {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  page_results: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
 }
 
 export const propertyApi = {
-  async getUserProperties(ownerId: number): Promise<Property[]> {
+  async getUserProperties(ownerId: number, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const url = `${API_BASE_URL}?action=get_user_properties&owner_id=${ownerId}`;
+    const queryParams = new URLSearchParams();
+    queryParams.append('action', 'get_user_properties');
+    queryParams.append('owner_id', ownerId.toString());
+    
+    if (pagination?.page !== undefined) {
+      queryParams.append('page', pagination.page.toString());
+    }
+    if (pagination?.per_page !== undefined) {
+      queryParams.append('per_page', pagination.per_page.toString());
+    }
+    
+    const url = `${API_BASE_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true, // Include cookies for token
     });
-    return normalizeProperties(response.data);
+    const properties = normalizeProperties(response.data);
+    const meta = extractPaginationMeta(response.data) || {
+      page: pagination?.page || 1,
+      per_page: pagination?.per_page || 40,
+      total: properties.length,
+      total_pages: 1,
+      page_results: properties.length,
+    };
+    return { data: properties, meta };
   },
 
-  async getPublicProperties(ownerId: number): Promise<Property[]> {
+  async getPublicProperties(ownerId: number, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const url = `${API_BASE_URL}?action=get_public_properties&owner_id=${ownerId}`;
+    const queryParams = new URLSearchParams();
+    queryParams.append('action', 'get_public_properties');
+    queryParams.append('owner_id', ownerId.toString());
+    
+    if (pagination?.page !== undefined) {
+      queryParams.append('page', pagination.page.toString());
+    }
+    if (pagination?.per_page !== undefined) {
+      queryParams.append('per_page', pagination.per_page.toString());
+    }
+    
+    const url = `${API_BASE_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
     });
-    return normalizeProperties(response.data);
+    const properties = normalizeProperties(response.data);
+    const meta = extractPaginationMeta(response.data) || {
+      page: pagination?.page || 1,
+      per_page: pagination?.per_page || 40,
+      total: properties.length,
+      total_pages: 1,
+      page_results: properties.length,
+    };
+    return { data: properties, meta };
   },
 
-  async getAllProperties(ownerId: number): Promise<Property[]> {
+  async getAllProperties(ownerId: number, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const url = `${API_BASE_URL}?action=get_all_properties&owner_id=${ownerId}`;
+    const queryParams = new URLSearchParams();
+    queryParams.append('action', 'get_all_properties');
+    queryParams.append('owner_id', ownerId.toString());
+    
+    if (pagination?.page !== undefined) {
+      queryParams.append('page', pagination.page.toString());
+    }
+    if (pagination?.per_page !== undefined) {
+      queryParams.append('per_page', pagination.per_page.toString());
+    }
+    
+    const url = `${API_BASE_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
     });
-    return normalizeProperties(response.data);
+    const properties = normalizeProperties(response.data);
+    const meta = extractPaginationMeta(response.data) || {
+      page: pagination?.page || 1,
+      per_page: pagination?.per_page || 40,
+      total: properties.length,
+      total_pages: 1,
+      page_results: properties.length,
+    };
+    return { data: properties, meta };
   },
 
   async addProperty(ownerId: number, data: PropertyFormData): Promise<{ success: boolean; id: number }> {
@@ -281,9 +380,19 @@ export const propertyApi = {
         
         console.log('API response received:', publicResponse.status);
         
-        // The endpoint returns an array with a single property
-        if (publicResponse.data && Array.isArray(publicResponse.data) && publicResponse.data.length > 0) {
-          const property = publicResponse.data[0];
+        // Handle new response format with meta and data fields
+        let properties: any[] = [];
+        if (publicResponse.data && typeof publicResponse.data === 'object' && 'data' in publicResponse.data && Array.isArray(publicResponse.data.data)) {
+          properties = publicResponse.data.data;
+        } 
+        // Handle old format (direct array) for backward compatibility
+        else if (publicResponse.data && Array.isArray(publicResponse.data)) {
+          properties = publicResponse.data;
+        }
+        
+        // The endpoint returns an array with a single property (or data array with one property)
+        if (properties.length > 0) {
+          const property = properties[0];
           // Only return if property is public
           if (property.is_public === 1) {
             return normalizeProperty(property);
