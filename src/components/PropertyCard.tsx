@@ -84,9 +84,9 @@ export function PropertyCard({
   const userCity = userSettings.city || '';
   
   // Trim description to 200 characters
-  const trimmedDescription = property.description.length > 200 
+  const trimmedDescription = property.description && property.description.length > 200 
     ? property.description.substring(0, 200) + '...'
-    : property.description;
+    : property.description || '';
   
   // Format price
   const priceText = formatPrice(property.price_min, property.price_max);
