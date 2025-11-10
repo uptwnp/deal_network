@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, LogOut, User, CheckCircle2, Lock, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { CITY_OPTIONS, AREA_OPTIONS, PROPERTY_TYPES } from '../utils/filterOptions';
+import { CITY_OPTIONS, AREA_OPTIONS, PROPERTY_TYPES, SIZE_UNITS } from '../utils/filterOptions';
 import { authApi } from '../services/authApi';
 import { setCurrentUser } from '../types/user';
 import { PasswordChangeModal } from './PasswordChangeModal';
@@ -24,6 +24,8 @@ interface ProfileData {
   default_area: string;
   default_city: string;
   default_type: string;
+  default_unit: string;
+  default_privacy: string;
   created_on: string;
 }
 
@@ -54,6 +56,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
         default_area: getFirstValue(user.default_area || ''),
         default_city: user.default_city || '',
         default_type: getFirstValue(user.default_type || ''),
+        default_unit: user.default_unit || '',
+        default_privacy: user.default_privacy || '',
         created_on: user.created_on || '',
       };
     }
@@ -68,6 +72,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
       default_area: '',
       default_city: '',
       default_type: '',
+      default_unit: '',
+      default_privacy: '',
       created_on: '',
     };
   });
@@ -108,6 +114,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             default_area: response.user.default_area,
             default_city: response.user.default_city,
             default_type: response.user.default_type,
+            default_unit: response.user.default_unit,
+            default_privacy: response.user.default_privacy,
             created_on: response.user.created_on,
           };
           setUser(apiUser);
@@ -125,6 +133,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             default_area: getFirstValue(response.user.default_area || ''),
             default_city: response.user.default_city || '',
             default_type: getFirstValue(response.user.default_type || ''),
+            default_unit: response.user.default_unit || '',
+            default_privacy: response.user.default_privacy || '',
             created_on: response.user.created_on || '',
           });
         } else {
@@ -163,6 +173,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             default_area: user.default_area || '',
             default_city: user.default_city || '',
             default_type: user.default_type || '',
+            default_unit: user.default_unit || '',
+            default_privacy: user.default_privacy || '',
             created_on: user.created_on || '',
           });
           setError('Using cached profile data. API error: ' + (err.message || 'Unknown error'));
@@ -226,6 +238,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
         default_area?: string;
         default_city?: string;
         default_type?: string;
+        default_unit?: string;
+        default_privacy?: string;
       } = {};
 
       // Always include fields (even empty strings) so PHP isset() will be true
@@ -236,6 +250,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
       updateData.default_area = profileData.default_area || '';
       updateData.default_city = profileData.default_city || '';
       updateData.default_type = profileData.default_type || '';
+      updateData.default_unit = profileData.default_unit || '';
+      updateData.default_privacy = profileData.default_privacy || '';
 
       console.log('Sending update data:', updateData);
 
@@ -259,6 +275,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             default_area: profileResponse.user.default_area,
             default_city: profileResponse.user.default_city,
             default_type: profileResponse.user.default_type,
+            default_unit: profileResponse.user.default_unit,
+            default_privacy: profileResponse.user.default_privacy,
             created_on: profileResponse.user.created_on,
           };
           setUser(apiUser);
@@ -273,9 +291,11 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             area_covers: profileResponse.user.area_covers || '',
             city_covers: profileResponse.user.city_covers || '',
             type: profileResponse.user.type || '',
-            default_area: profileResponse.user.default_area || '',
+            default_area: getFirstValue(profileResponse.user.default_area || ''),
             default_city: profileResponse.user.default_city || '',
-            default_type: profileResponse.user.default_type || '',
+            default_type: getFirstValue(profileResponse.user.default_type || ''),
+            default_unit: profileResponse.user.default_unit || '',
+            default_privacy: profileResponse.user.default_privacy || '',
             created_on: profileResponse.user.created_on || '',
           });
         }
@@ -441,6 +461,35 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
                     {PROPERTY_TYPES.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Default Unit */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Unit</label>
+                  <select
+                    value={profileData.default_unit}
+                    onChange={(e) => setProfileData({ ...profileData, default_unit: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 text-sm"
+                  >
+                    <option value="">Select default unit</option>
+                    {SIZE_UNITS.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Default Privacy */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Default Privacy</label>
+                  <select
+                    value={profileData.default_privacy}
+                    onChange={(e) => setProfileData({ ...profileData, default_privacy: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-gray-700 text-sm"
+                  >
+                    <option value="">Select default privacy</option>
+                    <option value="0">Private</option>
+                    <option value="1">Public</option>
                   </select>
                 </div>
 

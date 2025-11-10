@@ -15,6 +15,8 @@ export interface User {
   default_area?: string;
   default_city?: string;
   default_type?: string;
+  default_unit?: string;
+  default_privacy?: string;
   token?: string;
   createdAt?: number;
   created_on?: string;

@@ -14,6 +14,8 @@ export interface AuthUser {
   default_area?: string;
   default_city?: string;
   default_type?: string;
+  default_unit?: string;
+  default_privacy?: string;
   token: string;
   created_on?: string;
 }
@@ -277,6 +279,8 @@ export const authApi = {
     default_area?: string;
     default_city?: string;
     default_type?: string;
+    default_unit?: string;
+    default_privacy?: string;
   }): Promise<{ status: boolean; message: string }> {
     const token = getStoredToken();
     if (!token) {
@@ -295,6 +299,8 @@ export const authApi = {
       if (updates.default_area !== undefined) updateData.default_area = updates.default_area;
       if (updates.default_city !== undefined) updateData.default_city = updates.default_city;
       if (updates.default_type !== undefined) updateData.default_type = updates.default_type;
+      if (updates.default_unit !== undefined) updateData.default_unit = updates.default_unit;
+      if (updates.default_privacy !== undefined) updateData.default_privacy = updates.default_privacy;
 
       const response = await axios.post<{ status: boolean; message: string }>(
         `${AUTH_API_BASE_URL}?action=update_profile`,

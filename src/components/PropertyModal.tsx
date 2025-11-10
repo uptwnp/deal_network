@@ -77,6 +77,17 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     return user?.default_city || '';
   };
 
+  const getUserDefaultUnit = (): string => {
+    return user?.default_unit || '';
+  };
+
+  const getUserDefaultPrivacy = (): number => {
+    if (user?.default_privacy !== undefined && user.default_privacy !== '') {
+      return parseInt(user.default_privacy, 10);
+    }
+    return 0; // Default to private
+  };
+
   const [formData, setFormData] = useState<PropertyFormData>(
     property ? {
       city: property.city,
@@ -105,12 +116,12 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       note_private: '',
       min_size: undefined,
       size_max: undefined,
-      size_unit: getLastSelections.unit || userSettings.defaultSizeUnit || 'Gaj',
+      size_unit: getLastSelections.unit || getUserDefaultUnit() || userSettings.defaultSizeUnit || 'Gaj',
       price_min: undefined,
       price_max: undefined,
       location: '',
       location_accuracy: 'Medium',
-      is_public: 0,
+      is_public: getUserDefaultPrivacy(),
       tags: '',
       highlights: '',
       public_rating: 0,
@@ -313,10 +324,25 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           }
         }
 
+        // Update size_unit if empty and user has a default unit
+        if (!prev.size_unit && user.default_unit) {
+          updates.size_unit = user.default_unit;
+          hasUpdates = true;
+        }
+
+        // Update is_public if it's the default (0) and user has a default privacy setting
+        if (prev.is_public === 0 && user.default_privacy !== undefined && user.default_privacy !== '') {
+          const defaultPrivacy = parseInt(user.default_privacy, 10);
+          if (defaultPrivacy !== 0) {
+            updates.is_public = defaultPrivacy;
+            hasUpdates = true;
+          }
+        }
+
         return hasUpdates ? { ...prev, ...updates } : prev;
       });
     }
-  }, [user?.default_city, user?.default_area, user?.default_type, property, draftData, userSettings.city]);
+  }, [user?.default_city, user?.default_area, user?.default_type, user?.default_unit, user?.default_privacy, property, draftData, userSettings.city]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
