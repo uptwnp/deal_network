@@ -534,6 +534,13 @@ function App() {
     try {
       const response = await propertyApi.addProperty(ownerId, data);
       const newPropertyId = response.id;
+      
+      // Update cache with new city/area only on successful add
+      const { updateCacheWithCityArea } = await import('./utils/areaCityApi');
+      if (data.city && data.area) {
+        updateCacheWithCityArea(data.city.trim(), data.area.trim());
+      }
+      
       showToast('Property added successfully', 'success');
       setShowModal(false);
       
@@ -582,6 +589,13 @@ function App() {
     if (!editingProperty) return;
     try {
       await propertyApi.updateProperty(editingProperty.id, ownerId, data);
+      
+      // Update cache with new city/area only on successful update
+      const { updateCacheWithCityArea } = await import('./utils/areaCityApi');
+      if (data.city && data.area) {
+        updateCacheWithCityArea(data.city.trim(), data.area.trim());
+      }
+      
       showToast('Property updated successfully', 'success');
       setShowModal(false);
       setEditingProperty(null);

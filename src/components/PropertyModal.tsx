@@ -10,7 +10,7 @@ import {
   SIZE_UNIT_OPTIONS,
 } from '../utils/filterOptions';
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock';
-import { fetchAreaCityDataInBackground, getAreaCityData, getAreasForCity } from '../utils/areaCityApi';
+import { fetchAreaCityDataInBackground, getAreaCityData, getAreasForCity, updateCacheWithCityArea } from '../utils/areaCityApi';
 
 interface PropertyModalProps {
   property?: Property | null;
@@ -124,6 +124,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   const [showSizeUnitDropdown, setShowSizeUnitDropdown] = useState(false);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [showPropertyTypeDropdown, setShowPropertyTypeDropdown] = useState(false);
+  const [showAddCityInput, setShowAddCityInput] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
   
   // Dynamic area/city data from API
   const [cities, setCities] = useState<string[]>([]);
@@ -146,6 +148,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       }
       if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node)) {
         setShowCityDropdown(false);
+        setShowAddCityInput(false);
+        setNewCityName('');
       }
       if (propertyTypeDropdownRef.current && !propertyTypeDropdownRef.current.contains(event.target as Node)) {
         setShowPropertyTypeDropdown(false);
@@ -408,6 +412,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                           e.stopPropagation();
                           setFormData(prev => ({ ...prev, city: option.value }));
                           setShowCityDropdown(false);
+                          setShowAddCityInput(false);
                         }}
                         className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${
                           formData.city === option.value
@@ -418,6 +423,67 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                         {option.label}
                       </button>
                     ))}
+                    {!showAddCityInput ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowAddCityInput(true);
+                        }}
+                        className="w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-green-50 transition-colors text-green-700 font-medium border-t border-gray-200"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="w-3.5 h-3.5" />
+                          Add new city
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="border-t border-gray-200 p-2">
+                        <input
+                          type="text"
+                          value={newCityName}
+                          onChange={(e) => setNewCityName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const trimmedCity = newCityName.trim();
+                              if (trimmedCity) {
+                                setFormData(prev => ({ ...prev, city: trimmedCity }));
+                                setShowCityDropdown(false);
+                                setShowAddCityInput(false);
+                                setNewCityName('');
+                                // Update cache immediately when adding new city
+                                if (formData.area) {
+                                  updateCacheWithCityArea(trimmedCity, formData.area.trim());
+                                }
+                                // Refresh city list to include the new city
+                                getAreaCityData().then((data) => {
+                                  if (data) {
+                                    const cityList = data.cities.map((c) => c.city);
+                                    setCities(cityList);
+                                    setCityOptionsWithLabels(cityList.map((city) => ({ value: city, label: city })));
+                                  }
+                                });
+                                // Refresh areas for the new city
+                                if (formData.area) {
+                                  getAreasForCity(trimmedCity).then((cityAreas) => {
+                                    setAreas(cityAreas);
+                                  });
+                                }
+                              }
+                            } else if (e.key === 'Escape') {
+                              setShowAddCityInput(false);
+                              setNewCityName('');
+                            }
+                          }}
+                          placeholder="Enter city name"
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          autoFocus
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -471,8 +537,17 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                           <button
                             type="button"
                             onClick={() => {
-                              setFormData(prev => ({ ...prev, area: formData.area.trim() }));
+                              const trimmedArea = formData.area.trim();
+                              setFormData(prev => ({ ...prev, area: trimmedArea }));
                               setShowAreaSuggestions(false);
+                              // Update cache immediately when adding new area
+                              if (formData.city) {
+                                updateCacheWithCityArea(formData.city.trim(), trimmedArea);
+                                // Refresh area list
+                                getAreasForCity(formData.city).then((cityAreas) => {
+                                  setAreas(cityAreas);
+                                });
+                              }
                             }}
                             className="w-full px-3 py-1.5 text-left hover:bg-green-50 text-xs text-green-700 font-medium border-t border-gray-200"
                           >

@@ -175,3 +175,44 @@ export async function getAllAreas(): Promise<string[]> {
   return Array.from(new Set(allAreas)).sort();
 }
 
+/**
+ * Update cache with a new city or area
+ * If city doesn't exist, it will be added with the area
+ * If city exists, area will be added to it (if not already present)
+ */
+export function updateCacheWithCityArea(city: string, area: string): void {
+  try {
+    const cached = getCachedData();
+    if (!cached) {
+      // No cache exists, create new one
+      const newData: AreaCityResponse = {
+        cities: [{ city, areas: [area] }],
+      };
+      setCachedData(newData);
+      return;
+    }
+
+    // Find existing city
+    const cityIndex = cached.cities.findIndex((c) => c.city === city);
+    
+    if (cityIndex >= 0) {
+      // City exists, add area if not already present
+      const cityData = cached.cities[cityIndex];
+      if (!cityData.areas.includes(area)) {
+        cityData.areas.push(area);
+        cityData.areas.sort(); // Keep sorted
+      }
+    } else {
+      // City doesn't exist, add new city with area
+      cached.cities.push({ city, areas: [area] });
+      // Sort cities alphabetically
+      cached.cities.sort((a, b) => a.city.localeCompare(b.city));
+    }
+
+    // Update cache
+    setCachedData(cached);
+  } catch (error) {
+    console.error('Failed to update area/city cache:', error);
+  }
+}
+

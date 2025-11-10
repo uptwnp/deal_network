@@ -10,6 +10,7 @@ import {
   PROPERTY_TYPE_OPTIONS,
   SIZE_UNIT_OPTIONS,
 } from '../utils/filterOptions';
+import { getAreaCityData, getCities, getAllAreas, getAreasForCity, fetchAreaCityDataInBackground } from '../utils/areaCityApi';
 
 interface SearchFilterProps {
   onSearch: (query: string, column?: string) => void;
@@ -67,13 +68,63 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const [showAreaSection, setShowAreaSection] = useState(false);
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
   const [selectedArea, setSelectedArea] = useState<string>(persistedState.selectedArea);
-  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false);
-  const cityInputRef = useRef<HTMLInputElement>(null);
   const areaInputRef = useRef<HTMLInputElement>(null);
   const columnDropdownRef = useRef<HTMLDivElement>(null);
   const areaDropdownRef = useRef<HTMLDivElement>(null);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<FilterOptions>(persistedState.filters);
+  
+  // Dynamic city and area options from API
+  const [cityOptions, setCityOptions] = useState<string[]>([]);
+  const [areaOptions, setAreaOptions] = useState<string[]>([]);
+  const [filteredAreaOptions, setFilteredAreaOptions] = useState<string[]>([]);
+
+  // Fetch area/city data on mount
+  useEffect(() => {
+    // Fetch in background
+    fetchAreaCityDataInBackground();
+    
+    // Load cached data immediately
+    getAreaCityData().then((data) => {
+      if (data) {
+        const cities = data.cities.map((c) => c.city);
+        setCityOptions(cities);
+        // Get all areas for initial area dropdown
+        getAllAreas().then((areas) => {
+          setAreaOptions(areas);
+          setFilteredAreaOptions(areas);
+        });
+      } else {
+        // Fallback to static options if API data not available
+        setCityOptions([...CITY_OPTIONS]);
+        setAreaOptions([...AREA_OPTIONS]);
+        setFilteredAreaOptions([...AREA_OPTIONS]);
+      }
+    });
+  }, []);
+
+  // Update area options when city filter changes
+  useEffect(() => {
+    if (filters.city) {
+      getAreasForCity(filters.city).then((areas) => {
+        if (areas.length > 0) {
+          setFilteredAreaOptions(areas);
+        } else {
+          // Fallback to all areas if city not found in API data
+          getAllAreas().then((allAreas) => {
+            setFilteredAreaOptions(allAreas);
+          });
+        }
+      });
+    } else {
+      // No city selected, show all areas
+      getAllAreas().then((allAreas) => {
+        setFilteredAreaOptions(allAreas);
+      });
+    }
+  }, [filters.city]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -82,6 +133,9 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       }
       if (areaDropdownRef.current && !areaDropdownRef.current.contains(event.target as Node)) {
         setShowAreaDropdown(false);
+      }
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node)) {
+        setShowCityDropdown(false);
       }
     };
 
@@ -309,7 +363,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
           </button>
           {showAreaDropdown && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
-              {AREA_OPTIONS.map((area, idx) => (
+              {(filteredAreaOptions.length > 0 ? filteredAreaOptions : AREA_OPTIONS).map((area, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -345,31 +399,47 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
               </div>
               <div className="p-4 space-y-3">
                 <div className="grid grid-cols-1 gap-2.5">
-                  <div className="relative">
+                  <div className="relative" ref={cityDropdownRef}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                    <input
-                      ref={cityInputRef}
-                      type="text"
-                      value={filters.city}
-                      onChange={(e) => handleFilterChange('city', e.target.value)}
-                      onFocus={() => setShowCitySuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      placeholder="e.g., Panipat"
-                    />
-                    {showCitySuggestions && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCityDropdown(!showCityDropdown)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-sm text-left"
+                    >
+                      <span className={filters.city ? 'text-gray-900' : 'text-gray-400'}>
+                        {filters.city || 'Select City'}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {filters.city && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFilterChange('city', '');
+                            }}
+                            className="p-0.5 hover:bg-gray-200 rounded"
+                          >
+                            <X className="w-3.5 h-3.5 text-gray-500" />
+                          </button>
+                        )}
+                        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showCityDropdown ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+                    {showCityDropdown && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {CITY_OPTIONS.filter(city =>
-                          city.toLowerCase().includes((filters.city || '').toLowerCase())
-                        ).map((city, idx) => (
+                        {(cityOptions.length > 0 ? cityOptions : CITY_OPTIONS).map((city, idx) => (
                           <button
                             key={idx}
                             type="button"
                             onClick={() => {
                               handleFilterChange('city', city);
-                              setShowCitySuggestions(false);
+                              setShowCityDropdown(false);
                             }}
-                            className="w-full px-3 py-2 text-left hover:bg-blue-50 text-sm text-gray-700"
+                            className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                              filters.city === city
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
                           >
                             {city}
                           </button>
@@ -392,7 +462,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                     />
                     {showAreaSuggestions && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {AREA_OPTIONS.filter(area =>
+                        {(filteredAreaOptions.length > 0 ? filteredAreaOptions : AREA_OPTIONS).filter(area =>
                           area.toLowerCase().includes((filters.area || '').toLowerCase())
                         ).map((area, idx) => (
                           <button
@@ -527,31 +597,47 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-            <div className="relative">
+            <div className="relative" ref={cityDropdownRef}>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">City</label>
-              <input
-                ref={cityInputRef}
-                type="text"
-                value={filters.city}
-                onChange={(e) => handleFilterChange('city', e.target.value)}
-                onFocus={() => setShowCitySuggestions(true)}
-                onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
-                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                placeholder="e.g., Panipat"
-              />
-              {showCitySuggestions && (
+              <button
+                type="button"
+                onClick={() => setShowCityDropdown(!showCityDropdown)}
+                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-sm text-left"
+              >
+                <span className={filters.city ? 'text-gray-900' : 'text-gray-400'}>
+                  {filters.city || 'Select City'}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {filters.city && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFilterChange('city', '');
+                      }}
+                      className="p-0.5 hover:bg-gray-200 rounded"
+                    >
+                      <X className="w-3.5 h-3.5 text-gray-500" />
+                    </button>
+                  )}
+                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 transition-transform ${showCityDropdown ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              {showCityDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {CITY_OPTIONS.filter(city =>
-                    city.toLowerCase().includes((filters.city || '').toLowerCase())
-                  ).map((city, idx) => (
+                  {(cityOptions.length > 0 ? cityOptions : CITY_OPTIONS).map((city, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => {
                         handleFilterChange('city', city);
-                        setShowCitySuggestions(false);
+                        setShowCityDropdown(false);
                       }}
-                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-left hover:bg-blue-50 text-xs sm:text-sm text-gray-700"
+                      className={`w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-left text-xs sm:text-sm transition-colors ${
+                        filters.city === city
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                     >
                       {city}
                     </button>
@@ -574,7 +660,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
               />
               {showAreaSuggestions && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {AREA_OPTIONS.filter(area =>
+                  {(filteredAreaOptions.length > 0 ? filteredAreaOptions : AREA_OPTIONS).filter(area =>
                     area.toLowerCase().includes((filters.area || '').toLowerCase())
                   ).map((area, idx) => (
                     <button

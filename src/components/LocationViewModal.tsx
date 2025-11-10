@@ -97,6 +97,26 @@ function MapBoundsUpdater({ propertyLocation, landmarkLocation, userLocation, ha
   return null;
 }
 
+// Component to ensure user location marker is visible
+function UserLocationMarkerUpdater({ userLocation }: { userLocation: [number, number] | null }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (userLocation) {
+      console.log('UserLocationMarkerUpdater: userLocation set, invalidating map');
+      // Force map to redraw markers
+      setTimeout(() => {
+        map.invalidateSize();
+        // Try to pan slightly to force redraw
+        const currentCenter = map.getCenter();
+        map.setView(currentCenter, map.getZoom());
+      }, 200);
+    }
+  }, [userLocation, map]);
+  
+  return null;
+}
+
 export function LocationViewModal({ propertyLocation, property, onClose, onOpenInGoogleMaps }: LocationViewModalProps) {
   const landmarkLocationCoords = (() => {
     if (!property.landmark_location) return null;
@@ -132,6 +152,7 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
+        console.log('GPS location received:', lat, lng);
         setUserLocation([lat, lng]);
         setIsGettingLocation(false);
         setIsInitialLoad(false);
@@ -234,6 +255,7 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
         clearTimeout(timeoutId);
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
+        console.log('Auto GPS location received:', lat, lng);
         setUserLocation([lat, lng]);
         setIsGettingLocation(false);
         setShouldUpdateBounds(true);
@@ -290,20 +312,52 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
     popupAnchor: [0, -41]
   });
 
-  const userIcon = L.divIcon({
-    className: 'custom-user-marker',
-    html: `<div style="
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background-color: #3b82f6;
-      border: 4px solid white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    "></div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  });
+  // Create user icon - make it more visible
+  const userIcon = useMemo(() => {
+    return L.divIcon({
+      className: 'custom-user-marker',
+      html: `<div style="
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #3b82f6;
+        border: 5px solid white;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+        position: relative;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background-color: white;
+        "></div>
+      </div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20]
+    });
+  }, []);
+  
+  // Debug: Log when userLocation changes and invalidate map
+  useEffect(() => {
+    if (userLocation) {
+      console.log('User location state updated:', userLocation);
+      // Force map to update when marker is added
+      setTimeout(() => {
+        const mapElement = document.querySelector('.leaflet-container') as any;
+        if (mapElement && mapElement._leaflet_id) {
+          const mapInstance = (window as any).L?.maps?.[mapElement._leaflet_id];
+          if (mapInstance) {
+            mapInstance.invalidateSize();
+          }
+        }
+      }, 100);
+    }
+  }, [userLocation]);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
@@ -347,6 +401,7 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
                   isInitialLoad={isInitialLoad}
                   shouldUpdateBounds={shouldUpdateBounds}
                 />
+                <UserLocationMarkerUpdater userLocation={userLocation} />
                 <TileLayerSwitcher isSatelliteView={isSatelliteView} />
                 
                 {landmarkLocationCoords && (
@@ -429,8 +484,28 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
 
                 {userLocation && (
                   <Marker 
+                    key={`user-location-${userLocation[0]}-${userLocation[1]}`}
                     position={userLocation}
                     icon={userIcon}
+                    zIndexOffset={1000}
+                    riseOnHover={true}
+                    eventHandlers={{
+                      add: (e) => {
+                        console.log('User location marker added to map at:', userLocation);
+                        // Force the marker to be visible
+                        const marker = e.target;
+                        if (marker && marker.getElement) {
+                          const element = marker.getElement();
+                          if (element) {
+                            element.style.zIndex = '1000';
+                            element.style.position = 'relative';
+                          }
+                        }
+                      },
+                      click: () => {
+                        console.log('User location marker clicked');
+                      }
+                    }}
                   >
                     <Popup>
                       <div className="p-2">
