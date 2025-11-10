@@ -72,10 +72,85 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
   });
   const [mapCenter, setMapCenter] = useState<[number, number]>(center);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   
+  // Helper function to get coordinates for a property (location first, then landmark_location as fallback)
+  const getPropertyCoords = (property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
+    // Try exact location first
+    if (property.location && property.location.includes(',')) {
+      const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        return { coords: [coords[0], coords[1]], isLandmark: false };
+      }
+    }
+    
+    // Fallback to landmark_location
+    if (property.landmark_location && property.landmark_location.includes(',')) {
+      const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        return { coords: [coords[0], coords[1]], isLandmark: true };
+      }
+    }
+    
+    return { coords: null, isLandmark: false };
+  };
+  
+  // Filter properties that have either location or landmark_location
   const propertiesWithCoords = properties.filter(
-    (p) => p.location && p.location.includes(',')
+    (p) => {
+      const { coords } = getPropertyCoords(p);
+      return coords !== null;
+    }
   );
+  
+  // Create user location icon
+  const userIcon = L.divIcon({
+    className: 'custom-user-marker',
+    html: `<div style="
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #3b82f6;
+      border: 5px solid white;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      position: relative;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: white;
+      "></div>
+    </div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20]
+  });
+  
+  // Create landmark location icon (different from exact location)
+  const landmarkIcon = L.divIcon({
+    className: 'custom-landmark-marker',
+    html: `<div style="
+      width: 30px;
+      height: 41px;
+      opacity: 0.8;
+    ">
+      <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+        <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#2563eb"/>
+        <circle cx="15" cy="15" r="6" fill="white"/>
+        <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
+      </svg>
+    </div>`,
+    iconSize: [30, 41],
+    iconAnchor: [15, 41],
+    popupAnchor: [0, -41]
+  });
 
   // Update map center when center prop changes
   useEffect(() => {
@@ -94,7 +169,9 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        setMapCenter([lat, lng]);
+        const userPos: [number, number] = [lat, lng];
+        setUserLocation(userPos);
+        setMapCenter(userPos);
         setIsGettingLocation(false);
       },
       (error) => {
@@ -136,14 +213,18 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
         <MapUpdater center={mapCenter} />
         <TileLayerSwitcher isSatelliteView={isSatelliteView} />
         {propertiesWithCoords.flatMap((property) => {
-          const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
-          if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-            const radius = property.location_accuracy ? parseFloat(property.location_accuracy) || 500 : 500;
-            return [
-              // Location Accuracy Radius Circle
+          const { coords, isLandmark } = getPropertyCoords(property);
+          if (!coords) return [];
+          
+          const radius = property.location_accuracy ? parseFloat(property.location_accuracy) || 500 : 500;
+          const markerIcon = isLandmark ? landmarkIcon : undefined; // Use default icon for exact location, landmark icon for landmark
+          
+          return [
+            // Location Accuracy Radius Circle (only for exact locations)
+            !isLandmark && (
               <Circle
                 key={`circle-${property.id}`}
-                center={[coords[0], coords[1]]}
+                center={coords}
                 radius={radius}
                 pathOptions={{
                   color: '#3b82f6',
@@ -152,46 +233,87 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
                   weight: 2,
                   opacity: 0.5,
                 }}
-              />,
-              <Marker 
-                key={`marker-${property.id}`}
-                position={[coords[0], coords[1]]}
-              >
-                <Popup>
-                  <div className="p-1.5">
-                    <h3 className="font-semibold text-xs mb-0.5">{property.type}</h3>
-                    <p className="text-xs text-gray-600 mb-1">
-                      {property.area}, {property.city}
-                    </p>
-                    <p className="text-xs font-medium text-blue-600 mb-0.5">
-                      {formatPrice(property.price_min, property.price_max, true)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatSize(property.min_size, property.size_max, property.size_unit)}
-                    </p>
-                    {property.location_accuracy && (
+              />
+            ),
+            <Marker 
+              key={`marker-${property.id}`}
+              position={coords}
+              icon={markerIcon}
+            >
+              <Popup>
+                <div className="p-1.5">
+                  <h3 className="font-semibold text-xs mb-0.5">{property.type}</h3>
+                  <p className="text-xs text-gray-600 mb-1">
+                    {property.area}, {property.city}
+                  </p>
+                  <p className="text-xs font-medium text-blue-600 mb-0.5">
+                    {formatPrice(property.price_min, property.price_max, true)}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {formatSize(property.min_size, property.size_max, property.size_unit)}
+                  </p>
+                  {isLandmark ? (
+                    <>
+                      <p className="text-xs text-orange-600 mt-0.5 font-medium">
+                        Landmark Location (Approximate)
+                      </p>
+                      {property.landmark_location && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {property.landmark_location}
+                        </p>
+                      )}
+                      {property.landmark_location_distance && (
+                        <p className="text-xs text-blue-600 mt-0.5">
+                          Distance: {property.landmark_location_distance}m
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    property.location_accuracy && (
                       <p className="text-xs text-blue-600 mt-0.5">
                         Accuracy: {property.location_accuracy}m
                       </p>
-                    )}
-                    {onMarkerClick && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMarkerClick(property);
-                        }}
-                        className="mt-1.5 w-full px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                      >
-                        View Details
-                      </button>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ];
-          }
-          return [];
+                    )
+                  )}
+                  {onMarkerClick && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkerClick(property);
+                      }}
+                      className="mt-1.5 w-full px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                    >
+                      View Details
+                    </button>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ].filter(Boolean); // Remove any null/undefined elements
         })}
+        
+        {/* User Location Marker */}
+        {userLocation && (
+          <Marker 
+            key={`user-location-${userLocation[0]}-${userLocation[1]}`}
+            position={userLocation}
+            icon={userIcon}
+            zIndexOffset={1000}
+            riseOnHover={true}
+          >
+            <Popup>
+              <div className="p-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Navigation className="w-4 h-4 text-blue-600" />
+                  <h3 className="font-semibold text-sm">Your Location</h3>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {userLocation[0].toFixed(6)}, {userLocation[1].toFixed(6)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
       </MapContainer>
 
       {/* Map Control Buttons Container */}
