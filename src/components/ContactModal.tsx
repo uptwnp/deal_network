@@ -3,6 +3,7 @@ import { X, Send } from 'lucide-react';
 import { Property } from '../types/property';
 import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
+import { getCurrentUser } from '../types/user';
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock';
 
 interface ContactModalProps {
@@ -48,6 +49,12 @@ export function ContactModal({
 
     setLoading(true);
     try {
+      // Get sender information
+      const currentUser = getCurrentUser();
+      const senderName = currentUser?.name || '';
+      const senderPhone = currentUser?.phone || '';
+      const senderFirm = currentUser?.firmName || currentUser?.firm_name || '';
+      
       // Create property link
       const propertyLink = `${window.location.origin}/property/${property.id}`;
       
@@ -55,8 +62,18 @@ export function ContactModal({
       const sizeText = formatSize(property.min_size, property.size_max, property.size_unit);
       const priceText = formatPriceWithLabel(property.price_min, property.price_max);
       
-      // Create message with property details, question, and link
-      const message = `Hi, I'm interested in this property:\n\n${property.type} in ${property.area}, ${property.city}\n${property.description ? property.description + '\n' : ''}Size: ${sizeText}\nPrice: ${priceText}\n\nMy Question: ${question}\n\nView property: ${propertyLink}`;
+      // Build sender details section
+      let senderDetails = '';
+      if (senderName || senderPhone || senderFirm) {
+        senderDetails = '\n---\nSender Details:\n';
+        if (senderName) senderDetails += `Name: ${senderName}\n`;
+        if (senderFirm) senderDetails += `Firm: ${senderFirm}\n`;
+        if (senderPhone) senderDetails += `Phone: ${senderPhone}\n`;
+        senderDetails += `Sender ID: ${senderId}\n`;
+      }
+      
+      // Create message with question first, then sender and property details
+      const message = `${question}${senderDetails}\n---\nProperty Details:\n${property.type} in ${property.area}, ${property.city}\n${property.description ? property.description + '\n' : ''}Size: ${sizeText}\nPrice: ${priceText}\n\nView property: ${propertyLink}`;
 
       // Remove any non-digit characters except + for international format
       const phoneNumber = ownerPhone.replace(/[^\d+]/g, '');
