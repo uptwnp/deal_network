@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Home, Globe, ChevronDown, User, MapPin, List, X } from 'lucide-react';
+import { Plus, Home, Globe, ChevronDown, User, MapPin, List, X, Users } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { SearchFilter } from './components/SearchFilter';
@@ -1374,7 +1374,7 @@ function MainAppContent({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24 md:pb-20">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
@@ -1404,7 +1404,8 @@ function MainAppContent({
                   <List className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
-              <div className="relative" ref={filterMenuRef}>
+              {/* Desktop filter menu - hidden on mobile */}
+              <div className="relative hidden md:block" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
                   className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs sm:text-sm"
@@ -1639,12 +1640,51 @@ function MainAppContent({
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
+      {/* Mobile Bottom Tab Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 md:hidden">
+        <div className="flex items-center justify-around h-16">
+          <button
+            onClick={() => handleFilterChange('all')}
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              activeFilter === 'all'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Globe className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">All Property</span>
+          </button>
+          <button
+            onClick={() => handleFilterChange('my')}
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              activeFilter === 'my'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Home className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">My Property</span>
+          </button>
+          <button
+            onClick={() => handleFilterChange('public')}
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              activeFilter === 'public'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Public Property</span>
+          </button>
+        </div>
+      </div>
+
       <button
         onClick={() => {
           setEditingProperty(null);
           setShowModal(true);
         }}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 md:bottom-6 md:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
+        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 md:bottom-6 md:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
         title="Add Property"
       >
         <Plus className="w-5 h-5 sm:w-6 sm:h-6" />

@@ -39,8 +39,8 @@ const getFirstValue = (value: string): string => {
 export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
   const { user, setUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab') as 'preferences' | 'profile' | null;
-  const [activeTab, setActiveTab] = useState<'preferences' | 'profile'>(tabFromUrl === 'profile' ? 'profile' : 'preferences');
+  const tabFromUrl = searchParams.get('tab') as 'preferences' | 'profile' | 'agreement' | null;
+  const [activeTab, setActiveTab] = useState<'preferences' | 'profile' | 'agreement'>(tabFromUrl === 'profile' ? 'profile' : tabFromUrl === 'agreement' ? 'agreement' : 'preferences');
   
   // Initialize profile data from user context if available
   const [profileData, setProfileData] = useState<ProfileData>(() => {
@@ -89,6 +89,41 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
   const cityCoversDropdownRef = useRef<HTMLDivElement>(null);
   const areaCoversDropdownRef = useRef<HTMLDivElement>(null);
   const dealsInDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Agreement state
+  const [listingAgreement, setListingAgreement] = useState({
+    genuineListings: false,
+    removeUnavailable: false,
+    notifyDeals: false,
+    correctPrices: false,
+    basicTerms: false,
+  });
+  
+  const [ownerDetailsAgreement, setOwnerDetailsAgreement] = useState({
+    payDealValue: false,
+    payFirstDeal: false,
+    noAbuse: false,
+  });
+
+  // Load saved agreement data from localStorage
+  useEffect(() => {
+    if (user?.id) {
+      try {
+        const savedAgreement = localStorage.getItem(`propnetwork_agreement_${user.id}`);
+        if (savedAgreement) {
+          const agreementData = JSON.parse(savedAgreement);
+          if (agreementData.listingAgreement) {
+            setListingAgreement(agreementData.listingAgreement);
+          }
+          if (agreementData.ownerDetailsAgreement) {
+            setOwnerDetailsAgreement(agreementData.ownerDetailsAgreement);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load saved agreement:', err);
+      }
+    }
+  }, [user?.id]);
 
   // Fetch user profile from API on mount
   useEffect(() => {
@@ -330,6 +365,38 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
     setTimeout(() => setCacheCleared(false), 3000);
   };
 
+  const handleSaveAgreement = async () => {
+    setError('');
+    setSaved(false);
+    
+    try {
+      // Check if all checkboxes are checked
+      const allListingChecked = Object.values(listingAgreement).every(v => v === true);
+      const allOwnerDetailsChecked = Object.values(ownerDetailsAgreement).every(v => v === true);
+      
+      if (!allListingChecked || !allOwnerDetailsChecked) {
+        setError('Please check all agreement boxes before saving.');
+        return;
+      }
+
+      // For now, save to localStorage
+      // TODO: Update to save to API when backend supports agreement fields
+      const agreementData = {
+        listingAgreement,
+        ownerDetailsAgreement,
+        savedAt: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(`propnetwork_agreement_${user?.id}`, JSON.stringify(agreementData));
+      
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      console.error('Failed to save agreement:', err);
+      setError(err.message || 'Failed to save agreement. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
@@ -412,6 +479,16 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
                     }`}
                   >
                     Profile Info
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('agreement')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      activeTab === 'agreement'
+                        ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    Agreement
                   </button>
                 </div>
               </div>
@@ -764,6 +841,148 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
                         <div className="mt-3 flex items-center justify-center gap-2 text-green-600 font-medium text-sm">
                           <CheckCircle2 className="w-4 h-4" />
                           <p>Profile saved successfully! 🎉</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'agreement' && (
+                  <div className="space-y-6">
+                    {/* Agreement For Listing Property */}
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Agreement For Listing Property</h3>
+                        <p className="text-sm text-gray-600 mb-4">Please check all boxes below to agree:</p>
+                        
+                        <div className="space-y-3">
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={listingAgreement.genuineListings}
+                              onChange={(e) => setListingAgreement({ ...listingAgreement, genuineListings: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I will only make the genuine listings public
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={listingAgreement.removeUnavailable}
+                              onChange={(e) => setListingAgreement({ ...listingAgreement, removeUnavailable: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I will remove the listing from public listing if the property is no longer available
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={listingAgreement.notifyDeals}
+                              onChange={(e) => setListingAgreement({ ...listingAgreement, notifyDeals: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I will notify the dealer network team if I made any deal for the properties listed on platform using the platform
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={listingAgreement.correctPrices}
+                              onChange={(e) => setListingAgreement({ ...listingAgreement, correctPrices: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I will only enter the correct prices
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={listingAgreement.basicTerms}
+                              onChange={(e) => setListingAgreement({ ...listingAgreement, basicTerms: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I agree to the basic usage terms
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Agreement to get the listing owner details */}
+                    <div className="space-y-4 pt-4 border-t border-gray-200">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Agreement to get the listing owner details</h3>
+                        <p className="text-sm text-gray-600 mb-4">Please check all boxes below to agree:</p>
+                        
+                        <div className="space-y-3">
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={ownerDetailsAgreement.payDealValue}
+                              onChange={(e) => setOwnerDetailsAgreement({ ...ownerDetailsAgreement, payDealValue: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I will pay the 0.1% of the deal value to dealer network by myself whenever any deal got closed due to direct or indirect involvement of dealer network.
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={ownerDetailsAgreement.payFirstDeal}
+                              onChange={(e) => setOwnerDetailsAgreement({ ...ownerDetailsAgreement, payFirstDeal: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I am also liable to pay the 0.1% of the first deal value if I made any deal with person I discovered through the dealer network.
+                            </span>
+                          </label>
+
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={ownerDetailsAgreement.noAbuse}
+                              onChange={(e) => setOwnerDetailsAgreement({ ...ownerDetailsAgreement, noAbuse: e.target.checked })}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              I will not abuse or relist the listing you found on this network
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Save Agreement Button */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <button
+                        onClick={handleSaveAgreement}
+                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm hover:shadow"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save Agreement
+                      </button>
+                      {saved && (
+                        <div className="mt-3 flex items-center justify-center gap-2 text-green-600 font-medium text-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <p>Agreement saved successfully! 🎉</p>
+                        </div>
+                      )}
+                      {error && activeTab === 'agreement' && (
+                        <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          <p className="text-yellow-800 text-sm">{error}</p>
                         </div>
                       )}
                     </div>
