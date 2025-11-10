@@ -9,6 +9,8 @@ import {
   AREA_OPTIONS,
   PROPERTY_TYPE_OPTIONS,
   SIZE_UNIT_OPTIONS,
+  getSearchColumnsSortedByUsage,
+  trackColumnUsage,
 } from '../utils/filterOptions';
 import { getAreaCityData, getCities, getAllAreas, getAreasForCity, fetchAreaCityDataInBackground } from '../utils/areaCityApi';
 
@@ -27,9 +29,21 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       const savedArea = localStorage.getItem(STORAGE_KEYS.SELECTED_AREA) || '';
       const userSettings = getUserSettings();
       
-      // Use user settings as defaults if no saved filters (but don't auto-select city)
-      const defaultFilters: FilterOptions = savedFilters ? JSON.parse(savedFilters) : {
-        city: '', // Don't auto-select city - let user choose
+      // Use user settings as defaults if no saved filters
+      // City should always be selected: user's city, last selected, or Panipat as fallback
+      let parsedFilters: FilterOptions = {};
+      if (savedFilters) {
+        parsedFilters = JSON.parse(savedFilters);
+      }
+      
+      // Determine default city: saved city, user city, or Panipat
+      const defaultCity = parsedFilters.city || userSettings.city || 'Panipat';
+      
+      const defaultFilters: FilterOptions = savedFilters ? {
+        ...parsedFilters,
+        city: parsedFilters.city || defaultCity, // Ensure city is always set
+      } : {
+        city: defaultCity, // Always set city by default
         area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
         type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
         min_price: userSettings.defaultPriceMin,
@@ -44,11 +58,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       };
     } catch {
       const userSettings = getUserSettings();
+      // City should always be selected: user's city or Panipat as fallback
+      const defaultCity = userSettings.city || 'Panipat';
       return {
         query: '',
         column: 'general',
         filters: {
-          city: '', // Don't auto-select city - let user choose
+          city: defaultCity, // Always set city by default
           area: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
           type: userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : '',
           min_price: userSettings.defaultPriceMin,
@@ -127,7 +143,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   }, [filters.city]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (columnDropdownRef.current && !columnDropdownRef.current.contains(event.target as Node)) {
         setShowColumnDropdown(false);
       }
@@ -140,7 +156,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   // Save search query and column to localStorage
@@ -174,6 +194,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onSearch(searchQuery, searchColumn || undefined);
+      // Track column usage when search is performed (only if there's a query)
+      if (searchQuery.trim()) {
+        trackColumnUsage(searchColumn);
+      }
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,6 +208,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   }, [filters.area]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | number | undefined) => {
+    // If clearing city, set it back to default (city should always be selected)
+    if (key === 'city' && (value === '' || value === undefined)) {
+      const userSettings = getUserSettings();
+      const defaultCity = userSettings.city || 'Panipat';
+      value = defaultCity;
+    }
+    
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     // Auto-save to localStorage
@@ -216,8 +247,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   };
 
   const clearFilters = () => {
+    const userSettings = getUserSettings();
+    // City should always remain selected (user's city or Panipat)
+    const defaultCity = userSettings.city || 'Panipat';
     const emptyFilters = {
-      city: '',
+      city: defaultCity, // Keep city selected even when clearing filters
       area: '',
       type: '',
       min_price: undefined,
@@ -228,15 +262,21 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(emptyFilters);
     setSelectedArea('');
-    // Clear from localStorage when manually cleared
-    localStorage.removeItem(STORAGE_KEYS.FILTERS);
+    // Save filters with city to localStorage
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(emptyFilters));
     localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
-    onFilter({});
+    // Apply filter with only city
+    onFilter({ city: defaultCity });
   };
 
-  const activeFilterCount = Object.values(filters).filter((v) => v !== '' && v !== undefined).length;
+  // Count active filters excluding city (city is always selected, so it doesn't count as a filter)
+  const activeFilterCount = Object.entries(filters)
+    .filter(([key, value]) => key !== 'city' && value !== '' && value !== undefined)
+    .length;
 
-  const selectedColumnLabel = SEARCH_COLUMNS.find(col => col.value === searchColumn)?.label || 'All Info';
+  // Get search columns sorted by usage
+  const sortedSearchColumns = getSearchColumnsSortedByUsage();
+  const selectedColumnLabel = sortedSearchColumns.find(col => col.value === searchColumn)?.label || 'All Info';
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) {
@@ -283,13 +323,14 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </button>
             {showColumnDropdown && (
               <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
-                {SEARCH_COLUMNS.map((column) => (
+                {sortedSearchColumns.map((column) => (
                   <button
                     key={column.value}
                     type="button"
                     onClick={() => {
                       setSearchColumn(column.value);
                       localStorage.setItem(STORAGE_KEYS.SEARCH_COLUMN, column.value);
+                      trackColumnUsage(column.value); // Track usage when column is selected
                       setShowColumnDropdown(false);
                     }}
                     className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${
@@ -403,49 +444,46 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                     <button
                       type="button"
-                      onClick={() => setShowCityDropdown(!showCityDropdown)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowCityDropdown(!showCityDropdown);
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowCityDropdown(!showCityDropdown);
+                      }}
                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-sm text-left"
                     >
                       <span className={filters.city ? 'text-gray-900' : 'text-gray-400'}>
                         {filters.city || 'Select City'}
                       </span>
                       <div className="flex items-center gap-1.5">
-                        {filters.city && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFilterChange('city', '');
-                            }}
-                            className="p-0.5 hover:bg-gray-200 rounded"
-                          >
-                            <X className="w-3.5 h-3.5 text-gray-500" />
-                          </button>
-                        )}
+                        {/* City cannot be cleared - it's always selected */}
                         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showCityDropdown ? 'rotate-180' : ''}`} />
                       </div>
                     </button>
                     {showCityDropdown && (
-                      <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleFilterChange('city', '');
-                            setShowCityDropdown(false);
-                          }}
-                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                            !filters.city
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          All Cities
-                        </button>
+                      <div 
+                        className="absolute z-[60] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                      >
+                        {/* Removed "All Cities" option since city should always be selected */}
                         {(cityOptions.length > 0 ? cityOptions : CITY_OPTIONS).map((city, idx) => (
                           <button
                             key={idx}
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleFilterChange('city', city);
+                              setShowCityDropdown(false);
+                            }}
+                            onTouchEnd={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
                               handleFilterChange('city', city);
                               setShowCityDropdown(false);
                             }}
@@ -615,49 +653,34 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">City</label>
               <button
                 type="button"
-                onClick={() => setShowCityDropdown(!showCityDropdown)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCityDropdown(!showCityDropdown);
+                }}
                 className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-sm text-left"
               >
                 <span className={filters.city ? 'text-gray-900' : 'text-gray-400'}>
                   {filters.city || 'Select City'}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  {filters.city && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleFilterChange('city', '');
-                      }}
-                      className="p-0.5 hover:bg-gray-200 rounded"
-                    >
-                      <X className="w-3.5 h-3.5 text-gray-500" />
-                    </button>
-                  )}
+                  {/* City cannot be cleared - it's always selected */}
                   <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 transition-transform ${showCityDropdown ? 'rotate-180' : ''}`} />
                 </div>
               </button>
               {showCityDropdown && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleFilterChange('city', '');
-                      setShowCityDropdown(false);
-                    }}
-                    className={`w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-left text-xs sm:text-sm transition-colors ${
-                      !filters.city
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    All Cities
-                  </button>
+                <div 
+                  className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Removed "All Cities" option since city should always be selected */}
                   {(cityOptions.length > 0 ? cityOptions : CITY_OPTIONS).map((city, idx) => (
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         handleFilterChange('city', city);
                         setShowCityDropdown(false);
                       }}

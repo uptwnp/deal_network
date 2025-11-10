@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
 export const SEARCH_COLUMNS = [
   { value: '', label: 'All Info' }, // Maps to 'All' in API
   { value: 'general', label: 'All General' }, // Maps to 'All General' in API
+  { value: 'id', label: 'ID' },
   { value: 'city', label: 'City' },
   { value: 'area', label: 'Area' },
   { value: 'type', label: 'Property Type' },
@@ -30,6 +31,65 @@ export const SEARCH_COLUMNS = [
   { value: 'highlights', label: 'Highlights' },
   { value: 'note_private', label: 'Private Note' },
 ] as const;
+
+/**
+ * Storage key for search column usage tracking
+ */
+const COLUMN_USAGE_STORAGE_KEY = 'propnetwork_column_usage';
+
+/**
+ * Get column usage counts from localStorage
+ */
+export function getColumnUsage(): Record<string, number> {
+  try {
+    const usage = localStorage.getItem(COLUMN_USAGE_STORAGE_KEY);
+    return usage ? JSON.parse(usage) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Track column usage - increment usage count for a column
+ */
+export function trackColumnUsage(columnValue: string): void {
+  try {
+    const usage = getColumnUsage();
+    const key = columnValue || 'all'; // Use 'all' for empty string
+    usage[key] = (usage[key] || 0) + 1;
+    localStorage.setItem(COLUMN_USAGE_STORAGE_KEY, JSON.stringify(usage));
+  } catch (error) {
+    console.error('Failed to track column usage:', error);
+  }
+}
+
+/**
+ * Get search columns sorted by usage (most used first)
+ */
+export function getSearchColumnsSortedByUsage(): Array<{ value: string; label: string }> {
+  const usage = getColumnUsage();
+  
+  // Sort columns by usage count (descending), then by original order
+  return [...SEARCH_COLUMNS].sort((a, b) => {
+    const aKey = a.value || 'all';
+    const bKey = b.value || 'all';
+    const aUsage = usage[aKey] || 0;
+    const bUsage = usage[bKey] || 0;
+    
+    // If usage is the same, maintain original order (All Info and All General first)
+    if (aUsage === bUsage) {
+      // Keep 'All Info' and 'All General' at the top
+      if (a.value === '') return -1;
+      if (b.value === '') return 1;
+      if (a.value === 'general') return -1;
+      if (b.value === 'general') return 1;
+      return 0;
+    }
+    
+    // Sort by usage (most used first)
+    return bUsage - aUsage;
+  });
+}
 
 /**
  * Available city options

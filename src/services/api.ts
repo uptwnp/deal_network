@@ -102,7 +102,7 @@ function normalizeProperties(data: any): Property[] {
   
   // Handle old format (direct array) for backward compatibility
   if (Array.isArray(data)) {
-    return data.map(normalizeProperty);
+  return data.map(normalizeProperty);
   }
   
   return [];
@@ -294,7 +294,7 @@ export const propertyApi = {
     return response.data;
   },
 
-  async filterProperties(ownerId: number, list: 'mine' | 'public' | 'both', filters: FilterOptions): Promise<Property[]> {
+  async filterProperties(ownerId: number, list: 'mine' | 'others' | 'both', filters: FilterOptions, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('action', 'filter_properties');
@@ -321,15 +321,31 @@ export const propertyApi = {
     if (filters.min_size !== undefined) queryParams.append('min_size', filters.min_size.toString());
     if (filters.max_size !== undefined) queryParams.append('max_size', filters.max_size.toString());
 
+    // Add pagination parameters
+    if (pagination?.page !== undefined) {
+      queryParams.append('page', pagination.page.toString());
+    }
+    if (pagination?.per_page !== undefined) {
+      queryParams.append('per_page', pagination.per_page.toString());
+    }
+
     const url = `${API_BASE_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
     });
-    return normalizeProperties(response.data);
+    const properties = normalizeProperties(response.data);
+    const meta = extractPaginationMeta(response.data) || {
+      page: pagination?.page || 1,
+      per_page: pagination?.per_page || 40,
+      total: properties.length,
+      total_pages: 1,
+      page_results: properties.length,
+    };
+    return { data: properties, meta };
   },
 
-  async searchProperties(ownerId: number, list: 'mine' | 'public' | 'both', query: string, column?: string): Promise<Property[]> {
+  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both', query: string, column?: string, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('action', 'search_properties');
@@ -351,12 +367,28 @@ export const propertyApi = {
     }
     queryParams.append('column', columnValue);
 
+    // Add pagination parameters
+    if (pagination?.page !== undefined) {
+      queryParams.append('page', pagination.page.toString());
+    }
+    if (pagination?.per_page !== undefined) {
+      queryParams.append('per_page', pagination.per_page.toString());
+    }
+
     const url = `${API_BASE_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
     });
-    return normalizeProperties(response.data);
+    const properties = normalizeProperties(response.data);
+    const meta = extractPaginationMeta(response.data) || {
+      page: pagination?.page || 1,
+      per_page: pagination?.per_page || 40,
+      total: properties.length,
+      total_pages: 1,
+      page_results: properties.length,
+    };
+    return { data: properties, meta };
   },
 
   async getPropertyById(propertyId: number, ownerId?: number): Promise<Property | null> {

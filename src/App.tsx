@@ -473,9 +473,11 @@ function App() {
     isRefreshingRef.current = true;
     
     // Map activeFilter to API list parameter
-    const listParam: 'mine' | 'public' | 'both' = 
+    // For filter API: mine, others, both
+    const listParam: 'mine' | 'others' | 'both' = 
       activeFilter === 'my' ? 'mine' : 
-      activeFilter === 'public' ? 'public' : 
+      activeFilter === 'public' ? 'others' : 
+      activeFilter === 'all' ? 'both' : 
       'both';
     
     const hasActiveFilters = Object.keys(activeFilters).length > 0;
@@ -486,14 +488,15 @@ function App() {
     if (hasActiveFilters || hasActiveSearch) {
       try {
         if (hasActiveSearch) {
-          // Use search API
-          const searchResults = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn);
-          let filtered = searchResults;
+          // Use search API with pagination
+          const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, pagination);
+          let filtered = searchResponse.data;
           // Apply additional filters client-side if any
           if (hasActiveFilters) {
-            filtered = applyClientSideFilters(searchResults, activeFilters);
+            filtered = applyClientSideFilters(searchResponse.data, activeFilters);
           }
           setFilteredProperties(filtered);
+          setPaginationMeta(searchResponse.meta);
           
           // Update selectedProperty if needed
           if (updateSelectedProperty && selectedProperty) {
@@ -503,13 +506,14 @@ function App() {
             }
           }
         } else if (hasActiveFilters) {
-          // Use filter API directly - single request instead of loading all + filtering
-          const filtered = await propertyApi.filterProperties(ownerId, listParam, activeFilters);
-          setFilteredProperties(filtered);
+          // Use filter API directly with pagination - single request instead of loading all + filtering
+          const filterResponse = await propertyApi.filterProperties(ownerId, listParam, activeFilters, pagination);
+          setFilteredProperties(filterResponse.data);
+          setPaginationMeta(filterResponse.meta);
           
           // Update selectedProperty if needed
           if (updateSelectedProperty && selectedProperty) {
-            const updatedProperty = filtered.find(p => p.id === selectedProperty.id);
+            const updatedProperty = filterResponse.data.find(p => p.id === selectedProperty.id);
             if (updatedProperty) {
               setSelectedProperty(updatedProperty);
             }
@@ -518,6 +522,7 @@ function App() {
       } catch (error) {
         showToast('Failed to refresh properties', 'error');
         setFilteredProperties([]);
+        setPaginationMeta(null);
       } finally {
         // Clear refreshing flags
         refreshInProgressRef.current = false;
@@ -584,7 +589,7 @@ function App() {
     setTimeout(() => {
       isRefreshingRef.current = false;
     }, 100);
-  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty, showToast, pagination]);
+  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty, showToast, pagination, setPaginationMeta]);
 
   const handleAddProperty = async (data: PropertyFormData) => {
     try {
@@ -746,7 +751,7 @@ function App() {
   };
 
   const handleSearch = useCallback(
-    async (query: string, column?: string) => {
+    async (query: string, column?: string, filterOverride?: FilterType) => {
       setSearchQuery(query);
       if (column !== undefined) {
         setSearchColumn(column);
@@ -755,10 +760,15 @@ function App() {
       // Reset pagination to page 1 when search changes
       setPagination({ page: 1, per_page: 40 });
       
+      // Use filterOverride if provided (for tab switching), otherwise use current activeFilter
+      const currentFilter = filterOverride || activeFilter;
+      
       // Map activeFilter to API list parameter
-      const listParam: 'mine' | 'public' | 'both' = 
-        activeFilter === 'my' ? 'mine' : 
-        activeFilter === 'public' ? 'public' : 
+      // For filter/search API: mine, others, both
+      const listParam: 'mine' | 'others' | 'both' = 
+        currentFilter === 'my' ? 'mine' : 
+        currentFilter === 'public' ? 'others' : 
+        currentFilter === 'all' ? 'both' : 
         'both';
 
       // Use the current search column if column parameter is not provided
@@ -766,11 +776,11 @@ function App() {
 
       // If no query and no active filters, show default list
       if (!query.trim() && Object.keys(activeFilters).length === 0) {
-        if (activeFilter === 'all') {
+        if (currentFilter === 'all') {
           setFilteredProperties([...myProperties, ...publicProperties]);
-        } else if (activeFilter === 'my') {
+        } else if (currentFilter === 'my') {
           setFilteredProperties(myProperties);
-        } else if (activeFilter === 'public') {
+        } else if (currentFilter === 'public') {
           setFilteredProperties(publicProperties);
         }
         return;
@@ -780,56 +790,64 @@ function App() {
       setLoading(true);
 
       try {
-        // If there's a search query, use search API
+        // If there's a search query, use search API with pagination
         if (query.trim()) {
-          const results = await propertyApi.searchProperties(ownerId, listParam, query, currentColumn);
+          const searchResponse = await propertyApi.searchProperties(ownerId, listParam, query, currentColumn, pagination);
           // Apply additional filters if any
-          let filtered = results;
+          let filtered = searchResponse.data;
           if (Object.keys(activeFilters).length > 0) {
-            filtered = applyClientSideFilters(results, activeFilters);
+            filtered = applyClientSideFilters(searchResponse.data, activeFilters);
           }
           // Always set filteredProperties, even if empty (to show "no results")
           setFilteredProperties(filtered);
+          setPaginationMeta(searchResponse.meta);
         } else if (Object.keys(activeFilters).length > 0) {
-          // If only filters (no search), use filter API directly
+          // If only filters (no search), use filter API directly with pagination
           // This avoids loading all properties first, then filtering
-          const results = await propertyApi.filterProperties(ownerId, listParam, activeFilters);
+          const filterResponse = await propertyApi.filterProperties(ownerId, listParam, activeFilters, pagination);
           // Always set filteredProperties, even if empty (to show "no results")
-          setFilteredProperties(results);
+          setFilteredProperties(filterResponse.data);
+          setPaginationMeta(filterResponse.meta);
         }
       } catch (error) {
         showToast('Search failed', 'error');
         // On error, set empty array to show "no results" instead of falling back to base properties
         setFilteredProperties([]);
+        setPaginationMeta(null);
       } finally {
         setLoading(false);
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast, setPagination]
+    [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast, setPagination, pagination]
   );
 
   const handleFilter = useCallback(
-    async (filters: FilterOptions) => {
+    async (filters: FilterOptions, filterOverride?: FilterType) => {
       // Update activeFilters immediately
       setActiveFilters(filters);
       
       // Reset pagination to page 1 when filters change
       setPagination({ page: 1, per_page: 40 });
       
+      // Use filterOverride if provided (for tab switching), otherwise use current activeFilter
+      const currentFilter = filterOverride || activeFilter;
+      
       // Map activeFilter to API list parameter
-      const listParam: 'mine' | 'public' | 'both' = 
-        activeFilter === 'my' ? 'mine' : 
-        activeFilter === 'public' ? 'public' : 
+      // For filter/search API: mine, others, both
+      const listParam: 'mine' | 'others' | 'both' = 
+        currentFilter === 'my' ? 'mine' : 
+        currentFilter === 'public' ? 'others' : 
+        currentFilter === 'all' ? 'both' : 
         'both';
 
       // If no filters and no search query, show default list
       if (Object.keys(filters).length === 0 && !searchQuery.trim()) {
         // Clear filters - load properties normally
-        if (activeFilter === 'all') {
+        if (currentFilter === 'all') {
           setFilteredProperties([...myProperties, ...publicProperties]);
-        } else if (activeFilter === 'my') {
+        } else if (currentFilter === 'my') {
           setFilteredProperties(myProperties);
-        } else if (activeFilter === 'public') {
+        } else if (currentFilter === 'public') {
           setFilteredProperties(publicProperties);
         }
         return;
@@ -841,25 +859,28 @@ function App() {
       try {
         // If there's a search query, use search API and apply filters client-side
         if (searchQuery.trim()) {
-          const results = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn);
-          const filtered = applyClientSideFilters(results, filters);
+          const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, pagination);
+          const filtered = applyClientSideFilters(searchResponse.data, filters);
           setFilteredProperties(filtered);
+          setPaginationMeta(searchResponse.meta);
         } else {
-          // If only filters (no search), use filter API directly
+          // If only filters (no search), use filter API directly with pagination
           // This avoids loading all properties first, then filtering
-          const results = await propertyApi.filterProperties(ownerId, listParam, filters);
+          const filterResponse = await propertyApi.filterProperties(ownerId, listParam, filters, pagination);
           // Always set filteredProperties, even if empty (to show "no results")
-          setFilteredProperties(results);
+          setFilteredProperties(filterResponse.data);
+          setPaginationMeta(filterResponse.meta);
         }
       } catch (error) {
         showToast('Filter failed', 'error');
         // On error, set empty array to show "no results" instead of falling back to base properties
         setFilteredProperties([]);
+        setPaginationMeta(null);
       } finally {
         setLoading(false);
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast, setPagination]
+    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast, setPagination, pagination]
   );
 
   const handleFilterChange = (filter: FilterType) => {
@@ -876,10 +897,11 @@ function App() {
     setFilteredProperties([]);
     
     // Re-apply current search/filters with new list scope
+    // Pass the new filter value directly to avoid using stale activeFilter
     if (searchQuery.trim()) {
-      handleSearch(searchQuery, searchColumn);
+      handleSearch(searchQuery, searchColumn, filter);
     } else if (Object.keys(activeFilters).length > 0) {
-      handleFilter(activeFilters);
+      handleFilter(activeFilters, filter);
     }
     // If no search/filters, the useEffect will trigger the load
   };
@@ -1100,6 +1122,9 @@ function App() {
             pagination={pagination}
             setPagination={setPagination}
             paginationMeta={paginationMeta}
+            setLoading={setLoading}
+            setFilteredProperties={setFilteredProperties}
+            setPaginationMeta={setPaginationMeta}
           />
         ) : (
           <Suspense fallback={
@@ -1171,6 +1196,9 @@ function App() {
             pagination={pagination}
             setPagination={setPagination}
             paginationMeta={paginationMeta}
+            setLoading={setLoading}
+            setFilteredProperties={setFilteredProperties}
+            setPaginationMeta={setPaginationMeta}
           />
         ) : (
           <Suspense fallback={
@@ -1242,6 +1270,9 @@ function App() {
             pagination={pagination}
             setPagination={setPagination}
             paginationMeta={paginationMeta}
+            setLoading={setLoading}
+            setFilteredProperties={setFilteredProperties}
+            setPaginationMeta={setPaginationMeta}
           />
         ) : (
           <Suspense fallback={
@@ -1349,6 +1380,9 @@ interface MainAppContentProps {
   pagination: PaginationOptions;
   setPagination: (pagination: PaginationOptions) => void;
   paginationMeta: PaginationMeta | null;
+  setLoading: (loading: boolean) => void;
+  setFilteredProperties: (properties: Property[]) => void;
+  setPaginationMeta: (meta: PaginationMeta | null) => void;
 }
 
 function MainAppContent({
@@ -1401,11 +1435,33 @@ function MainAppContent({
   pagination,
   setPagination,
   paginationMeta,
+  setLoading,
+  setFilteredProperties,
+  setPaginationMeta,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   
   // Check if search or filters are active
   const hasActiveSearchOrFilter = searchQuery.trim().length > 0 || Object.keys(activeFilters).length > 0;
+  
+  // Helper function to apply filters client-side (for combining search + filters)
+  const applyClientSideFilters = useCallback((properties: Property[], filters: FilterOptions): Property[] => {
+    return properties.filter(property => {
+      if (filters.city && property.city !== filters.city) return false;
+      if (filters.area && property.area !== filters.area) return false;
+      if (filters.type && property.type !== filters.type) return false;
+      if (filters.min_price !== undefined && property.price_min < filters.min_price) return false;
+      if (filters.max_price !== undefined && property.price_max > filters.max_price) return false;
+      if (filters.min_size !== undefined && property.min_size < filters.min_size) return false;
+      if (filters.max_size !== undefined && property.size_max > filters.max_size) return false;
+      if (filters.size_unit && property.size_unit !== filters.size_unit) return false;
+      if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
+      if (filters.location && !property.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
+      if (filters.tags && !property.tags?.toLowerCase().includes(filters.tags.toLowerCase())) return false;
+      if (filters.highlights && !property.highlights?.toLowerCase().includes(filters.highlights.toLowerCase())) return false;
+      return true;
+    });
+  }, []);
   
   // Get the base properties based on active filter
   const getBaseProperties = () => {
@@ -1427,27 +1483,93 @@ function MainAppContent({
     : baseProperties;
 
   // Determine if there's a next page
-  // Only show pagination when there's no active search/filter (pagination only works for base lists)
+  // Show pagination when pagination metadata is available (works for both base lists and filtered/search results)
   // Use pagination metadata if available, otherwise fall back to checking array length
-  const shouldShowPagination = !hasActiveSearchOrFilter;
+  const shouldShowPagination = paginationMeta !== null || !hasActiveSearchOrFilter;
   const currentPage = paginationMeta?.page || pagination.page || 1;
   const totalPages = paginationMeta?.total_pages || 1;
   const hasNextPage = shouldShowPagination && currentPage < totalPages;
   const hasPreviousPage = shouldShowPagination && currentPage > 1;
+  // Show pagination if there are multiple pages, regardless of current page position
+  const shouldDisplayPagination = shouldShowPagination && totalPages > 1;
 
   // Handle pagination navigation
-  // Note: Pagination only works for base property lists, not for filtered/search results
-  const handleNextPage = () => {
+  // Works for both base lists and filtered/search results
+  const handleNextPage = async () => {
     if (hasNextPage && shouldShowPagination) {
-      setPagination({ ...pagination, page: currentPage + 1 });
+      const newPage = currentPage + 1;
+      setPagination({ ...pagination, page: newPage });
+      
+      // If filters/search are active, reload data immediately
+      if (hasActiveSearchOrFilter) {
+        setLoading(true);
+        try {
+          const listParam: 'mine' | 'others' | 'both' = 
+            activeFilter === 'my' ? 'mine' : 
+            activeFilter === 'public' ? 'others' : 
+            activeFilter === 'all' ? 'both' : 
+            'both';
+          
+          if (searchQuery.trim()) {
+            const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, { ...pagination, page: newPage });
+            let filtered = searchResponse.data;
+            if (Object.keys(activeFilters).length > 0) {
+              filtered = applyClientSideFilters(searchResponse.data, activeFilters);
+            }
+            setFilteredProperties(filtered);
+            setPaginationMeta(searchResponse.meta);
+          } else if (Object.keys(activeFilters).length > 0) {
+            const filterResponse = await propertyApi.filterProperties(ownerId, listParam, activeFilters, { ...pagination, page: newPage });
+            setFilteredProperties(filterResponse.data);
+            setPaginationMeta(filterResponse.meta);
+          }
+        } catch (error) {
+          showToast('Failed to load page', 'error');
+        } finally {
+          setLoading(false);
+        }
+      }
+      
       // Scroll to top when changing pages
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const handlePreviousPage = () => {
+  const handlePreviousPage = async () => {
     if (hasPreviousPage && shouldShowPagination) {
-      setPagination({ ...pagination, page: currentPage - 1 });
+      const newPage = currentPage - 1;
+      setPagination({ ...pagination, page: newPage });
+      
+      // If filters/search are active, reload data immediately
+      if (hasActiveSearchOrFilter) {
+        setLoading(true);
+        try {
+          const listParam: 'mine' | 'others' | 'both' = 
+            activeFilter === 'my' ? 'mine' : 
+            activeFilter === 'public' ? 'others' : 
+            activeFilter === 'all' ? 'both' : 
+            'both';
+          
+          if (searchQuery.trim()) {
+            const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, { ...pagination, page: newPage });
+            let filtered = searchResponse.data;
+            if (Object.keys(activeFilters).length > 0) {
+              filtered = applyClientSideFilters(searchResponse.data, activeFilters);
+            }
+            setFilteredProperties(filtered);
+            setPaginationMeta(searchResponse.meta);
+          } else if (Object.keys(activeFilters).length > 0) {
+            const filterResponse = await propertyApi.filterProperties(ownerId, listParam, activeFilters, { ...pagination, page: newPage });
+            setFilteredProperties(filterResponse.data);
+            setPaginationMeta(filterResponse.meta);
+          }
+        } catch (error) {
+          showToast('Failed to load page', 'error');
+        } finally {
+          setLoading(false);
+        }
+      }
+      
       // Scroll to top when changing pages
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1669,16 +1791,16 @@ function MainAppContent({
               ) : (
                 <>
                   {currentProperties.map((property) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      isOwned={property.owner_id === ownerId}
-                      onViewDetails={handleViewProperty}
-                    />
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    isOwned={property.owner_id === ownerId}
+                    onViewDetails={handleViewProperty}
+                  />
                   ))}
                   
                   {/* Pagination Controls - Only show for base lists, not filtered/search results */}
-                  {shouldShowPagination && (hasNextPage || hasPreviousPage) && (
+                  {shouldDisplayPagination && (
                     <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
                       <div className="flex items-center justify-between">
                         <button
@@ -1721,7 +1843,7 @@ function MainAppContent({
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
+            </div>
                   )}
                 </>
               )}
