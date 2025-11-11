@@ -65,4 +65,6 @@ export interface FilterOptions {
   tags?: string;
   highlights?: string;
   is_public?: number;
+  has_location?: boolean; // Filter for properties with/without location (fetch.php supports this)
+  has_landmark?: boolean; // Filter for properties with/without landmark (fetch.php supports this)
 }

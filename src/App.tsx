@@ -1634,6 +1634,7 @@ function MainAppContent({
   setPaginationMeta,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [mapProperties, setMapProperties] = useState<Property[]>([]);
   
   // Check if search or filters are active
   const hasActiveSearchOrFilter = searchQuery.trim().length > 0 || Object.keys(activeFilters).length > 0;
@@ -1657,6 +1658,62 @@ function MainAppContent({
     });
   }, []);
   
+  // Fetch properties for map view when viewMode changes to 'map'
+  useEffect(() => {
+    if (viewMode === 'map' && ownerId > 0) {
+      const fetchMapProperties = async () => {
+        try {
+          setLoading(true);
+          const listParam: 'mine' | 'others' | 'both' = 
+            activeFilter === 'my' ? 'mine' : 
+            activeFilter === 'public' ? 'others' : 
+            activeFilter === 'all' ? 'both' : 
+            'both';
+          
+          let mapProps: Property[] = [];
+          
+          if (hasActiveSearchOrFilter) {
+            if (searchQuery.trim()) {
+              const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, pagination, true); // forMap = true
+              let filtered = searchResponse.data;
+              if (Object.keys(activeFilters).length > 0) {
+                filtered = applyClientSideFilters(searchResponse.data, activeFilters);
+              }
+              mapProps = filtered;
+            } else if (Object.keys(activeFilters).length > 0) {
+              const filterResponse = await propertyApi.filterProperties(ownerId, listParam, activeFilters, pagination, true); // forMap = true
+              mapProps = filterResponse.data;
+            }
+          } else {
+            // No filters/search - fetch based on active filter
+            if (activeFilter === 'my') {
+              const response = await propertyApi.getUserProperties(ownerId, pagination, true); // forMap = true
+              mapProps = response.data;
+            } else if (activeFilter === 'public') {
+              const response = await propertyApi.getPublicProperties(ownerId, pagination, true); // forMap = true
+              mapProps = response.data;
+            } else if (activeFilter === 'all') {
+              const response = await propertyApi.getAllProperties(ownerId, pagination, true); // forMap = true
+              mapProps = response.data;
+            }
+          }
+          
+          setMapProperties(mapProps);
+        } catch (error) {
+          console.error('Failed to fetch map properties:', error);
+          setMapProperties([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchMapProperties();
+    } else if (viewMode === 'list') {
+      // Clear map properties when switching back to list view
+      setMapProperties([]);
+    }
+  }, [viewMode, ownerId, activeFilter, searchQuery, searchColumn, activeFilters, pagination, hasActiveSearchOrFilter, applyClientSideFilters, setLoading]);
+  
   // Get the base properties based on active filter
   const getBaseProperties = () => {
     if (activeFilter === 'all') {
@@ -1672,9 +1729,12 @@ function MainAppContent({
   
   // If search/filter is active, always use filteredProperties (even if empty - shows "no results")
   // Only fall back to base properties if there's no active search/filter
-  const currentProperties = hasActiveSearchOrFilter
-    ? filteredProperties 
-    : baseProperties;
+  // For map view, always use mapProperties (fetched with forMap=true) - even if empty to show correct empty state
+  const currentProperties = viewMode === 'map'
+    ? mapProperties
+    : hasActiveSearchOrFilter
+      ? filteredProperties 
+      : baseProperties;
 
   // Determine if there's a next page
   // Show pagination when pagination metadata is available (works for both base lists and filtered/search results)

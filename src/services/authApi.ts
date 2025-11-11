@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Auth API URL - matches the actual PHP file name
-const AUTH_API_BASE_URL = 'https://prop.digiheadway.in/api/network-auth.php';
+const AUTH_API_BASE_URL = 'https://prop.digiheadway.in/api/dealer_network/auth.php';
 
 export interface AuthUser {
   id: number;

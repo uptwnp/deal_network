@@ -3,7 +3,9 @@ import { Property, PropertyFormData, FilterOptions } from '../types/property';
 import { getStoredToken, clearStoredToken } from './authApi';
 import { logoutUser } from '../types/user';
 
-const API_BASE_URL = 'https://prop.digiheadway.in/api/network.php';
+// API endpoints based on read_me.md structure
+const FETCH_API_URL = 'https://prop.digiheadway.in/api/dealer_network/fetch.php';
+const ACTION_API_URL = 'https://prop.digiheadway.in/api/dealer_network/action.php';
 
 // Function to handle authentication errors
 function handleAuthError() {
@@ -95,28 +97,29 @@ function normalizeProperties(data: any): Property[] {
     throw new Error(errorMessage);
   }
   
-  // Handle new response format with meta and data fields
-  if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+  // Handle new fetch.php response format: {success, message, data, meta}
+  if (data && typeof data === 'object' && 'success' in data && 'data' in data && Array.isArray(data.data)) {
     return data.data.map(normalizeProperty);
   }
   
   // Handle old format (direct array) for backward compatibility
   if (Array.isArray(data)) {
-  return data.map(normalizeProperty);
+    return data.map(normalizeProperty);
   }
   
   return [];
 }
 
 function extractPaginationMeta(data: any): PaginationMeta | null {
-  // Check if response has meta field with pagination info
+  // Check if response has meta field with pagination info (fetch.php format)
   if (data && typeof data === 'object' && 'meta' in data && data.meta) {
     const meta = data.meta;
-    if (typeof meta === 'object' && 'page' in meta && 'per_page' in meta) {
+    if (typeof meta === 'object') {
+      // Map fetch.php meta format to our PaginationMeta format
       return {
-        page: Number(meta.page) || 1,
-        per_page: Number(meta.per_page) || 40,
-        total: meta.total !== undefined ? Number(meta.total) : 0,
+        page: meta.current_page !== undefined ? Number(meta.current_page) : (meta.page !== undefined ? Number(meta.page) : 1),
+        per_page: meta.per_page !== undefined ? Number(meta.per_page) : 40,
+        total: meta.total_records !== undefined ? Number(meta.total_records) : (meta.total !== undefined ? Number(meta.total) : 0),
         total_pages: meta.total_pages !== undefined ? Number(meta.total_pages) : 0,
         page_results: meta.page_results !== undefined ? Number(meta.page_results) : 0,
       };
@@ -144,20 +147,24 @@ export interface PaginatedResponse<T> {
 }
 
 export const propertyApi = {
-  async getUserProperties(ownerId: number, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
+  async getUserProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
-    queryParams.append('action', 'get_user_properties');
-    queryParams.append('owner_id', ownerId.toString());
+    queryParams.append('list', 'mine'); // fetch.php uses 'list' parameter
+    
+    // Add for=map parameter if requesting map data (only properties with location/landmark)
+    if (forMap) {
+      queryParams.append('for', 'map');
+    }
     
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
-      queryParams.append('per_page', pagination.per_page.toString());
+      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
     
-    const url = `${API_BASE_URL}?${queryParams.toString()}`;
+    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true, // Include cookies for token
@@ -173,20 +180,24 @@ export const propertyApi = {
     return { data: properties, meta };
   },
 
-  async getPublicProperties(ownerId: number, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
+  async getPublicProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
-    queryParams.append('action', 'get_public_properties');
-    queryParams.append('owner_id', ownerId.toString());
+    queryParams.append('list', 'others'); // fetch.php uses 'list' parameter
+    
+    // Add for=map parameter if requesting map data (only properties with location/landmark)
+    if (forMap) {
+      queryParams.append('for', 'map');
+    }
     
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
-      queryParams.append('per_page', pagination.per_page.toString());
+      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
     
-    const url = `${API_BASE_URL}?${queryParams.toString()}`;
+    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
@@ -202,20 +213,24 @@ export const propertyApi = {
     return { data: properties, meta };
   },
 
-  async getAllProperties(ownerId: number, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
+  async getAllProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
-    queryParams.append('action', 'get_all_properties');
-    queryParams.append('owner_id', ownerId.toString());
+    queryParams.append('list', 'both'); // fetch.php uses 'list' parameter
+    
+    // Add for=map parameter if requesting map data (only properties with location/landmark)
+    if (forMap) {
+      queryParams.append('for', 'map');
+    }
     
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
-      queryParams.append('per_page', pagination.per_page.toString());
+      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
     
-    const url = `${API_BASE_URL}?${queryParams.toString()}`;
+    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
@@ -233,7 +248,7 @@ export const propertyApi = {
 
   async addProperty(ownerId: number, data: PropertyFormData): Promise<{ success: boolean; id: number }> {
     validateOwnerId(ownerId);
-    const url = `${API_BASE_URL}?action=add_property&owner_id=${ownerId}`;
+    const url = `${ACTION_API_URL}?action=add_property`;
     const response = await axios.post(
       url,
       {
@@ -248,7 +263,7 @@ export const propertyApi = {
         withCredentials: true,
       }
     );
-    // Check for error in response
+    // Check for error in response (action.php uses 'error' key)
     if (response.data && typeof response.data === 'object' && 'error' in response.data) {
       throw new Error(response.data.error || 'Failed to add property');
     }
@@ -257,7 +272,7 @@ export const propertyApi = {
 
   async updateProperty(id: number, ownerId: number, data: Partial<PropertyFormData>): Promise<{ success: boolean }> {
     validateOwnerId(ownerId);
-    const url = `${API_BASE_URL}?action=update_property&owner_id=${ownerId}`;
+    const url = `${ACTION_API_URL}?action=update_property`;
     const response = await axios.post(
       url,
       {
@@ -273,7 +288,7 @@ export const propertyApi = {
         withCredentials: true,
       }
     );
-    // Check for error in response
+    // Check for error in response (action.php uses 'error' key)
     if (response.data && typeof response.data === 'object' && 'error' in response.data) {
       throw new Error(response.data.error || 'Failed to update property');
     }
@@ -282,54 +297,58 @@ export const propertyApi = {
 
   async deleteProperty(id: number, ownerId: number): Promise<{ success: boolean }> {
     validateOwnerId(ownerId);
-    const url = `${API_BASE_URL}?action=delete_property&id=${id}&owner_id=${ownerId}`;
+    const url = `${ACTION_API_URL}?action=delete_property&id=${id}&owner_id=${ownerId}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
     });
-    // Check for error in response
+    // Check for error in response (action.php uses 'error' key)
     if (response.data && typeof response.data === 'object' && 'error' in response.data) {
       throw new Error(response.data.error || 'Failed to delete property');
     }
     return response.data;
   },
 
-  async filterProperties(ownerId: number, list: 'mine' | 'others' | 'both', filters: FilterOptions, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
+  async filterProperties(ownerId: number, list: 'mine' | 'others' | 'both', filters: FilterOptions, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
-    queryParams.append('action', 'filter_properties');
-    queryParams.append('owner_id', ownerId.toString());
-    queryParams.append('list', list);
+    queryParams.append('list', list); // fetch.php uses 'list' parameter
 
-    // Map filter options to API parameters
+    // Add for=map parameter if requesting map data (only properties with location/landmark)
+    if (forMap) {
+      queryParams.append('for', 'map');
+    }
+
+    // Map filter options to API parameters (fetch.php expects these directly)
     if (filters.city) queryParams.append('city', filters.city);
     if (filters.area) queryParams.append('area', filters.area);
     if (filters.type) queryParams.append('type', filters.type);
-    if (filters.description) queryParams.append('description', filters.description);
-    if (filters.note_private) queryParams.append('note_private', filters.note_private);
-    if (filters.size_unit) queryParams.append('size_unit', filters.size_unit);
-    if (filters.location) queryParams.append('location', filters.location);
-    if (filters.location_accuracy) queryParams.append('location_accuracy', filters.location_accuracy);
     if (filters.tags) queryParams.append('tags', filters.tags);
     if (filters.highlights) queryParams.append('highlights', filters.highlights);
     
-    // Map price filters (API expects price_min/price_max)
-    if (filters.min_price !== undefined) queryParams.append('price_min', filters.min_price.toString());
-    if (filters.max_price !== undefined) queryParams.append('price_max', filters.max_price.toString());
+    // Map price filters (fetch.php expects price_min/price_max)
+    if (filters.min_price !== undefined) queryParams.append('min_price', filters.min_price.toString());
+    if (filters.max_price !== undefined) queryParams.append('max_price', filters.max_price.toString());
     
-    // Map size filters (API expects size_min/max_size)
-    if (filters.size_min !== undefined) queryParams.append('size_min', filters.size_min.toString());
+    // Map size filters (fetch.php expects size_min/max_size and size_unit)
+    if (filters.size_min !== undefined) queryParams.append('min_size', filters.size_min.toString());
     if (filters.max_size !== undefined) queryParams.append('max_size', filters.max_size.toString());
+    if (filters.size_unit) queryParams.append('size_unit', filters.size_unit);
+    if (filters.size_unit) queryParams.append('filter_size_unit', filters.size_unit); // fetch.php also uses filter_size_unit
+    
+    // Map location filters
+    if (filters.has_location !== undefined) queryParams.append('has_location', filters.has_location.toString());
+    if (filters.has_landmark !== undefined) queryParams.append('has_landmark', filters.has_landmark.toString());
 
     // Add pagination parameters
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
-      queryParams.append('per_page', pagination.per_page.toString());
+      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
 
-    const url = `${API_BASE_URL}?${queryParams.toString()}`;
+    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
@@ -345,37 +364,29 @@ export const propertyApi = {
     return { data: properties, meta };
   },
 
-  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both', query: string, column?: string, pagination?: PaginationOptions): Promise<PaginatedResponse<Property>> {
+  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both', query: string, _column?: string, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
-    queryParams.append('action', 'search_properties');
-    queryParams.append('owner_id', ownerId.toString());
-    queryParams.append('list', list);
-    queryParams.append('query', query);
+    queryParams.append('list', list); // fetch.php uses 'list' parameter
+    queryParams.append('search', query); // fetch.php uses 'search' parameter
 
-    // Map column values to API expectations
-    let columnValue = 'All';
-    if (column) {
-      if (column === '') {
-        columnValue = 'All';
-      } else if (column === 'general') {
-        columnValue = 'All General';
-      } else {
-        // Use the column value directly as it should match API column names
-        columnValue = column;
-      }
+    // Add for=map parameter if requesting map data (only properties with location/landmark)
+    if (forMap) {
+      queryParams.append('for', 'map');
     }
-    queryParams.append('column', columnValue);
+
+    // Note: fetch.php doesn't use column parameter, it searches across all fields
+    // (city, area, type, description, highlights, heading)
 
     // Add pagination parameters
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
-      queryParams.append('per_page', pagination.per_page.toString());
+      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
 
-    const url = `${API_BASE_URL}?${queryParams.toString()}`;
+    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
       withCredentials: true,
@@ -391,7 +402,7 @@ export const propertyApi = {
     return { data: properties, meta };
   },
 
-  async getPropertyById(propertyId: number, ownerId?: number): Promise<Property | null> {
+  async getPropertyById(propertyId: number, _ownerId?: number): Promise<Property | null> {
     // Check if there's already a pending request for this property
     if (requestCache.has(propertyId)) {
       console.log('Reusing existing request for property:', propertyId);
@@ -401,9 +412,8 @@ export const propertyApi = {
     // Create the request promise
     const requestPromise = (async () => {
       try {
-        // Use the public endpoint that doesn't require authentication
-        // This is the most efficient approach - single API request
-        const publicUrl = `${API_BASE_URL}?action=get_one_property&property_id=${propertyId}`;
+        // Use fetch.php with action=get_property (doesn't require authentication for public properties)
+        const publicUrl = `${FETCH_API_URL}?action=get_property&id=${propertyId}`;
         console.log('Making single API request to:', publicUrl);
         const publicResponse = await axios.get(publicUrl, {
           withCredentials: true,
@@ -412,23 +422,23 @@ export const propertyApi = {
         
         console.log('API response received:', publicResponse.status);
         
-        // Handle new response format with meta and data fields
-        let properties: any[] = [];
-        if (publicResponse.data && typeof publicResponse.data === 'object' && 'data' in publicResponse.data && Array.isArray(publicResponse.data.data)) {
-          properties = publicResponse.data.data;
-        } 
-        // Handle old format (direct array) for backward compatibility
-        else if (publicResponse.data && Array.isArray(publicResponse.data)) {
-          properties = publicResponse.data;
+        // Handle fetch.php response format: {success, message, data}
+        let property: any = null;
+        if (publicResponse.data && typeof publicResponse.data === 'object') {
+          if (publicResponse.data.success && publicResponse.data.data) {
+            // fetch.php returns single property object in data field
+            property = publicResponse.data.data;
+          } else if (Array.isArray(publicResponse.data.data)) {
+            // Handle array format if returned
+            property = publicResponse.data.data[0] || null;
+          } else if (Array.isArray(publicResponse.data)) {
+            // Handle old format (direct array) for backward compatibility
+            property = publicResponse.data[0] || null;
+          }
         }
         
-        // The endpoint returns an array with a single property (or data array with one property)
-        if (properties.length > 0) {
-          const property = properties[0];
-          // Only return if property is public
-          if (property.is_public === 1) {
-            return normalizeProperty(property);
-          }
+        if (property) {
+          return normalizeProperty(property);
         }
         
         return null;

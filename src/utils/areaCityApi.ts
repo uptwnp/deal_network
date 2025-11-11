@@ -2,7 +2,9 @@
  * Utility functions for fetching and caching area/city data from API
  */
 
-const API_URL = 'https://prop.digiheadway.in/api/network-area.php';
+// According to read_me.md: options.php is currently area.php in apis, code not changed
+// Using options.php as the new endpoint name
+const API_URL = 'https://prop.digiheadway.in/api/dealer_network/options.php';
 const CACHE_KEY = 'propnetwork_area_city_cache';
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
