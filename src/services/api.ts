@@ -76,7 +76,7 @@ function normalizeProperty(data: any): Property {
     ...data,
     id: Number(data.id),
     owner_id: Number(data.owner_id),
-    min_size: Number(data.min_size),
+    size_min: Number(data.size_min),
     size_max: Number(data.size_max),
     price_min: Number(data.price_min),
     price_max: Number(data.price_max),
@@ -317,8 +317,8 @@ export const propertyApi = {
     if (filters.min_price !== undefined) queryParams.append('price_min', filters.min_price.toString());
     if (filters.max_price !== undefined) queryParams.append('price_max', filters.max_price.toString());
     
-    // Map size filters (API expects min_size/max_size)
-    if (filters.min_size !== undefined) queryParams.append('min_size', filters.min_size.toString());
+    // Map size filters (API expects size_min/max_size)
+    if (filters.size_min !== undefined) queryParams.append('size_min', filters.size_min.toString());
     if (filters.max_size !== undefined) queryParams.append('max_size', filters.max_size.toString());
 
     // Add pagination parameters

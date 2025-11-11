@@ -69,7 +69,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
 
     // Heading (no label)
     if (selectedFields.heading) {
-      const sizeText = formatSize(property.min_size, property.size_max, property.size_unit);
+      const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
       const headingParts: string[] = [];
       if (sizeText) {
         headingParts.push(sizeText);

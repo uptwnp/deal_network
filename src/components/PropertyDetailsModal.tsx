@@ -245,7 +245,7 @@ export function PropertyDetailsModal({
 
         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 md:space-y-6">
           <div className="space-y-3 sm:space-y-4">
-            {(property.min_size > 0 || property.size_max > 0) && (
+            {(property.size_min > 0 || property.size_max > 0) && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Ruler className="w-4 h-4 text-gray-500" />
@@ -253,7 +253,7 @@ export function PropertyDetailsModal({
                 </div>
                 <div className="text-right">
                   <span className="text-sm sm:text-base font-semibold text-gray-900">
-                    {formatSize(property.min_size, property.size_max, property.size_unit)}
+                    {formatSize(property.size_min, property.size_max, property.size_unit)}
                   </span>
                 </div>
               </div>
@@ -281,10 +281,10 @@ export function PropertyDetailsModal({
                     ? property.price_max
                     : 0;
               
-              const avgSize = property.min_size > 0 && property.size_max > 0
-                ? (property.min_size + property.size_max) / 2
-                : property.min_size > 0
-                  ? property.min_size
+              const avgSize = property.size_min > 0 && property.size_max > 0
+                ? (property.size_min + property.size_max) / 2
+                : property.size_min > 0
+                  ? property.size_min
                   : property.size_max > 0
                     ? property.size_max
                     : 0;

@@ -6,7 +6,7 @@ export interface Property {
   type: string;
   description: string;
   note_private?: string;
-  min_size: number;
+  size_min: number;
   size_max: number;
   size_unit: string;
   price_min: number;
@@ -33,7 +33,7 @@ export interface PropertyFormData {
   type: string;
   description: string;
   note_private?: string;
-  min_size: number;
+  size_min: number;
   size_max: number;
   size_unit: string;
   price_min: number;
@@ -55,7 +55,7 @@ export interface FilterOptions {
   type?: string;
   min_price?: number;
   max_price?: number;
-  min_size?: number;
+  size_min?: number;
   max_size?: number;
   size_unit?: string;
   description?: string;

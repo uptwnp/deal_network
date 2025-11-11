@@ -265,7 +265,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       type: '',
       min_price: undefined,
       max_price: undefined,
-      min_size: undefined,
+      size_min: undefined,
       max_size: undefined,
       size_unit: undefined,
     };
@@ -592,9 +592,9 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                       <input
                         type="number"
                         placeholder="Min Size"
-                        value={filters.min_size || ''}
+                        value={filters.size_min || ''}
                         onChange={(e) =>
-                          handleFilterChange('min_size', e.target.value ? parseFloat(e.target.value) : undefined)
+                          handleFilterChange('size_min', e.target.value ? parseFloat(e.target.value) : undefined)
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       />
@@ -789,9 +789,9 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 <input
                   type="number"
                   placeholder="Min Size"
-                  value={filters.min_size || ''}
+                  value={filters.size_min || ''}
                   onChange={(e) =>
-                    handleFilterChange('min_size', e.target.value ? parseFloat(e.target.value) : undefined)
+                    handleFilterChange('size_min', e.target.value ? parseFloat(e.target.value) : undefined)
                   }
                   className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />

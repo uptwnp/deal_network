@@ -272,22 +272,11 @@ function App() {
             }
             const allProps = response.data;
             // Split results: my properties have owner_id === ownerId, public properties have owner_id !== ownerId
-            // Handle type mismatches (string vs number) for robustness
-            const myProps = allProps.filter(p => {
-              const propOwnerId = typeof p.owner_id === 'string' ? parseInt(p.owner_id, 10) : p.owner_id;
-              const currentOwnerId = typeof ownerId === 'string' ? parseInt(ownerId, 10) : ownerId;
-              return propOwnerId === currentOwnerId && !isNaN(propOwnerId) && !isNaN(currentOwnerId);
-            });
-            const publicProps = allProps.filter(p => {
-              const propOwnerId = typeof p.owner_id === 'string' ? parseInt(p.owner_id, 10) : p.owner_id;
-              const currentOwnerId = typeof ownerId === 'string' ? parseInt(ownerId, 10) : ownerId;
-              return propOwnerId !== currentOwnerId || isNaN(propOwnerId) || isNaN(currentOwnerId);
-            });
+            const myProps = allProps.filter(p => p.owner_id === ownerId);
+            const publicProps = allProps.filter(p => p.owner_id !== ownerId);
             setMyProperties(myProps);
             setPublicProperties(publicProps);
             setPaginationMeta(response.meta);
-            // Debug log to verify property splitting
-            console.log(`Loaded properties for "both": Total: ${allProps.length}, Mine: ${myProps.length}, Others: ${publicProps.length}, ownerId: ${ownerId}`);
             if (loadedDataRef.current) {
               loadedDataRef.current.my = true;
               loadedDataRef.current.public = true;
@@ -537,7 +526,7 @@ function App() {
       if (filters.type && property.type !== filters.type) return false;
       if (filters.min_price !== undefined && property.price_min < filters.min_price) return false;
       if (filters.max_price !== undefined && property.price_max > filters.max_price) return false;
-      if (filters.min_size !== undefined && property.min_size < filters.min_size) return false;
+      if (filters.size_min !== undefined && property.size_min < filters.size_min) return false;
       if (filters.max_size !== undefined && property.size_max > filters.max_size) return false;
       if (filters.size_unit && property.size_unit !== filters.size_unit) return false;
       if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
@@ -809,7 +798,7 @@ function App() {
   };
 
   const handleShare = async (property: Property) => {
-    const sizeText = formatSize(property.min_size, property.size_max, property.size_unit);
+    const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
     const priceText = formatPriceWithLabel(property.price_min, property.price_max);
     const shareUrl = property.is_public === 1 
       ? `${window.location.origin}/property/${property.id}`
@@ -1657,7 +1646,7 @@ function MainAppContent({
       if (filters.type && property.type !== filters.type) return false;
       if (filters.min_price !== undefined && property.price_min < filters.min_price) return false;
       if (filters.max_price !== undefined && property.price_max > filters.max_price) return false;
-      if (filters.min_size !== undefined && property.min_size < filters.min_size) return false;
+      if (filters.size_min !== undefined && property.size_min < filters.size_min) return false;
       if (filters.max_size !== undefined && property.size_max > filters.max_size) return false;
       if (filters.size_unit && property.size_unit !== filters.size_unit) return false;
       if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
@@ -1671,9 +1660,7 @@ function MainAppContent({
   // Get the base properties based on active filter
   const getBaseProperties = () => {
     if (activeFilter === 'all') {
-      const combined = [...myProperties, ...publicProperties];
-      console.log(`getBaseProperties("all"): My: ${myProperties.length}, Others: ${publicProperties.length}, Combined: ${combined.length}`);
-      return combined;
+      return [...myProperties, ...publicProperties];
     } else if (activeFilter === 'my') {
       return myProperties;
     } else {
@@ -1789,41 +1776,23 @@ function MainAppContent({
   };
 
   // Calculate map center from properties with coordinates
-  // Considers both exact location (for "mine") and landmark_location (for "others")
   const getMapCenter = (): [number, number] => {
+    const propertiesWithCoords = currentProperties.filter(
+      (p) => p.location && p.location.includes(',')
+    );
+    
+    if (propertiesWithCoords.length === 0) {
+      return [29.3909, 76.9635]; // Default: Panipat
+    }
+    
+    // Calculate average center of all properties
     let totalLat = 0;
     let totalLng = 0;
     let count = 0;
     
-    currentProperties.forEach((property) => {
-      const isOwned = property.owner_id === ownerId;
-      let coords: [number, number] | null = null;
-      
-      if (isOwned) {
-        // For "mine" properties: prefer exact location, fallback to landmark
-        if (property.location && property.location.includes(',')) {
-          const parsed = property.location.split(',').map((c) => parseFloat(c.trim()));
-          if (parsed.length === 2 && !isNaN(parsed[0]) && !isNaN(parsed[1])) {
-            coords = [parsed[0], parsed[1]];
-          }
-        }
-        if (!coords && property.landmark_location && property.landmark_location.includes(',')) {
-          const parsed = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-          if (parsed.length === 2 && !isNaN(parsed[0]) && !isNaN(parsed[1])) {
-            coords = [parsed[0], parsed[1]];
-          }
-        }
-      } else {
-        // For "others" properties: only use landmark_location
-        if (property.landmark_location && property.landmark_location.includes(',')) {
-          const parsed = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-          if (parsed.length === 2 && !isNaN(parsed[0]) && !isNaN(parsed[1])) {
-            coords = [parsed[0], parsed[1]];
-          }
-        }
-      }
-      
-      if (coords) {
+    propertiesWithCoords.forEach((property) => {
+      const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
         totalLat += coords[0];
         totalLng += coords[1];
         count++;
@@ -1987,7 +1956,6 @@ function MainAppContent({
                     properties={currentProperties} 
                     center={getMapCenter()}
                     onMarkerClick={handleViewProperty}
-                    ownerId={ownerId}
                   />
                 </Suspense>
               )}

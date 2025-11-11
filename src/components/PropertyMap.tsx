@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import { Property } from '../types/property';
 import { formatPrice } from '../utils/priceFormatter';
@@ -12,7 +12,6 @@ interface PropertyMapProps {
   properties: Property[];
   center?: [number, number];
   onMarkerClick?: (property: Property) => void;
-  ownerId?: number; // Current user's owner ID to distinguish "mine" from "others"
 }
 
 function MapUpdater({ center }: { center: [number, number] }) {
@@ -42,7 +41,7 @@ function TileLayerSwitcher({ isSatelliteView }: { isSatelliteView: boolean }) {
   );
 }
 
-export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick, ownerId }: PropertyMapProps) {
+export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick }: PropertyMapProps) {
   // Load saved map view preference from localStorage, default to map view
   const [isSatelliteView, setIsSatelliteView] = useState(() => {
     const saved = localStorage.getItem('mapViewPreference');
@@ -52,74 +51,34 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   
-  // Helper function to determine if a property is owned by the current user
-  // Handle both number and string comparisons (in case API returns strings)
-  const isOwnedByUser = useCallback((property: Property): boolean => {
-    if (ownerId === undefined || ownerId === null) {
-      return false;
-    }
-    // Convert both to numbers for comparison to handle string/number mismatches
-    const propOwnerId = typeof property.owner_id === 'string' ? parseInt(property.owner_id, 10) : property.owner_id;
-    const currentOwnerId = typeof ownerId === 'string' ? parseInt(ownerId, 10) : ownerId;
-    return propOwnerId === currentOwnerId && !isNaN(propOwnerId) && !isNaN(currentOwnerId);
-  }, [ownerId]);
-  
-  // Helper function to get coordinates for a property
-  // For "mine" properties: prefer exact location, fallback to landmark
-  // For "others" properties: only use landmark location (never show exact location for privacy)
-  const getPropertyCoords = useCallback((property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
-    // If ownerId is not provided, treat all properties as "others" for safety (privacy-first)
-    if (ownerId === undefined || ownerId === null) {
-      // Fallback: only show landmark locations if ownerId is not available
-      if (property.landmark_location && property.landmark_location.includes(',')) {
-        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-          return { coords: [coords[0], coords[1]], isLandmark: true };
-        }
+  // Helper function to get coordinates for a property (location first, then landmark_location as fallback)
+  const getPropertyCoords = (property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
+    // Try exact location first
+    if (property.location && property.location.includes(',')) {
+      const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        return { coords: [coords[0], coords[1]], isLandmark: false };
       }
-      return { coords: null, isLandmark: false };
     }
     
-    const isOwned = isOwnedByUser(property);
-    
-    if (isOwned) {
-      // For "mine" properties: try exact location first, then fallback to landmark
-      if (property.location && property.location.includes(',')) {
-        const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
-        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-          return { coords: [coords[0], coords[1]], isLandmark: false };
-        }
+    // Fallback to landmark_location
+    if (property.landmark_location && property.landmark_location.includes(',')) {
+      const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        return { coords: [coords[0], coords[1]], isLandmark: true };
       }
-      
-      // Fallback to landmark_location for "mine" properties
-      if (property.landmark_location && property.landmark_location.includes(',')) {
-        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-          return { coords: [coords[0], coords[1]], isLandmark: true };
-        }
-      }
-    } else {
-      // For "others" properties: ONLY use landmark_location (never show exact location for privacy)
-      if (property.landmark_location && property.landmark_location.includes(',')) {
-        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-          return { coords: [coords[0], coords[1]], isLandmark: true };
-        }
-      }
-      // Don't show "others" properties if they don't have a landmark_location
-      return { coords: null, isLandmark: false };
     }
     
     return { coords: null, isLandmark: false };
-  }, [ownerId, isOwnedByUser]);
+  };
   
   // Filter properties that have either location or landmark_location
-  const propertiesWithCoords = useMemo(() => {
-    return properties.filter((p) => {
+  const propertiesWithCoords = properties.filter(
+    (p) => {
       const { coords } = getPropertyCoords(p);
       return coords !== null;
-    });
-  }, [properties, getPropertyCoords]);
+    }
+  );
   
   // Create user location icon (memoized to avoid recreating on each render)
   const userIcon = useMemo(() => getUserLocationIcon(), []);
@@ -222,7 +181,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
                     {formatPrice(property.price_min, property.price_max, true)}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatSize(property.min_size, property.size_max, property.size_unit)}
+                    {formatSize(property.size_min, property.size_max, property.size_unit)}
                   </p>
                   {isLandmark ? (
                     <>

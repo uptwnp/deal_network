@@ -82,7 +82,7 @@ $ALLOWED_COLUMNS_ALL = [
     'type',
     'description',
     'note_private',
-    'min_size',
+    'size_min',
     'size_max',
     'size_unit',
     'price_min',
@@ -97,7 +97,7 @@ $ALL_GENERAL = [
     'area',
     'type',
     'description',
-    'min_size',
+    'size_min',
     'size_max',
     'size_unit',
     'price_min',
@@ -244,7 +244,7 @@ if ($action === 'add_property') {
     $type = clean($data['type'] ?? '');
     $description = clean($data['description'] ?? '');
     $note_private = clean($data['note_private'] ?? '');
-    $min_size = floatval($data['min_size'] ?? 0);
+    $size_min = floatval($data['size_min'] ?? 0);
     $size_max = floatval($data['size_max'] ?? 0);
     $size_unit = clean($data['size_unit'] ?? '');
     $price_min = floatval($data['price_min'] ?? 0);
@@ -259,11 +259,11 @@ if ($action === 'add_property') {
 
     $sql = "INSERT INTO network_properties (
                 owner_id, city, area, type, description, note_private, 
-                min_size, size_max, size_unit, price_min, price_max, 
+                size_min, size_max, size_unit, price_min, price_max, 
                 location, location_accuracy, is_public, public_rating, my_rating, tags, highlights
             ) VALUES (
                 $owner_id, '$city', '$area', '$type', '$description', '$note_private',
-                $min_size, $size_max, '$size_unit', $price_min, $price_max,
+                $size_min, $size_max, '$size_unit', $price_min, $price_max,
                 '$location', '$location_accuracy', $is_public, $public_rating, $my_rating, '$tags', '$highlights'
             )";
 
@@ -334,12 +334,12 @@ if ($action === 'delete_property') {
 // 6️⃣ FILTER PROPERTIES (list scope + column filters + range logic) (paginated)
 // GET: action=filter_properties&owner_id=1&list=mine|public|both
 //      &city=&area=&type=&description=&note_private=&size_unit=
-//      &min_size=&max_size=&price_min=&price_max=
+//      &size_min=&max_size=&price_min=&price_max=
 //      &location=&location_accuracy=&tags=&highlights=
 //      &[page=1&per_page=40]
 // Notes:
 // - size/price behave as ranges:
-//   * if min_size is given => min_size >= value
+//   * if size_min is given => size_min >= value
 //   * if max_size is given => size_max <= value
 //   * if price_min is given => price_min >= value
 //   * if price_max is given => price_max <= value
@@ -365,13 +365,13 @@ if ($action === 'filter_properties') {
     }
 
     // Range semantics
-    $min_size_q = getFloat('min_size'); // user filter lower bound for min_size
+    $size_min_q = getFloat('size_min'); // user filter lower bound for size_min
     $max_size_q = getFloat('max_size'); // user filter upper bound for size_max
     $price_min_q = getFloat('price_min'); // lower bound for price_min
     $price_max_q = getFloat('price_max'); // upper bound for price_max
 
-    if ($min_size_q !== null)
-        $filters[] = "min_size >= $min_size_q";
+    if ($size_min_q !== null)
+        $filters[] = "size_min >= $size_min_q";
     if ($max_size_q !== null)
         $filters[] = "size_max <= $max_size_q";
     if ($price_min_q !== null)
@@ -391,14 +391,14 @@ if ($action === 'filter_properties') {
 // ===========================================
 // 7️⃣ SEARCH PROPERTIES (list scope + column control) (paginated)
 // GET: action=search_properties&owner_id=1&list=mine|public|both
-//      &query=...&column=All|All%20General|city|area|type|description|note_private|min_size|size_max|size_unit|price_min|price_max|location|location_accuracy|tags|highlights
+//      &query=...&column=All|All%20General|city|area|type|description|note_private|size_min|size_max|size_unit|price_min|price_max|location|location_accuracy|tags|highlights
 //      &[page=1&per_page=40]
 // Rules:
 // - list controls visibility (mine/public/both)
 // - column=All     -> search in all allowed columns
 // - column=All General -> search in allowed columns except note_private, tags
 // - column=<specific> -> search only that column
-// - Numeric columns (min_size, size_max, price_min, price_max) will match exact or >=/<= if query is a number (simple LIKE fallback for non-numeric input).
+// - Numeric columns (size_min, size_max, price_min, price_max) will match exact or >=/<= if query is a number (simple LIKE fallback for non-numeric input).
 // ===========================================
 if ($action === 'search_properties') {
     $list = isset($_GET['list']) ? $_GET['list'] : 'both';
@@ -428,12 +428,12 @@ if ($action === 'search_properties') {
     $ors = [];
     foreach ($targetCols as $col) {
         // Numeric handling for known numeric fields
-        if (in_array($col, ['min_size', 'size_max', 'price_min', 'price_max'])) {
+        if (in_array($col, ['size_min', 'size_max', 'price_min', 'price_max'])) {
             if (is_numeric($search)) {
                 // For search, choose nearest intuitive operator:
-                // min_size/price_min -> >= value, size_max/price_max -> <= value
+                // size_min/price_min -> >= value, size_max/price_max -> <= value
                 $num = floatval($search);
-                if ($col === 'min_size' || $col === 'price_min') {
+                if ($col === 'size_min' || $col === 'price_min') {
                     $ors[] = "$col >= $num";
                 } else {
                     $ors[] = "$col <= $num";

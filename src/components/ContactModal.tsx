@@ -59,7 +59,7 @@ export function ContactModal({
       const propertyLink = `${window.location.origin}/property/${property.id}`;
       
       // Format property details
-      const sizeText = formatSize(property.min_size, property.size_max, property.size_unit);
+      const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
       const priceText = formatPriceWithLabel(property.price_min, property.price_max);
       
       // Build sender details section

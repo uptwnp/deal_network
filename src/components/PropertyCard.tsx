@@ -93,7 +93,7 @@ export function PropertyCard({
   const priceText = formatPrice(property.price_min, property.price_max);
   
   // Format size
-  const sizeText = formatSize(property.min_size, property.size_max, property.size_unit);
+  const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
   
   // Calculate rate per unit
   const calculateRatePerUnit = () => {
@@ -105,10 +105,10 @@ export function PropertyCard({
           ? property.price_max
           : 0;
     
-    const avgSize = property.min_size > 0 && property.size_max > 0
-      ? (property.min_size + property.size_max) / 2
-      : property.min_size > 0
-        ? property.min_size
+    const avgSize = property.size_min > 0 && property.size_max > 0
+      ? (property.size_min + property.size_max) / 2
+      : property.size_min > 0
+        ? property.size_min
         : property.size_max > 0
           ? property.size_max
           : 0;

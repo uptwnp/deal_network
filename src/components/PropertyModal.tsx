@@ -97,7 +97,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       type: property.type,
       description: property.description,
       note_private: property.note_private || '',
-      min_size: property.min_size,
+      size_min: property.size_min,
       size_max: property.size_max,
       size_unit: property.size_unit,
       price_min: property.price_min,
@@ -135,7 +135,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         type: userDefaultType || (userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : ''),
         description: '',
         note_private: '',
-        min_size: undefined,
+        size_min: undefined,
         size_max: undefined,
         size_unit: getLastSelections.unit || getUserDefaultUnit() || userSettings.defaultSizeUnit || 'Gaj',
         price_min: undefined,
@@ -278,7 +278,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         type: property.type,
         description: property.description,
         note_private: property.note_private || '',
-        min_size: property.min_size,
+        size_min: property.size_min,
         size_max: property.size_max,
         size_unit: property.size_unit,
         price_min: property.price_min,
@@ -292,7 +292,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         my_rating: property.my_rating || 0,
       });
       // Only update range visibility if it actually changed
-      const newShowSizeRange = property.min_size !== property.size_max;
+      const newShowSizeRange = property.size_min !== property.size_max;
       const newShowPriceRange = property.price_min !== property.price_max;
       setShowSizeRange(prev => prev !== newShowSizeRange ? newShowSizeRange : prev);
       setShowPriceRange(prev => prev !== newShowPriceRange ? newShowPriceRange : prev);
@@ -493,7 +493,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
     const finalData = {
       ...formData,
-      size_max: showSizeRange ? formData.size_max : formData.min_size,
+      size_max: showSizeRange ? formData.size_max : formData.size_min,
       price_max: showPriceRange ? formData.price_max : formData.price_min,
       // Highlights and tags are managed from view screen, not during add/edit
       highlights: property?.highlights || '',
@@ -823,8 +823,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="number"
-                  name="min_size"
-                  value={formData.min_size !== undefined && formData.min_size !== null ? formData.min_size : ''}
+                  name="size_min"
+                  value={formData.size_min !== undefined && formData.size_min !== null ? formData.size_min : ''}
                   onChange={handleChange}
                   className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-400"
                   placeholder="100"
@@ -846,8 +846,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               <>
                 <input
                   type="number"
-                  name="min_size"
-                  value={formData.min_size !== undefined && formData.min_size !== null ? formData.min_size : ''}
+                  name="size_min"
+                  value={formData.size_min !== undefined && formData.size_min !== null ? formData.size_min : ''}
                   onChange={handleChange}
                   className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-400"
                   placeholder="150"
