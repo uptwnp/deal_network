@@ -5,14 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock';
-
-// Fix Leaflet default icon
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+import { privateLocationIcon, landmarkIcon, getUserLocationIcon } from '../utils/leafletIcons';
 
 interface LocationViewModalProps {
   propertyLocation: { lat: number; lng: number };
@@ -280,67 +273,8 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
     return () => clearTimeout(timeoutId);
   }, []);
 
-  const exactLocationIcon = L.divIcon({
-    className: 'custom-private-marker',
-    html: `<div style="position: relative; width: 30px; height: 41px;">
-      <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-        <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#16a34a"/>
-        <circle cx="15" cy="15" r="6" fill="white"/>
-        <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#16a34a" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-        </svg>
-      </svg>
-    </div>`,
-    iconSize: [30, 41],
-    iconAnchor: [15, 41],
-    popupAnchor: [0, -41]
-  });
-
-  const landmarkLocationIcon = L.divIcon({
-    className: 'custom-landmark-marker',
-    html: `<div style="position: relative; width: 30px; height: 41px; opacity: 0.7;">
-      <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-        <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#2563eb"/>
-        <circle cx="15" cy="15" r="6" fill="white"/>
-        <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-        </svg>
-      </svg>
-    </div>`,
-    iconSize: [30, 41],
-    iconAnchor: [15, 41],
-    popupAnchor: [0, -41]
-  });
-
-  // Create user icon - make it more visible
-  const userIcon = useMemo(() => {
-    return L.divIcon({
-      className: 'custom-user-marker',
-      html: `<div style="
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: #3b82f6;
-        border: 5px solid white;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.4);
-        position: relative;
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      ">
-        <div style="
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background-color: white;
-        "></div>
-      </div>`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      popupAnchor: [0, -20]
-    });
-  }, []);
+  // Use icons from utility (memoized to avoid recreating on each render)
+  const userIcon = useMemo(() => getUserLocationIcon(), []);
   
   // Debug: Log when userLocation changes and invalidate map
   useEffect(() => {
@@ -432,7 +366,7 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
                 
                 <Marker 
                   position={[propertyLocation.lat, propertyLocation.lng]}
-                  icon={exactLocationIcon}
+                  icon={privateLocationIcon}
                 >
                   <Popup>
                     <div className="p-2">
@@ -458,7 +392,7 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
                 {landmarkLocationCoords && (
                   <Marker 
                     position={landmarkLocationCoords}
-                    icon={landmarkLocationIcon}
+                    icon={landmarkIcon}
                   >
                     <Popup>
                       <div className="p-2">

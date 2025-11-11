@@ -28,6 +28,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   const { user } = useAuth();
   
   // Load draft from localStorage if no property (new property) - memoize to prevent re-renders
+  // Re-compute when user changes to ensure we use latest defaults
   const draftData = useMemo(() => {
     if (property) return null; // Don't load draft when editing
     try {
@@ -37,7 +38,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       }
     } catch {}
     return null;
-  }, [property]);
+  }, [property, user?.default_area]); // Re-compute when user defaults change
 
   // Load last selected area, city, and unit from localStorage
   const getLastSelections = useMemo(() => {
@@ -56,9 +57,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   const userSettings = getUserSettings();
   
   // Parse user's default values from AuthContext
-  // default_area and default_type are stored as comma-separated strings
+  // default_area can be a single value or comma-separated string
   const getDefaultArea = (): string => {
     if (user?.default_area) {
+      // Handle both single value and comma-separated strings
       const areas = user.default_area.split(',').map(a => a.trim()).filter(a => a);
       if (areas.length > 0) return areas[0];
     }
@@ -107,26 +109,46 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       highlights: property.highlights || '',
       public_rating: property.public_rating || 0,
       my_rating: property.my_rating || 0,
-    } : (draftData || {
-      // Priority: user defaults > userSettings > fallback
-      city: getLastSelections.city || getUserDefaultCity() || userSettings.city || 'Panipat',
-      area: getDefaultArea() || (userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : ''),
-      type: getDefaultType() || (userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : ''),
-      description: '',
-      note_private: '',
-      min_size: undefined,
-      size_max: undefined,
-      size_unit: getLastSelections.unit || getUserDefaultUnit() || userSettings.defaultSizeUnit || 'Gaj',
-      price_min: undefined,
-      price_max: undefined,
-      location: '',
-      location_accuracy: 'Medium',
-      is_public: getUserDefaultPrivacy(),
-      tags: '',
-      highlights: '',
-      public_rating: 0,
-      my_rating: 0,
-    })
+    } : (() => {
+      // For new properties: use draft if exists, but prioritize user defaults for area/city/type
+      const userDefaultArea = getDefaultArea();
+      const userDefaultCity = getUserDefaultCity();
+      const userDefaultType = getDefaultType();
+      
+      if (draftData) {
+        // If draft exists, use it but override with user defaults if they exist and draft fields are empty
+        return {
+          ...draftData,
+          // Override with user defaults if draft is empty and user has defaults
+          city: draftData.city || userDefaultCity || getLastSelections.city || userSettings.city || 'Panipat',
+          area: draftData.area || userDefaultArea || (userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : ''),
+          type: draftData.type || userDefaultType || (userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : ''),
+          size_unit: draftData.size_unit || getUserDefaultUnit() || getLastSelections.unit || userSettings.defaultSizeUnit || 'Gaj',
+          is_public: draftData.is_public !== undefined ? draftData.is_public : getUserDefaultPrivacy(),
+        };
+      }
+      
+      // No draft: use user defaults > userSettings > fallback
+      return {
+        city: getLastSelections.city || userDefaultCity || userSettings.city || 'Panipat',
+        area: userDefaultArea || (userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : ''),
+        type: userDefaultType || (userSettings.preferredPropertyTypes.length > 0 ? userSettings.preferredPropertyTypes[0] : ''),
+        description: '',
+        note_private: '',
+        min_size: undefined,
+        size_max: undefined,
+        size_unit: getLastSelections.unit || getUserDefaultUnit() || userSettings.defaultSizeUnit || 'Gaj',
+        price_min: undefined,
+        price_max: undefined,
+        location: '',
+        location_accuracy: 'Medium',
+        is_public: getUserDefaultPrivacy(),
+        tags: '',
+        highlights: '',
+        public_rating: 0,
+        my_rating: 0,
+      };
+    })()
   );
 
   const [showSizeRange, setShowSizeRange] = useState(false);
@@ -247,7 +269,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
   }, [formData.size_unit, property]);
 
-  // Update formData when property changes (for editing)
+  // Update formData when property changes (for editing) or when user defaults change (for new properties)
   useEffect(() => {
     if (property) {
       setFormData({
@@ -283,66 +305,183 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       if (typeof draftData.showPriceRange === 'boolean') {
         setShowPriceRange(prev => prev !== draftData.showPriceRange ? draftData.showPriceRange : prev);
       }
+      
+      // Update formData with latest user defaults if draft fields are empty
+      // This ensures that when user updates defaults in profile, they get used
+      setFormData(prev => {
+        const userDefaultArea = getDefaultArea();
+        const userDefaultCity = getUserDefaultCity();
+        const userDefaultType = getDefaultType();
+        const userDefaultUnit = getUserDefaultUnit();
+        const userDefaultPrivacy = getUserDefaultPrivacy();
+        
+        const updates: Partial<PropertyFormData> = {};
+        let hasUpdates = false;
+        
+        // Only update if field is empty and user has a default
+        if (!prev.area && userDefaultArea) {
+          updates.area = userDefaultArea;
+          hasUpdates = true;
+        }
+        if (!prev.city && userDefaultCity) {
+          updates.city = userDefaultCity;
+          hasUpdates = true;
+        }
+        if (!prev.type && userDefaultType) {
+          updates.type = userDefaultType;
+          hasUpdates = true;
+        }
+        if (!prev.size_unit && userDefaultUnit) {
+          updates.size_unit = userDefaultUnit;
+          hasUpdates = true;
+        }
+        if (prev.is_public === 0 && userDefaultPrivacy !== 0) {
+          updates.is_public = userDefaultPrivacy;
+          hasUpdates = true;
+        }
+        
+        return hasUpdates ? { ...prev, ...updates } : prev;
+      });
+    } else if (!property && user) {
+      // No draft and no property - update with latest user defaults
+      // This handles the case where user updates profile and then opens modal
+      const userDefaultArea = getDefaultArea();
+      const userDefaultCity = getUserDefaultCity();
+      const userDefaultType = getDefaultType();
+      const userDefaultUnit = getUserDefaultUnit();
+      const userDefaultPrivacy = getUserDefaultPrivacy();
+      
+      setFormData(prev => {
+        // Only update if current value is empty or matches old default
+        const updates: Partial<PropertyFormData> = {};
+        let hasUpdates = false;
+        
+        // Update area if empty or if it matches the old default (user updated profile)
+        if (!prev.area && userDefaultArea) {
+          updates.area = userDefaultArea;
+          hasUpdates = true;
+        }
+        if (!prev.city && userDefaultCity) {
+          updates.city = userDefaultCity;
+          hasUpdates = true;
+        }
+        if (!prev.type && userDefaultType) {
+          updates.type = userDefaultType;
+          hasUpdates = true;
+        }
+        if (!prev.size_unit && userDefaultUnit) {
+          updates.size_unit = userDefaultUnit;
+          hasUpdates = true;
+        }
+        if (prev.is_public === 0 && userDefaultPrivacy !== 0) {
+          updates.is_public = userDefaultPrivacy;
+          hasUpdates = true;
+        }
+        
+        return hasUpdates ? { ...prev, ...updates } : prev;
+      });
     }
-  }, [property, draftData]);
+  }, [property, draftData, user?.default_area, user?.default_city, user?.default_type, user?.default_unit, user?.default_privacy]);
 
-  // Update defaults when user object becomes available (for new properties only)
-  // This handles the case where user loads after component mounts
+  // Track the last known user defaults to detect changes
+  const lastUserDefaultsRef = useRef<{
+    default_area?: string;
+    default_city?: string;
+    default_type?: string;
+    default_unit?: string;
+    default_privacy?: string;
+  }>({});
+  
+  // Update defaults when user object becomes available or changes (for new properties only)
+  // This handles the case where user loads after component mounts or updates profile
   useEffect(() => {
     // Only update for new properties (not editing) and when no draft exists
     if (!property && !draftData && user) {
+      // Get current user defaults
+      const currentUserDefaults = {
+        default_area: user.default_area,
+        default_city: user.default_city,
+        default_type: user.default_type,
+        default_unit: user.default_unit,
+        default_privacy: user.default_privacy,
+      };
+      
+      // Check if user defaults have changed (for area specifically)
+      const areaChanged = currentUserDefaults.default_area !== lastUserDefaultsRef.current.default_area;
+      
       setFormData(prev => {
         const updates: Partial<PropertyFormData> = {};
         let hasUpdates = false;
 
-        // Update city if it's using the fallback value or empty
-        // Check if current city is the fallback, or if user has a default city that's different
+        // Get user defaults
+        const userDefaultCity = user.default_city || '';
+        const userDefaultArea = user.default_area ? user.default_area.split(',').map(a => a.trim()).filter(a => a)[0] : '';
+        const userDefaultType = user.default_type ? user.default_type.split(',').map(t => t.trim()).filter(t => t)[0] : '';
+        const userDefaultUnit = user.default_unit || '';
+        const userDefaultPrivacy = user.default_privacy !== undefined && user.default_privacy !== '' ? parseInt(user.default_privacy, 10) : null;
+
+        // Update city if user has a default city and current city is empty or using fallback
         const currentCity = prev.city || '';
         const fallbackCity = userSettings.city || 'Panipat';
-        const userDefaultCity = user.default_city || '';
-        
         if (userDefaultCity && (currentCity === fallbackCity || !currentCity)) {
           updates.city = userDefaultCity;
           hasUpdates = true;
         }
 
-        // Update area if empty and user has a default area
-        if (!prev.area && user.default_area) {
-          const areas = user.default_area.split(',').map(a => a.trim()).filter(a => a);
-          if (areas.length > 0) {
-            updates.area = areas[0];
-            hasUpdates = true;
-          }
+        // Update area if:
+        // 1. It's empty, OR
+        // 2. User's default_area has changed (profile was updated) and current area matches old default
+        // This ensures that when user updates default_area in profile, it gets used on next modal open
+        if (!prev.area && userDefaultArea) {
+          updates.area = userDefaultArea;
+          hasUpdates = true;
+        } else if (areaChanged && userDefaultArea && prev.area === lastUserDefaultsRef.current.default_area?.split(',').map(a => a.trim()).filter(a => a)[0]) {
+          // If the current area matches the old default, update to new default
+          updates.area = userDefaultArea;
+          hasUpdates = true;
         }
 
-        // Update type if empty and user has a default type
-        if (!prev.type && user.default_type) {
-          const types = user.default_type.split(',').map(t => t.trim()).filter(t => t);
-          if (types.length > 0) {
-            updates.type = types[0];
-            hasUpdates = true;
-          }
+        // Update type if empty
+        if (!prev.type && userDefaultType) {
+          updates.type = userDefaultType;
+          hasUpdates = true;
         }
 
-        // Update size_unit if empty and user has a default unit
-        if (!prev.size_unit && user.default_unit) {
-          updates.size_unit = user.default_unit;
+        // Update size_unit if empty or using fallback
+        const currentUnit = prev.size_unit || '';
+        const fallbackUnit = userSettings.defaultSizeUnit || 'Gaj';
+        if (userDefaultUnit && (!currentUnit || currentUnit === fallbackUnit)) {
+          updates.size_unit = userDefaultUnit;
           hasUpdates = true;
         }
 
         // Update is_public if it's the default (0) and user has a default privacy setting
-        if (prev.is_public === 0 && user.default_privacy !== undefined && user.default_privacy !== '') {
-          const defaultPrivacy = parseInt(user.default_privacy, 10);
-          if (defaultPrivacy !== 0) {
-            updates.is_public = defaultPrivacy;
-            hasUpdates = true;
-          }
+        if (userDefaultPrivacy !== null && prev.is_public === 0) {
+          updates.is_public = userDefaultPrivacy;
+          hasUpdates = true;
         }
 
         return hasUpdates ? { ...prev, ...updates } : prev;
       });
+      
+      // Update the ref to track current defaults
+      lastUserDefaultsRef.current = currentUserDefaults;
     }
-  }, [user?.default_city, user?.default_area, user?.default_type, user?.default_unit, user?.default_privacy, property, draftData, userSettings.city]);
+  }, [user?.default_city, user?.default_area, user?.default_type, user?.default_unit, user?.default_privacy, property, draftData, userSettings.city, userSettings.defaultSizeUnit]);
+  
+  // Reset tracking when modal opens for new property
+  useEffect(() => {
+    if (!property && user) {
+      // Initialize with current user defaults
+      lastUserDefaultsRef.current = {
+        default_area: user.default_area,
+        default_city: user.default_city,
+        default_type: user.default_type,
+        default_unit: user.default_unit,
+        default_privacy: user.default_privacy,
+      };
+    }
+  }, [property, user]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

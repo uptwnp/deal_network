@@ -1,35 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import { Property } from '../types/property';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
 import { Navigation, Satellite } from 'lucide-react';
 import L from 'leaflet';
-
-// Dynamically load Leaflet CSS only when this component is used
-let leafletCssLoaded = false;
-const loadLeafletCss = () => {
-  if (leafletCssLoaded) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-  link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-  link.crossOrigin = '';
-  document.head.appendChild(link);
-  leafletCssLoaded = true;
-};
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+import 'leaflet/dist/leaflet.css';
+import { defaultIcon, landmarkIcon, getUserLocationIcon } from '../utils/leafletIcons';
 
 interface PropertyMapProps {
   properties: Property[];
   center?: [number, number];
   onMarkerClick?: (property: Property) => void;
+  ownerId?: number; // Current user's owner ID to distinguish "mine" from "others"
 }
 
 function MapUpdater({ center }: { center: [number, number] }) {
@@ -59,12 +42,7 @@ function TileLayerSwitcher({ isSatelliteView }: { isSatelliteView: boolean }) {
   );
 }
 
-export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick }: PropertyMapProps) {
-  // Load Leaflet CSS when component mounts
-  useEffect(() => {
-    loadLeafletCss();
-  }, []);
-
+export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick, ownerId }: PropertyMapProps) {
   // Load saved map view preference from localStorage, default to map view
   const [isSatelliteView, setIsSatelliteView] = useState(() => {
     const saved = localStorage.getItem('mapViewPreference');
@@ -74,83 +52,77 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   
-  // Helper function to get coordinates for a property (location first, then landmark_location as fallback)
-  const getPropertyCoords = (property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
-    // Try exact location first
-    if (property.location && property.location.includes(',')) {
-      const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        return { coords: [coords[0], coords[1]], isLandmark: false };
+  // Helper function to determine if a property is owned by the current user
+  // Handle both number and string comparisons (in case API returns strings)
+  const isOwnedByUser = useCallback((property: Property): boolean => {
+    if (ownerId === undefined || ownerId === null) {
+      return false;
+    }
+    // Convert both to numbers for comparison to handle string/number mismatches
+    const propOwnerId = typeof property.owner_id === 'string' ? parseInt(property.owner_id, 10) : property.owner_id;
+    const currentOwnerId = typeof ownerId === 'string' ? parseInt(ownerId, 10) : ownerId;
+    return propOwnerId === currentOwnerId && !isNaN(propOwnerId) && !isNaN(currentOwnerId);
+  }, [ownerId]);
+  
+  // Helper function to get coordinates for a property
+  // For "mine" properties: prefer exact location, fallback to landmark
+  // For "others" properties: only use landmark location (never show exact location for privacy)
+  const getPropertyCoords = useCallback((property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
+    // If ownerId is not provided, treat all properties as "others" for safety (privacy-first)
+    if (ownerId === undefined || ownerId === null) {
+      // Fallback: only show landmark locations if ownerId is not available
+      if (property.landmark_location && property.landmark_location.includes(',')) {
+        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          return { coords: [coords[0], coords[1]], isLandmark: true };
+        }
       }
+      return { coords: null, isLandmark: false };
     }
     
-    // Fallback to landmark_location
-    if (property.landmark_location && property.landmark_location.includes(',')) {
-      const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        return { coords: [coords[0], coords[1]], isLandmark: true };
+    const isOwned = isOwnedByUser(property);
+    
+    if (isOwned) {
+      // For "mine" properties: try exact location first, then fallback to landmark
+      if (property.location && property.location.includes(',')) {
+        const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          return { coords: [coords[0], coords[1]], isLandmark: false };
+        }
       }
+      
+      // Fallback to landmark_location for "mine" properties
+      if (property.landmark_location && property.landmark_location.includes(',')) {
+        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          return { coords: [coords[0], coords[1]], isLandmark: true };
+        }
+      }
+    } else {
+      // For "others" properties: ONLY use landmark_location (never show exact location for privacy)
+      if (property.landmark_location && property.landmark_location.includes(',')) {
+        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          return { coords: [coords[0], coords[1]], isLandmark: true };
+        }
+      }
+      // Don't show "others" properties if they don't have a landmark_location
+      return { coords: null, isLandmark: false };
     }
     
     return { coords: null, isLandmark: false };
-  };
+  }, [ownerId, isOwnedByUser]);
   
   // Filter properties that have either location or landmark_location
-  const propertiesWithCoords = properties.filter(
-    (p) => {
+  const propertiesWithCoords = useMemo(() => {
+    return properties.filter((p) => {
       const { coords } = getPropertyCoords(p);
       return coords !== null;
-    }
-  );
+    });
+  }, [properties, getPropertyCoords]);
   
-  // Create user location icon
-  const userIcon = L.divIcon({
-    className: 'custom-user-marker',
-    html: `<div style="
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background-color: #3b82f6;
-      border: 5px solid white;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
-      position: relative;
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    ">
-      <div style="
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background-color: white;
-      "></div>
-    </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20]
-  });
-  
-  // Create landmark location icon (different from exact location)
-  const landmarkIcon = L.divIcon({
-    className: 'custom-landmark-marker',
-    html: `<div style="
-      width: 30px;
-      height: 41px;
-      opacity: 0.8;
-    ">
-      <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-        <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#2563eb"/>
-        <circle cx="15" cy="15" r="6" fill="white"/>
-        <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-        </svg>
-      </svg>
-    </div>`,
-    iconSize: [30, 41],
-    iconAnchor: [15, 41],
-    popupAnchor: [0, -41]
-  });
+  // Create user location icon (memoized to avoid recreating on each render)
+  const userIcon = useMemo(() => getUserLocationIcon(), []);
 
   // Update map center when center prop changes
   useEffect(() => {
@@ -217,7 +189,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
           if (!coords) return [];
           
           const radius = property.location_accuracy ? parseFloat(property.location_accuracy) || 500 : 500;
-          const markerIcon = isLandmark ? landmarkIcon : undefined; // Use default icon for exact location, landmark icon for landmark
+          const markerIcon = isLandmark ? landmarkIcon : defaultIcon; // Use default icon for exact location, landmark icon for landmark
           
           return [
             // Location Accuracy Radius Circle (only for exact locations)

@@ -95,6 +95,48 @@ export function PropertyCard({
   // Format size
   const sizeText = formatSize(property.min_size, property.size_max, property.size_unit);
   
+  // Calculate rate per unit
+  const calculateRatePerUnit = () => {
+    const avgPrice = property.price_min > 0 && property.price_max > 0
+      ? (property.price_min + property.price_max) / 2
+      : property.price_min > 0
+        ? property.price_min
+        : property.price_max > 0
+          ? property.price_max
+          : 0;
+    
+    const avgSize = property.min_size > 0 && property.size_max > 0
+      ? (property.min_size + property.size_max) / 2
+      : property.min_size > 0
+        ? property.min_size
+        : property.size_max > 0
+          ? property.size_max
+          : 0;
+    
+    if (avgPrice > 0 && avgSize > 0) {
+      // Price is in lakhs, so convert to actual rupees (multiply by 100000)
+      const priceInRupees = avgPrice * 100000;
+      const ratePerUnit = priceInRupees / avgSize;
+      
+      // Format the rate nicely
+      if (ratePerUnit >= 10000000) {
+        // If >= 1 crore, show in crores
+        return `₹${(ratePerUnit / 10000000).toFixed(2)} Cr/${property.size_unit}`;
+      } else if (ratePerUnit >= 100000) {
+        // If >= 1 lakh, show in lakhs
+        return `₹${(ratePerUnit / 100000).toFixed(2)} L/${property.size_unit}`;
+      } else if (ratePerUnit >= 1000) {
+        // If >= 1000, show in thousands
+        return `₹${(ratePerUnit / 1000).toFixed(1)}K/${property.size_unit}`;
+      } else {
+        return `₹${Math.round(ratePerUnit)}/${property.size_unit}`;
+      }
+    }
+    return null;
+  };
+  
+  const ratePerUnitText = calculateRatePerUnit();
+  
   // Format location - show city only if it's not the user's city
   const locationText = property.city.toLowerCase() === userCity.toLowerCase()
     ? property.area
@@ -130,9 +172,17 @@ export function PropertyCard({
     >
      <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight mb-1">
-            {sizeText} {property.type} in {locationText}
-          </h3>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
+              {sizeText} {property.type} in {locationText}
+            </h3>
+            <span className="text-[0.6rem] text-gray-400 font-normal">#{property.id}</span>
+          </div>
+          {ratePerUnitText && (
+            <p className="text-[0.65rem] sm:text-xs text-gray-600 mt-0.5">
+              {ratePerUnitText}
+            </p>
+          )}
         </div>
         <div className="flex-shrink-0">
           <div className="flex items-center gap-0 text-sm sm:text-base font-semibold text-gray-900">

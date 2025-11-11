@@ -91,6 +91,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const areaDropdownRef = useRef<HTMLDivElement>(null);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<FilterOptions>(persistedState.filters);
+  const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Dynamic city and area options from API
   const [cityOptions, setCityOptions] = useState<string[]>([]);
@@ -179,16 +180,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     localStorage.setItem(STORAGE_KEYS.SELECTED_AREA, selectedArea);
   }, [selectedArea]);
 
-  // Apply filters on initial load if they exist
-  useEffect(() => {
-    const activeFilters = Object.fromEntries(
-      Object.entries(filters).filter(([_, v]) => v !== '' && v !== undefined)
-    );
-    if (Object.keys(activeFilters).length > 0) {
-      onFilter(activeFilters);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  // Note: Removed initial filter application on mount
+  // The App component's initial load effect handles applying filters from localStorage
+  // This prevents duplicate filter requests on page load
+  // Filters will only be applied when user actually changes them via handleFilterChange
 
   // Debounced search - triggers after user stops typing for 300ms
   useEffect(() => {
@@ -220,14 +215,28 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     // Auto-save to localStorage
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
     
-    // Apply filters live as user types/changes
-    const cleanFilters = Object.fromEntries(
-      Object.entries(newFilters).filter(([_, v]) => v !== '' && v !== undefined)
-    );
-    onFilter(cleanFilters);
+    // Debounce filter application to prevent too many rapid API calls
+    // Clear existing timer
+    if (filterDebounceTimerRef.current) {
+      clearTimeout(filterDebounceTimerRef.current);
+    }
+    
+    // Apply filters after a short delay (user stops changing filters)
+    filterDebounceTimerRef.current = setTimeout(() => {
+      const cleanFilters = Object.fromEntries(
+        Object.entries(newFilters).filter(([_, v]) => v !== '' && v !== undefined)
+      );
+      onFilter(cleanFilters);
+    }, 300); // 300ms debounce
   };
 
   const applyFilters = () => {
+    // Clear any pending debounced filter calls
+    if (filterDebounceTimerRef.current) {
+      clearTimeout(filterDebounceTimerRef.current);
+      filterDebounceTimerRef.current = null;
+    }
+    
     const cleanFilters = Object.fromEntries(
       Object.entries(filters).filter(([_, v]) => v !== '' && v !== undefined)
     );

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { getCurrentUser, setCurrentUser, User } from '../types/user';
 import { authApi, getStoredToken } from '../services/authApi';
 
@@ -26,8 +26,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Start with false to allow immediate render, verify in background
   const [loading, setLoading] = useState(false);
 
+  // Track if profile check has been initiated to prevent duplicate calls (StrictMode)
+  const profileCheckInitiatedRef = useRef(false);
+  
   // Check for existing token and fetch user profile on mount (non-blocking)
   useEffect(() => {
+    // Prevent duplicate calls (especially in StrictMode double-render)
+    // Once set, this stays true for the component lifetime
+    if (profileCheckInitiatedRef.current) {
+      return;
+    }
+    profileCheckInitiatedRef.current = true;
+    
     const checkAuth = async () => {
       const token = getStoredToken();
       const storedUser = getCurrentUser();
@@ -82,6 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     checkAuth();
+    
+    // Cleanup: reset flag only on unmount (allows re-check if component remounts)
+    return () => {
+      // Note: We don't reset here to prevent duplicate calls during StrictMode double-render
+      // The ref will persist for the component lifetime, which is what we want
+    };
   }, []);
 
   const setUser = (newUser: User | null) => {
