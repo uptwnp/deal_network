@@ -146,6 +146,104 @@ export interface PaginatedResponse<T> {
   meta: PaginationMeta;
 }
 
+// Helper function to add filters to query params, only including non-default values
+function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions) {
+  // Default values that should not be sent
+  const DEFAULT_MIN_PRICE = 0;
+  const DEFAULT_MAX_PRICE = 500;
+  const DEFAULT_MIN_SIZE = 0;
+  const DEFAULT_MAX_SIZE = 10000;
+
+  if (filters.city) queryParams.append('city', filters.city);
+  if (filters.area) queryParams.append('area', filters.area);
+  
+  // Handle type as string or array (for multi-select)
+  if (filters.type) {
+    if (Array.isArray(filters.type)) {
+      if (filters.type.length > 0) {
+        queryParams.append('type', filters.type.join(','));
+      }
+    } else {
+      queryParams.append('type', filters.type);
+    }
+  }
+  
+  // Handle tags as string or array (for multi-select)
+  if (filters.tags) {
+    if (Array.isArray(filters.tags)) {
+      if (filters.tags.length > 0) {
+        queryParams.append('tags', filters.tags.join(','));
+      }
+    } else {
+      queryParams.append('tags', filters.tags);
+    }
+  }
+  
+  // Handle highlights as string or array (for multi-select)
+  if (filters.highlights) {
+    if (Array.isArray(filters.highlights)) {
+      if (filters.highlights.length > 0) {
+        queryParams.append('highlights', filters.highlights.join(','));
+      }
+    } else {
+      queryParams.append('highlights', filters.highlights);
+    }
+  }
+  
+  // Only send price filters if they're not at default values
+  const minPrice = filters.min_price ?? DEFAULT_MIN_PRICE;
+  const maxPrice = filters.max_price ?? DEFAULT_MAX_PRICE;
+  const isPriceRangeApplied = !(minPrice === DEFAULT_MIN_PRICE && maxPrice === DEFAULT_MAX_PRICE);
+  
+  if (isPriceRangeApplied) {
+    if (minPrice !== DEFAULT_MIN_PRICE) {
+      queryParams.append('min_price', minPrice.toString());
+    }
+    if (maxPrice !== DEFAULT_MAX_PRICE) {
+      queryParams.append('max_price', maxPrice.toString());
+    }
+  }
+  
+  // Only send size filters if they're not at default values
+  const minSize = filters.size_min ?? DEFAULT_MIN_SIZE;
+  const maxSize = filters.max_size ?? DEFAULT_MAX_SIZE;
+  const isSizeRangeApplied = !(minSize === DEFAULT_MIN_SIZE && maxSize === DEFAULT_MAX_SIZE);
+  
+  if (isSizeRangeApplied) {
+    if (minSize !== DEFAULT_MIN_SIZE) {
+      queryParams.append('min_size', minSize.toString());
+    }
+    if (maxSize !== DEFAULT_MAX_SIZE) {
+      queryParams.append('max_size', maxSize.toString());
+    }
+    // Only send size_unit if size range is actually applied
+    if (filters.size_unit) {
+      queryParams.append('size_unit', filters.size_unit);
+    }
+  }
+  
+  // Filter by specific size unit (separate from size_unit used for size range)
+  if (filters.filter_size_unit) {
+    queryParams.append('filter_size_unit', filters.filter_size_unit);
+  }
+  
+  // Map location filters
+  if (filters.has_location !== undefined) {
+    queryParams.append('has_location', filters.has_location.toString());
+  }
+  if (filters.has_landmark !== undefined) {
+    queryParams.append('has_landmark', filters.has_landmark.toString());
+  }
+
+  // Add sorting parameters
+  if (filters.sortby) {
+    queryParams.append('sortby', filters.sortby);
+  }
+  if (filters.order) {
+    queryParams.append('order', filters.order);
+  }
+}
+
 export const propertyApi = {
   async getUserProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
@@ -319,55 +417,8 @@ export const propertyApi = {
       queryParams.append('for', 'map');
     }
 
-    // Map filter options to API parameters (fetch.php expects these directly)
-    if (filters.city) queryParams.append('city', filters.city);
-    if (filters.area) queryParams.append('area', filters.area);
-    // Handle type as string or array (for multi-select)
-    if (filters.type) {
-      if (Array.isArray(filters.type)) {
-        // For multi-select, send as comma-separated or multiple parameters
-        // Backend may need to support IN clause, for now send comma-separated
-        queryParams.append('type', filters.type.join(','));
-      } else {
-        queryParams.append('type', filters.type);
-      }
-    }
-    // Handle tags as string or array (for multi-select)
-    if (filters.tags) {
-      if (Array.isArray(filters.tags)) {
-        // For multi-select tags, join with comma (backend uses LIKE so this should work)
-        queryParams.append('tags', filters.tags.join(','));
-      } else {
-        queryParams.append('tags', filters.tags);
-      }
-    }
-    // Handle highlights as string or array (for multi-select)
-    if (filters.highlights) {
-      if (Array.isArray(filters.highlights)) {
-        // For multi-select highlights, join with comma (backend uses LIKE so this should work)
-        queryParams.append('highlights', filters.highlights.join(','));
-      } else {
-        queryParams.append('highlights', filters.highlights);
-      }
-    }
-    
-    // Map price filters (fetch.php expects price_min/price_max)
-    if (filters.min_price !== undefined) queryParams.append('min_price', filters.min_price.toString());
-    if (filters.max_price !== undefined) queryParams.append('max_price', filters.max_price.toString());
-    
-    // Map size filters (fetch.php expects size_min/max_size and size_unit)
-    if (filters.size_min !== undefined) queryParams.append('min_size', filters.size_min.toString());
-    if (filters.max_size !== undefined) queryParams.append('max_size', filters.max_size.toString());
-    if (filters.size_unit) queryParams.append('size_unit', filters.size_unit); // Size unit for size range filter
-    if (filters.filter_size_unit) queryParams.append('filter_size_unit', filters.filter_size_unit); // Filter by specific size unit (separate from size_unit)
-    
-    // Map location filters
-    if (filters.has_location !== undefined) queryParams.append('has_location', filters.has_location.toString());
-    if (filters.has_landmark !== undefined) queryParams.append('has_landmark', filters.has_landmark.toString());
-
-    // Add sorting parameters
-    if (filters.sortby) queryParams.append('sortby', filters.sortby);
-    if (filters.order) queryParams.append('order', filters.order);
+    // Add filters (only non-default values)
+    addFiltersToParams(queryParams, filters);
 
     // Add pagination parameters
     if (pagination?.page !== undefined) {
@@ -393,58 +444,32 @@ export const propertyApi = {
     return { data: properties, meta };
   },
 
-  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both', query: string, _column?: string, pagination?: PaginationOptions, forMap?: boolean, filters?: FilterOptions): Promise<PaginatedResponse<Property>> {
+  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both', query: string, column?: string, pagination?: PaginationOptions, forMap?: boolean, filters?: FilterOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('list', list); // fetch.php uses 'list' parameter
-    queryParams.append('search', query); // fetch.php uses 'search' parameter
+    
+    // Only send search parameter if query is not empty (matches backend's !empty($search) check)
+    if (query && query.trim()) {
+      queryParams.append('search', query.trim()); // fetch.php uses 'search' parameter
+    }
+
+    // Send column parameter (even though backend searches all fields, send it for API consistency)
+    if (column && column.trim()) {
+      queryParams.append('column', column.trim());
+    }
 
     // Add for=map parameter if requesting map data (only properties with location/landmark)
     if (forMap) {
       queryParams.append('for', 'map');
     }
 
-    // Note: fetch.php doesn't use column parameter, it searches across all fields
+    // Note: fetch.php searches across all fields regardless of column parameter
     // (city, area, type, description, highlights, heading)
 
-    // Apply filters if provided (for search with filters)
+    // Apply filters if provided (for search with filters) - only non-default values
     if (filters) {
-      if (filters.city) queryParams.append('city', filters.city);
-      if (filters.area) queryParams.append('area', filters.area);
-      // Handle type as string or array (for multi-select)
-      if (filters.type) {
-        if (Array.isArray(filters.type)) {
-          queryParams.append('type', filters.type.join(','));
-        } else {
-          queryParams.append('type', filters.type);
-        }
-      }
-      // Handle tags as string or array (for multi-select)
-      if (filters.tags) {
-        if (Array.isArray(filters.tags)) {
-          queryParams.append('tags', filters.tags.join(','));
-        } else {
-          queryParams.append('tags', filters.tags);
-        }
-      }
-      // Handle highlights as string or array (for multi-select)
-      if (filters.highlights) {
-        if (Array.isArray(filters.highlights)) {
-          queryParams.append('highlights', filters.highlights.join(','));
-        } else {
-          queryParams.append('highlights', filters.highlights);
-        }
-      }
-      if (filters.min_price !== undefined) queryParams.append('min_price', filters.min_price.toString());
-      if (filters.max_price !== undefined) queryParams.append('max_price', filters.max_price.toString());
-      if (filters.size_min !== undefined) queryParams.append('min_size', filters.size_min.toString());
-      if (filters.max_size !== undefined) queryParams.append('max_size', filters.max_size.toString());
-      if (filters.size_unit) queryParams.append('size_unit', filters.size_unit);
-      if (filters.filter_size_unit) queryParams.append('filter_size_unit', filters.filter_size_unit);
-      if (filters.has_location !== undefined) queryParams.append('has_location', filters.has_location.toString());
-      if (filters.has_landmark !== undefined) queryParams.append('has_landmark', filters.has_landmark.toString());
-      if (filters.sortby) queryParams.append('sortby', filters.sortby);
-      if (filters.order) queryParams.append('order', filters.order);
+      addFiltersToParams(queryParams, filters);
     }
 
     // Add pagination parameters

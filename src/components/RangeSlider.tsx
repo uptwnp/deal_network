@@ -62,15 +62,15 @@ export function RangeSlider({
     return Math.round(rawValue / step) * step;
   }, [min, max, step]);
 
-  // Update range visual
+  // Update range visual (only when not dragging - during drag we update directly via DOM)
   useEffect(() => {
-    if (rangeRef.current) {
+    if (rangeRef.current && !isDragging) {
       const minPercent = valueToPercent(minVal);
       const maxPercent = valueToPercent(maxVal);
       rangeRef.current.style.left = `${minPercent}%`;
       rangeRef.current.style.width = `${maxPercent - minPercent}%`;
     }
-  }, [minVal, maxVal, valueToPercent]);
+  }, [minVal, maxVal, valueToPercent, isDragging]);
 
   // Disable transitions during drag for smooth interaction
   useEffect(() => {
@@ -92,78 +92,167 @@ export function RangeSlider({
     }
   }, [isDragging]);
 
-  // Handle mouse move during drag
+  // Handle mouse move during drag - use requestAnimationFrame for smooth updates
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingRef.current || !dragStartPos.current || !containerRef.current) {
       return;
     }
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    const newValue = Math.max(min, Math.min(max, percentToValue(percent)));
-    const activeHandle = isDraggingRef.current;
+    requestAnimationFrame(() => {
+      if (!isDraggingRef.current || !containerRef.current) return;
 
-    if (activeHandle === 'min') {
-      const currentMax = maxValRef.current;
-      const clampedValue = Math.min(newValue, currentMax - step);
-      setMinVal(clampedValue);
-      onChange([clampedValue, currentMax]);
-    } else if (activeHandle === 'max') {
-      const currentMin = minValRef.current;
-      const clampedValue = Math.max(newValue, currentMin + step);
-      setMaxVal(clampedValue);
-      onChange([currentMin, clampedValue]);
-    }
-  }, [min, max, step, onChange, percentToValue]);
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      const newValue = Math.max(min, Math.min(max, percentToValue(percent)));
+      const activeHandle = isDraggingRef.current;
 
-  // Handle mouse up
+      if (activeHandle === 'min') {
+        const currentMax = maxValRef.current;
+        const clampedValue = Math.min(newValue, currentMax - step);
+        
+        // Update refs immediately for smooth visual updates
+        minValRef.current = clampedValue;
+        
+        // Update visual position directly via DOM for smoothness
+        if (minHandleRef.current) {
+          const minPercent = valueToPercent(clampedValue);
+          minHandleRef.current.style.left = `${minPercent}%`;
+        }
+        if (rangeRef.current) {
+          const minPercent = valueToPercent(clampedValue);
+          const maxPercent = valueToPercent(currentMax);
+          rangeRef.current.style.left = `${minPercent}%`;
+          rangeRef.current.style.width = `${maxPercent - minPercent}%`;
+        }
+        
+        // Update state (but don't call onChange during drag - only on release)
+        setMinVal(clampedValue);
+      } else if (activeHandle === 'max') {
+        const currentMin = minValRef.current;
+        const clampedValue = Math.max(newValue, currentMin + step);
+        
+        // Update refs immediately for smooth visual updates
+        maxValRef.current = clampedValue;
+        
+        // Update visual position directly via DOM for smoothness
+        if (maxHandleRef.current) {
+          const maxPercent = valueToPercent(clampedValue);
+          maxHandleRef.current.style.left = `${maxPercent}%`;
+        }
+        if (rangeRef.current) {
+          const minPercent = valueToPercent(currentMin);
+          const maxPercent = valueToPercent(clampedValue);
+          rangeRef.current.style.left = `${minPercent}%`;
+          rangeRef.current.style.width = `${maxPercent - minPercent}%`;
+        }
+        
+        // Update state (but don't call onChange during drag - only on release)
+        setMaxVal(clampedValue);
+      }
+    });
+  }, [min, max, step, percentToValue, valueToPercent]);
+
+  // Handle mouse up - call onChange with final values
   const handleMouseUp = useCallback(() => {
     if (isDraggingRef.current) {
+      const activeHandle = isDraggingRef.current;
+      // Call onChange with final values when drag ends
+      if (activeHandle === 'min') {
+        onChange([minValRef.current, maxValRef.current]);
+      } else if (activeHandle === 'max') {
+        onChange([minValRef.current, maxValRef.current]);
+      }
+      
       setIsDragging(null);
       isDraggingRef.current = null;
       dragStartPos.current = null;
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     }
-  }, [handleMouseMove]);
+  }, [handleMouseMove, onChange]);
 
-  // Handle touch move during drag
+  // Handle touch move during drag - use requestAnimationFrame for smooth updates
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDraggingRef.current || !dragStartPos.current || !containerRef.current) {
       return;
     }
 
     e.preventDefault();
-    const touch = e.touches[0];
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    const newValue = Math.max(min, Math.min(max, percentToValue(percent)));
-    const activeHandle = isDraggingRef.current;
+    
+    requestAnimationFrame(() => {
+      if (!isDraggingRef.current || !containerRef.current) return;
 
-    if (activeHandle === 'min') {
-      const currentMax = maxValRef.current;
-      const clampedValue = Math.min(newValue, currentMax - step);
-      setMinVal(clampedValue);
-      onChange([clampedValue, currentMax]);
-    } else if (activeHandle === 'max') {
-      const currentMin = minValRef.current;
-      const clampedValue = Math.max(newValue, currentMin + step);
-      setMaxVal(clampedValue);
-      onChange([currentMin, clampedValue]);
-    }
-  }, [min, max, step, onChange, percentToValue]);
+      const touch = e.touches[0];
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      const newValue = Math.max(min, Math.min(max, percentToValue(percent)));
+      const activeHandle = isDraggingRef.current;
+
+      if (activeHandle === 'min') {
+        const currentMax = maxValRef.current;
+        const clampedValue = Math.min(newValue, currentMax - step);
+        
+        // Update refs immediately for smooth visual updates
+        minValRef.current = clampedValue;
+        
+        // Update visual position directly via DOM for smoothness
+        if (minHandleRef.current) {
+          const minPercent = valueToPercent(clampedValue);
+          minHandleRef.current.style.left = `${minPercent}%`;
+        }
+        if (rangeRef.current) {
+          const minPercent = valueToPercent(clampedValue);
+          const maxPercent = valueToPercent(currentMax);
+          rangeRef.current.style.left = `${minPercent}%`;
+          rangeRef.current.style.width = `${maxPercent - minPercent}%`;
+        }
+        
+        // Update state (but don't call onChange during drag - only on release)
+        setMinVal(clampedValue);
+      } else if (activeHandle === 'max') {
+        const currentMin = minValRef.current;
+        const clampedValue = Math.max(newValue, currentMin + step);
+        
+        // Update refs immediately for smooth visual updates
+        maxValRef.current = clampedValue;
+        
+        // Update visual position directly via DOM for smoothness
+        if (maxHandleRef.current) {
+          const maxPercent = valueToPercent(clampedValue);
+          maxHandleRef.current.style.left = `${maxPercent}%`;
+        }
+        if (rangeRef.current) {
+          const minPercent = valueToPercent(currentMin);
+          const maxPercent = valueToPercent(clampedValue);
+          rangeRef.current.style.left = `${minPercent}%`;
+          rangeRef.current.style.width = `${maxPercent - minPercent}%`;
+        }
+        
+        // Update state (but don't call onChange during drag - only on release)
+        setMaxVal(clampedValue);
+      }
+    });
+  }, [min, max, step, percentToValue, valueToPercent]);
 
   const handleTouchEnd = useCallback(() => {
     if (isDraggingRef.current) {
+      const activeHandle = isDraggingRef.current;
+      // Call onChange with final values when drag ends
+      if (activeHandle === 'min') {
+        onChange([minValRef.current, maxValRef.current]);
+      } else if (activeHandle === 'max') {
+        onChange([minValRef.current, maxValRef.current]);
+      }
+      
       setIsDragging(null);
       isDraggingRef.current = null;
       dragStartPos.current = null;
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     }
-  }, [handleTouchMove]);
+  }, [handleTouchMove, onChange]);
 
   // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, handle: 'min' | 'max') => {
@@ -241,7 +330,10 @@ export function RangeSlider({
         {/* Active Range */}
         <div
           ref={rangeRef}
-          className="absolute top-1/2 h-1.5 bg-blue-600 rounded-full -translate-y-1/2 transition-all duration-150 ease-out pointer-events-none"
+          className="absolute top-1/2 h-1.5 bg-blue-600 rounded-full -translate-y-1/2 pointer-events-none"
+          style={{
+            transition: isDragging ? 'none' : 'left 0.1s ease-out, width 0.1s ease-out',
+          }}
         />
         
         {/* Container for drag calculations - must be behind handles */}
@@ -254,17 +346,18 @@ export function RangeSlider({
         {/* Min Handle */}
         <div
           ref={minHandleRef}
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out touch-none ${
+          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 touch-none ${
             isDragging === 'min' 
               ? 'scale-125 z-50' 
               : hoveredHandle === 'min' 
-              ? 'scale-110 z-40' 
-              : 'scale-100 z-30'
+              ? 'scale-110 z-40 transition-all duration-150 ease-out' 
+              : 'scale-100 z-30 transition-all duration-150 ease-out'
           }`}
           style={{
             left: `${valueToPercent(minVal)}%`,
             cursor: isDragging === 'min' ? 'grabbing' : 'grab',
             pointerEvents: 'all',
+            transition: isDragging === 'min' ? 'none' : 'left 0.1s ease-out, transform 0.15s ease-out',
           }}
           onMouseDown={(e) => handleMouseDown(e, 'min')}
           onTouchStart={(e) => handleTouchStart(e, 'min')}
@@ -285,17 +378,18 @@ export function RangeSlider({
         {/* Max Handle */}
         <div
           ref={maxHandleRef}
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out touch-none ${
+          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 touch-none ${
             isDragging === 'max' 
               ? 'scale-125 z-50' 
               : hoveredHandle === 'max' 
-              ? 'scale-110 z-40' 
-              : 'scale-100 z-30'
+              ? 'scale-110 z-40 transition-all duration-150 ease-out' 
+              : 'scale-100 z-30 transition-all duration-150 ease-out'
           }`}
           style={{
             left: `${valueToPercent(maxVal)}%`,
             cursor: isDragging === 'max' ? 'grabbing' : 'grab',
             pointerEvents: 'all',
+            transition: isDragging === 'max' ? 'none' : 'left 0.1s ease-out, transform 0.15s ease-out',
           }}
           onMouseDown={(e) => handleMouseDown(e, 'max')}
           onTouchStart={(e) => handleTouchStart(e, 'max')}

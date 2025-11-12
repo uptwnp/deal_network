@@ -61,7 +61,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       
       // Default price and size ranges
       const defaultPriceMin = parsedFilters.min_price ?? 0;
-      const defaultPriceMax = parsedFilters.max_price ?? 500; // 500 lakhs max
+      const defaultPriceMax = parsedFilters.max_price ?? 1000; // 1000 lakhs (10 crores) max
       const defaultSizeMin = parsedFilters.size_min ?? 0;
       const defaultSizeMax = parsedFilters.max_size ?? 10000; // Max size depends on unit
       
@@ -101,7 +101,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
           area: '',
           type: [],
           min_price: 0,
-          max_price: 500,
+          max_price: 1000,
           size_min: 0,
           max_size: 10000,
           size_unit: userSettings.defaultSizeUnit || 'Gaj',
@@ -146,7 +146,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Range values for sliders
   const [priceRange, setPriceRange] = useState<[number, number]>([
     filters.min_price ?? 0,
-    filters.max_price ?? 500
+    filters.max_price ?? 1000
   ]);
   const [sizeRange, setSizeRange] = useState<[number, number]>([
     filters.size_min ?? 0,
@@ -298,7 +298,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   // Sync range states with filters
   useEffect(() => {
-    setPriceRange([filters.min_price ?? 0, filters.max_price ?? 500]);
+    setPriceRange([filters.min_price ?? 0, filters.max_price ?? 1000]);
     setSizeRange([filters.size_min ?? 0, filters.max_size ?? 10000]);
   }, [filters.min_price, filters.max_price, filters.size_min, filters.max_size]);
 
@@ -371,8 +371,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     
     // Check price range - only include if not at both endpoints
     const minPrice = newFilters.min_price ?? 0;
-    const maxPrice = newFilters.max_price ?? 500;
-    const isPriceRangeApplied = !(minPrice === 0 && maxPrice === 500);
+    const maxPrice = newFilters.max_price ?? 1000;
+    const isPriceRangeApplied = !(minPrice === 0 && maxPrice === 1000);
     if (isPriceRangeApplied) {
       cleanFilters.min_price = minPrice;
       cleanFilters.max_price = maxPrice;
@@ -482,7 +482,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | number | string[] | boolean | undefined) => {
     // If clearing city, set it back to default (city should always be selected)
-    // City changes are handled by handleCitySelect function
+    // City changes are handled by handleCitySelect function and should apply immediately
     if (key === 'city') {
       // Ensure city is never empty - use user's default_city or Panipat as fallback
       if (typeof value === 'string') {
@@ -496,12 +496,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       return;
     }
     
+    // For all other filters, only update local state - don't apply immediately
     // If clearing sortby, also clear order
     if (key === 'sortby' && (value === '' || value === undefined)) {
       const newFilters: FilterOptions = { ...filters, sortby: undefined, order: undefined };
       setFilters(newFilters);
       localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-      applyFiltersDebounced(newFilters);
+      // Don't apply filters immediately - wait for Apply button
       return;
     }
     
@@ -514,7 +515,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       };
       setFilters(newFilters);
       localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-      applyFiltersDebounced(newFilters);
+      // Don't apply filters immediately - wait for Apply button
       return;
     }
     
@@ -522,10 +523,16 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     setFilters(newFilters);
     // Auto-save to localStorage
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    applyFiltersDebounced(newFilters);
+    // Don't apply filters immediately - wait for Apply button
   };
 
-  // Handle price range change
+  // Function to apply all pending filters
+  const applyFilters = () => {
+    applyFiltersDebounced(filters);
+    setShowFilters(false); // Close the filter modal after applying
+  };
+
+  // Handle price range change - only update local state, don't apply filters
   const handlePriceRangeChange = (range: [number, number]) => {
     setPriceRange(range);
     const newFilters = { 
@@ -535,10 +542,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(newFilters);
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    applyFiltersDebounced(newFilters);
+    // Don't apply filters immediately - wait for Apply button
   };
 
-  // Handle size range change
+  // Handle size range change - only update local state, don't apply filters
   const handleSizeRangeChange = (range: [number, number]) => {
     setSizeRange(range);
     const newFilters = { 
@@ -548,10 +555,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(newFilters);
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    applyFiltersDebounced(newFilters);
+    // Don't apply filters immediately - wait for Apply button
   };
 
-  // Handle type multi-select
+  // Handle type multi-select - only update local state, don't apply filters
   const handleTypeChange = (types: string[]) => {
     setSelectedTypes(types);
     const newFilters = { 
@@ -560,10 +567,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(newFilters);
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    applyFiltersDebounced(newFilters);
+    // Don't apply filters immediately - wait for Apply button
   };
 
-  // Handle tags multi-select
+  // Handle tags multi-select - only update local state, don't apply filters
   const handleTagsChange = (tags: string[]) => {
     setSelectedTags(tags);
     const newFilters = { 
@@ -572,10 +579,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(newFilters);
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    applyFiltersDebounced(newFilters);
+    // Don't apply filters immediately - wait for Apply button
   };
 
-  // Handle highlights multi-select
+  // Handle highlights multi-select - only update local state, don't apply filters
   const handleHighlightsChange = (highlights: string[]) => {
     setSelectedHighlights(highlights);
     const newFilters = { 
@@ -584,19 +591,29 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(newFilters);
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    applyFiltersDebounced(newFilters);
+    // Don't apply filters immediately - wait for Apply button
   };
 
 
   const handleAreaSelect = (area: string) => {
     setSelectedArea(area);
-    handleFilterChange('area', area);
+    const newFilters = { ...filters, area };
+    setFilters(newFilters);
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+    localStorage.setItem(STORAGE_KEYS.SELECTED_AREA, area);
+    // Auto-apply area filter immediately (this is the separate area filter, not inside main filters modal)
+    applyFiltersDebounced(newFilters);
     setShowAreaDropdown(false);
   };
 
   const handleAreaClear = () => {
     setSelectedArea('');
-    handleFilterChange('area', '');
+    const newFilters = { ...filters, area: '' };
+    setFilters(newFilters);
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
+    // Auto-apply area filter immediately (this is the separate area filter, not inside main filters modal)
+    applyFiltersDebounced(newFilters);
   };
 
   const clearFilters = () => {
@@ -608,7 +625,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       area: '',
       type: [],
       min_price: 0,
-      max_price: 500,
+      max_price: 1000,
       size_min: 0,
       max_size: 10000,
       size_unit: userSettings.defaultSizeUnit || 'Gaj',
@@ -622,7 +639,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     };
     setFilters(emptyFilters);
     setSelectedArea('');
-    setPriceRange([0, 500]);
+    setPriceRange([0, 1000]);
     setSizeRange([0, 10000]);
     setSelectedTypes([]);
     setSelectedTags([]);
@@ -640,8 +657,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     
     // Check price range
     const minPrice = filters.min_price ?? 0;
-    const maxPrice = filters.max_price ?? 500;
-    if (!(minPrice === 0 && maxPrice === 500)) {
+    const maxPrice = filters.max_price ?? 1000;
+    if (!(minPrice === 0 && maxPrice === 1000)) {
       count++; // Count price range as one filter
     }
     
@@ -913,7 +930,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   {/* Price Range - Slider */}
                   <RangeSlider
                     min={0}
-                    max={500}
+                    max={1000}
                     step={5}
                     value={priceRange}
                     onChange={handlePriceRangeChange}
@@ -1076,10 +1093,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowFilters(false)}
+                    onClick={applyFilters}
                     className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                   >
-                    Done
+                    Apply
                   </button>
                 </div>
               </div>
@@ -1172,7 +1189,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
               {/* Price Range - Slider - Full width */}
               <RangeSlider
                 min={0}
-                max={500}
+                max={1000}
                 step={5}
                 value={priceRange}
                 onChange={handlePriceRangeChange}
@@ -1334,6 +1351,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                 className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 Clear
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Apply
               </button>
             </div>
           </div>
