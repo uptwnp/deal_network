@@ -267,64 +267,52 @@ export function PropertyDetailsModal({
                 <div className="text-right">
                   <span className="text-sm sm:text-base font-semibold text-gray-900">
                     {formatPrice(property.price_min, property.price_max, true)}
+                    {(() => {
+                      // Calculate rate per unit
+                      const avgPrice = property.price_min > 0 && property.price_max > 0
+                        ? (property.price_min + property.price_max) / 2
+                        : property.price_min > 0
+                          ? property.price_min
+                          : property.price_max > 0
+                            ? property.price_max
+                            : 0;
+                      
+                      const avgSize = property.size_min > 0 && property.size_max > 0
+                        ? (property.size_min + property.size_max) / 2
+                        : property.size_min > 0
+                          ? property.size_min
+                          : property.size_max > 0
+                            ? property.size_max
+                            : 0;
+                      
+                      if (avgPrice > 0 && avgSize > 0) {
+                        // Price is in lakhs, so convert to actual rupees (multiply by 100000)
+                        const priceInRupees = avgPrice * 100000;
+                        const ratePerUnit = priceInRupees / avgSize;
+                        
+                        // Format the rate nicely
+                        let rateText = '';
+                        if (ratePerUnit >= 10000000) {
+                          // If >= 1 crore, show in crores
+                          rateText = `₹${(ratePerUnit / 10000000).toFixed(2)} Cr/${property.size_unit}`;
+                        } else if (ratePerUnit >= 100000) {
+                          // If >= 1 lakh, show in lakhs
+                          rateText = `₹${(ratePerUnit / 100000).toFixed(2)} L/${property.size_unit}`;
+                        } else if (ratePerUnit >= 1000) {
+                          // If >= 1000, show in thousands
+                          rateText = `₹${(ratePerUnit / 1000).toFixed(1)}K/${property.size_unit}`;
+                        } else {
+                          rateText = `₹${Math.round(ratePerUnit)}/${property.size_unit}`;
+                        }
+                        
+                        return <span className="text-gray-600 font-normal ml-1">({rateText})</span>;
+                      }
+                      return null;
+                    })()}
                   </span>
                 </div>
               </div>
             )}
-            {(() => {
-              // Calculate rate per unit
-              const avgPrice = property.price_min > 0 && property.price_max > 0
-                ? (property.price_min + property.price_max) / 2
-                : property.price_min > 0
-                  ? property.price_min
-                  : property.price_max > 0
-                    ? property.price_max
-                    : 0;
-              
-              const avgSize = property.size_min > 0 && property.size_max > 0
-                ? (property.size_min + property.size_max) / 2
-                : property.size_min > 0
-                  ? property.size_min
-                  : property.size_max > 0
-                    ? property.size_max
-                    : 0;
-              
-              if (avgPrice > 0 && avgSize > 0) {
-                // Price is in lakhs, so convert to actual rupees (multiply by 100000)
-                const priceInRupees = avgPrice * 100000;
-                const ratePerUnit = priceInRupees / avgSize;
-                
-                // Format the rate nicely
-                let rateText = '';
-                if (ratePerUnit >= 10000000) {
-                  // If >= 1 crore, show in crores
-                  rateText = `₹${(ratePerUnit / 10000000).toFixed(2)} Cr/${property.size_unit}`;
-                } else if (ratePerUnit >= 100000) {
-                  // If >= 1 lakh, show in lakhs
-                  rateText = `₹${(ratePerUnit / 100000).toFixed(2)} L/${property.size_unit}`;
-                } else if (ratePerUnit >= 1000) {
-                  // If >= 1000, show in thousands
-                  rateText = `₹${(ratePerUnit / 1000).toFixed(1)}K/${property.size_unit}`;
-                } else {
-                  rateText = `₹${Math.round(ratePerUnit)}/${property.size_unit}`;
-                }
-                
-                return (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <IndianRupee className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm sm:text-base text-gray-600">Rate per {property.size_unit}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm sm:text-base font-semibold text-gray-900">
-                        {rateText}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
             {property.area && property.city && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -462,6 +450,7 @@ export function PropertyDetailsModal({
 
           {property.description && (
             <div>
+              <div className="border-t border-gray-200 my-4"></div>
               <h3 className="text-sm text-gray-600 mb-2 flex items-center gap-2">
                 <FileText className="w-3.5 h-3.5 text-gray-500" />
                 Description

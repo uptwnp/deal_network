@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, X, ChevronDown, MapPin } from 'lucide-react';
 import { FilterOptions } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
+import { useAuth } from '../contexts/AuthContext';
 import {
   STORAGE_KEYS,
   SEARCH_COLUMNS,
@@ -24,6 +25,8 @@ interface SearchFilterProps {
 }
 
 export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
+  const { user } = useAuth();
+  
   // Load persisted state from localStorage
   const loadPersistedState = () => {
     try {
@@ -34,7 +37,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       const userSettings = getUserSettings();
       
       // Use user settings as defaults if no saved filters
-      // City should always be selected: user's city, last selected, or Panipat as fallback
+      // City should always be selected: saved city, user's default_city, or Panipat as fallback
       let parsedFilters: FilterOptions = {};
       if (savedFilters) {
         parsedFilters = JSON.parse(savedFilters);
@@ -50,8 +53,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         }
       }
       
-      // Determine default city: saved city, user city, or Panipat
-      const defaultCity = parsedFilters.city || userSettings.city || 'Panipat';
+      // Determine default city: saved city, user's default_city from auth context, userSettings.city, or Panipat
+      // Note: user might not be loaded yet, so we use fallback to 'Panipat'
+      const userCity = user?.default_city || userSettings.city || 'Panipat';
+      // Always ensure city is set - use saved city, or default to user's city or Panipat
+      const defaultCity = parsedFilters.city || userCity;
       
       // Default price and size ranges
       const defaultPriceMin = parsedFilters.min_price ?? 0;
@@ -61,7 +67,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       
       const defaultFilters: FilterOptions = savedFilters ? {
         ...parsedFilters,
-        city: parsedFilters.city || defaultCity, // Ensure city is always set
+        city: defaultCity, // Always set city - use saved city or default
         min_price: defaultPriceMin,
         max_price: defaultPriceMax,
         size_min: defaultSizeMin,
@@ -85,13 +91,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       };
     } catch {
       const userSettings = getUserSettings();
-      // City should always be selected: user's city or Panipat as fallback
-      const defaultCity = userSettings.city || 'Panipat';
+      // City should always be selected: user's default_city from auth context, userSettings.city, or Panipat as fallback
+      const userCity = user?.default_city || userSettings.city || 'Panipat';
       return {
         query: '',
         column: 'general',
         filters: {
-          city: defaultCity, // Always set city by default
+          city: userCity, // Always set city by default
           area: '',
           type: [],
           min_price: 0,
@@ -116,13 +122,20 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const [selectedArea, setSelectedArea] = useState<string>(persistedState.selectedArea);
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false);
   const [showAdditionalFilters, setShowAdditionalFilters] = useState(false);
-  const [showSizeUnitDropdown, setShowSizeUnitDropdown] = useState(false);
   const areaInputRef = useRef<HTMLInputElement>(null);
   const columnDropdownRef = useRef<HTMLDivElement>(null);
   const areaDropdownRef = useRef<HTMLDivElement>(null);
-  const sizeUnitDropdownRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<FilterOptions>(persistedState.filters);
   const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMountRef = useRef(true); // Track if this is the initial mount
+  
+  // Mark initial mount as complete after a short delay to allow all effects to skip on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      isInitialMountRef.current = false;
+    }, 100); // Short delay to ensure all mount effects have run
+    return () => clearTimeout(timer);
+  }, []);
   
   // Dynamic city and area options from API
   const [cityOptions, setCityOptions] = useState<string[]>([]);
@@ -162,41 +175,61 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         const cities = data.cities.map((c) => c.city);
         setCityOptions(cities);
         setCityOptionsWithLabels(cities.map((city) => ({ value: city, label: city })));
-        // Get all areas for initial area dropdown
+        // Get all areas for fallback (stored in areaOptions, not filteredAreaOptions)
         getAllAreas().then((areas) => {
           setAreaOptions(areas);
-          setFilteredAreaOptions(areas);
         });
       } else {
         // Fallback to static options if API data not available
         setCityOptions([...CITY_OPTIONS]);
         setCityOptionsWithLabels(CITY_OPTIONS.map((city) => ({ value: city, label: city })));
         setAreaOptions([...AREA_OPTIONS]);
-        setFilteredAreaOptions([...AREA_OPTIONS]);
       }
     });
-  }, []);
+  }, []); // Only run on mount
 
-  // Update area options when city filter changes
+  // Update area options when city filter changes - this is the main handler
+  // This runs on mount (when filters.city is set) and whenever city changes
   useEffect(() => {
-    if (filters.city) {
-      getAreasForCity(filters.city).then((areas) => {
-        if (areas.length > 0) {
+    if (!filters.city) {
+      // No city selected - shouldn't happen, but clear areas
+      setFilteredAreaOptions([]);
+      return;
+    }
+    
+    // Fetch areas for the selected city
+    const fetchCityAreas = async () => {
+      try {
+        const areas = await getAreasForCity(filters.city!);
+        if (areas && areas.length > 0) {
           setFilteredAreaOptions(areas);
         } else {
           // Fallback to all areas if city not found in API data
-          getAllAreas().then((allAreas) => {
-            setFilteredAreaOptions(allAreas);
-          });
+          try {
+            const allAreas = await getAllAreas();
+            setFilteredAreaOptions(allAreas.length > 0 ? allAreas : [...AREA_OPTIONS]);
+          } catch {
+            setFilteredAreaOptions([...AREA_OPTIONS]);
+          }
         }
-      });
-    } else {
-      // No city selected, show all areas
-      getAllAreas().then((allAreas) => {
-        setFilteredAreaOptions(allAreas);
-      });
-    }
-  }, [filters.city]);
+      } catch (error) {
+        console.error('Error fetching areas for city:', error);
+        // On error, fallback to all areas
+        try {
+          const allAreas = await getAllAreas();
+          setFilteredAreaOptions(allAreas.length > 0 ? allAreas : [...AREA_OPTIONS]);
+        } catch (fallbackError) {
+          console.error('Error fetching all areas:', fallbackError);
+          // Use static options as last resort
+          setFilteredAreaOptions([...AREA_OPTIONS]);
+        }
+      }
+    };
+    
+    // Clear areas first, then fetch
+    setFilteredAreaOptions([]);
+    fetchCityAreas();
+  }, [filters.city]); // Run whenever city changes (including on mount if city is set)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -205,12 +238,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       // Check if click is inside any dropdown - if so, don't close
       if (columnDropdownRef.current?.contains(target)) return;
       if (areaDropdownRef.current?.contains(target)) return;
-      if (sizeUnitDropdownRef.current?.contains(target)) return;
+      // Note: sizeUnitDropdown is now a native select, so no need to handle it here
       
       // Only close if clicking outside all dropdowns
       setShowColumnDropdown(false);
       setShowAreaDropdown(false);
-      setShowSizeUnitDropdown(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -244,6 +276,11 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   // Debounced search - triggers after user stops typing for 300ms
   useEffect(() => {
+    // Skip on initial mount - App component's initial load effect handles applying search from localStorage
+    if (isInitialMountRef.current) {
+      return;
+    }
+    
     const timer = setTimeout(() => {
       onSearch(searchQuery, searchColumn || undefined);
       // Track column usage when search is performed (only if there's a query)
@@ -292,18 +329,24 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   // Handle city selection - simple and direct
   const handleCitySelect = (cityValue: string) => {
+    // Ensure city is never empty - use fallback if empty
+    const validCity = cityValue || user?.default_city || 'Panipat';
+    
     // Update state using functional update to ensure we have latest state
     setFilters(prevFilters => {
+      const cityChanged = validCity !== prevFilters.city;
       const newFilters: FilterOptions = { 
         ...prevFilters, 
-        city: cityValue 
+        city: validCity 
       };
       
       // Clear area if city changed
-      if (cityValue !== prevFilters.city) {
+      if (cityChanged) {
         newFilters.area = '';
         setSelectedArea('');
         localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
+        // Note: The useEffect that watches filters.city will handle fetching areas
+        // We don't need to manually fetch here to avoid duplicate work
       }
       
       // Save to localStorage
@@ -345,11 +388,12 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     }
     
     // Always include city first (before processing other filters)
+    // City should always be set - use user's default_city or Panipat as fallback
     if (newFilters.city) {
       cleanFilters.city = newFilters.city;
     } else {
-      const userSettings = getUserSettings();
-      cleanFilters.city = userSettings.city || 'Panipat';
+      // If city is not set, use user's default_city from auth context or Panipat
+      cleanFilters.city = user?.default_city || 'Panipat';
     }
     
     // Process other filters
@@ -385,20 +429,69 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       onFilter(cleanFilters);
     }, 300);
   };
+  
+  // Ensure city is always set - update when user context loads (after applyFiltersDebounced is defined)
+  useEffect(() => {
+    const currentCity = filters.city;
+    const userCity = user?.default_city;
+    
+    // Skip on initial mount - App component's initial load effect handles applying filters from localStorage
+    if (isInitialMountRef.current) {
+      // Still ensure city is set in state (but don't trigger filter API call)
+      if (!currentCity) {
+        // City is empty - set to user's city or Panipat (just update state, don't call API)
+        const defaultCity = userCity || 'Panipat';
+        setFilters(prevFilters => {
+          const newFilters = { ...prevFilters, city: defaultCity };
+          localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+          return newFilters;
+        });
+      } else if (currentCity === 'Panipat' && userCity && userCity !== 'Panipat') {
+        // City is the default 'Panipat', but user has a different default_city - update it (just update state, don't call API)
+        setFilters(prevFilters => {
+          const newFilters = { ...prevFilters, city: userCity };
+          localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+          return newFilters;
+        });
+      }
+      return;
+    }
+    
+    // After initial mount, apply filters when city changes
+    // Only update if city is empty and we have a user default_city
+    // Or if city is 'Panipat' (the default) and user has a different default_city
+    if (!currentCity) {
+      // City is empty - set to user's city or Panipat
+      const defaultCity = userCity || 'Panipat';
+      setFilters(prevFilters => {
+        const newFilters = { ...prevFilters, city: defaultCity };
+        localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+        applyFiltersDebounced(newFilters);
+        return newFilters;
+      });
+    } else if (currentCity === 'Panipat' && userCity && userCity !== 'Panipat') {
+      // City is the default 'Panipat', but user has a different default_city - update it
+      setFilters(prevFilters => {
+        const newFilters = { ...prevFilters, city: userCity };
+        localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+        applyFiltersDebounced(newFilters);
+        return newFilters;
+      });
+    }
+  }, [user?.default_city, filters.city]); // Run when user's default_city changes or filters.city changes
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | number | string[] | boolean | undefined) => {
     // If clearing city, set it back to default (city should always be selected)
-    if (key === 'city' && (value === '' || value === undefined)) {
-      const userSettings = getUserSettings();
-      const defaultCity = userSettings.city || 'Panipat';
-      value = defaultCity;
-    }
-    
     // City changes are handled by handleCitySelect function
     if (key === 'city') {
-      // Redirect to dedicated handler
-      if (typeof value === 'string' && value) {
-        handleCitySelect(value);
+      // Ensure city is never empty - use user's default_city or Panipat as fallback
+      if (typeof value === 'string') {
+        const validCity = value || user?.default_city || 'Panipat';
+        handleCitySelect(validCity);
+      } else {
+        // If value is empty/undefined, use default
+        const defaultCity = user?.default_city || 'Panipat';
+        handleCitySelect(defaultCity);
       }
       return;
     }
@@ -756,13 +849,12 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                         Area/Address
                       </label>
                       <select
-                        value={filters.city || ''}
+                        value={filters.city || user?.default_city || 'Panipat'}
                         onChange={(e) => {
                           handleCitySelect(e.target.value);
                         }}
                         className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                       >
-                        <option value="">Select City</option>
                         {(cityOptionsWithLabels.length > 0 ? cityOptionsWithLabels : CITY_OPTIONS.map(c => ({value: c, label: c}))).map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
@@ -831,41 +923,22 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
                   {/* Size Range with Inline Size Unit - Slider */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2 flex-wrap">
                       <span>Size Range (in </span>
-                      <span className="relative inline-block" ref={sizeUnitDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setShowSizeUnitDropdown(!showSizeUnitDropdown)}
-                          className="text-gray-700 hover:text-gray-900 inline-flex items-center gap-0.5 text-xs font-medium"
-                        >
-                          <span>{SIZE_UNIT_OPTIONS.find(u => u.value === (filters.size_unit || 'Gaj'))?.label || 'Gaj'}</span>
-                          <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showSizeUnitDropdown ? 'rotate-180' : ''}`} />
-                        </button>
-                        {showSizeUnitDropdown && (
-                          <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-[60] min-w-[100px]">
-                            {SIZE_UNIT_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleFilterChange('size_unit', option.value);
-                                  setShowSizeUnitDropdown(false);
-                                }}
-                                className={`w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${
-                                  (filters.size_unit || 'Gaj') === option.value
-                                    ? 'bg-blue-50 text-blue-700 font-medium'
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </span>
+                      {/* Use native select for better mobile UX */}
+                      <select
+                        value={filters.size_unit || 'Gaj'}
+                        onChange={(e) => handleFilterChange('size_unit', e.target.value)}
+                        className="text-gray-700 text-xs font-medium border border-gray-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        onClick={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                      >
+                        {SIZE_UNIT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                       <span>)</span>
                     </label>
                     <RangeSlider
@@ -1034,20 +1107,19 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                   <label className="block text-xs font-semibold text-gray-700">
                     Area/Address
                   </label>
-                  <select
-                    value={filters.city || ''}
-                    onChange={(e) => {
-                      handleCitySelect(e.target.value);
-                    }}
-                    className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                  >
-                    <option value="">Select City</option>
-                    {(cityOptionsWithLabels.length > 0 ? cityOptionsWithLabels : CITY_OPTIONS.map(c => ({value: c, label: c}))).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <select
+                      value={filters.city || user?.default_city || 'Panipat'}
+                      onChange={(e) => {
+                        handleCitySelect(e.target.value);
+                      }}
+                      className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    >
+                      {(cityOptionsWithLabels.length > 0 ? cityOptionsWithLabels : CITY_OPTIONS.map(c => ({value: c, label: c}))).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                 </div>
                 {/* Area Input */}
                 <div className="relative">
@@ -1110,41 +1182,21 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
               {/* Size Range with Inline Size Unit - Slider - Full width */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2 flex-wrap">
                   <span>Size Range (in </span>
-                  <span className="relative inline-block" ref={sizeUnitDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowSizeUnitDropdown(!showSizeUnitDropdown)}
-                      className="text-gray-700 hover:text-gray-900 inline-flex items-center gap-0.5 text-xs font-medium"
-                    >
-                      <span>{SIZE_UNIT_OPTIONS.find(u => u.value === (filters.size_unit || 'Gaj'))?.label || 'Gaj'}</span>
-                      <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showSizeUnitDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-                    {showSizeUnitDropdown && (
-                      <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[100px]">
-                        {SIZE_UNIT_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleFilterChange('size_unit', option.value);
-                              setShowSizeUnitDropdown(false);
-                            }}
-                            className={`w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${
-                              (filters.size_unit || 'Gaj') === option.value
-                                ? 'bg-blue-50 text-blue-700 font-medium'
-                                : 'text-gray-700'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </span>
+                  {/* Desktop: Use native select for consistent UX */}
+                  <select
+                    value={filters.size_unit || 'Gaj'}
+                    onChange={(e) => handleFilterChange('size_unit', e.target.value)}
+                    className="text-gray-700 text-xs font-medium border border-gray-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {SIZE_UNIT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                   <span>)</span>
                 </label>
                 <RangeSlider
