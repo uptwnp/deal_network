@@ -6,6 +6,7 @@ import { formatSize } from '../utils/sizeFormatter';
 import { getHighlightOptions, getTagOptions } from '../utils/filterOptions';
 import { LocationModal } from './LocationModal';
 import { LocationViewModal } from './LocationViewModal';
+import { LandmarkViewModal } from './LandmarkViewModal';
 import { OwnerDetailsModal } from './OwnerDetailsModal';
 import { ShareModal } from './ShareModal';
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock';
@@ -106,6 +107,7 @@ export function PropertyDetailsModal({
   const [showTagModal, setShowTagModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showLocationViewModal, setShowLocationViewModal] = useState(false);
+  const [showLandmarkViewModal, setShowLandmarkViewModal] = useState(false);
   const [showOwnerDetailsModal, setShowOwnerDetailsModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showNoteTooltip, setShowNoteTooltip] = useState(false);
@@ -149,6 +151,20 @@ export function PropertyDetailsModal({
 
   const locationCoords = parseLocation(property.location);
   const hasLocation = hasLocationCoordinates(property.location);
+
+  // Parse landmark location coordinates
+  const parseLandmarkLocation = (landmarkLocation: string | undefined): { lat: number; lng: number } | null => {
+    if (!landmarkLocation) return null;
+    const hasCoords = /^-?\d+\.?\d*,-?\d+\.?\d*$/.test(landmarkLocation.trim());
+    if (!hasCoords) return null;
+    const parts = landmarkLocation.split(',');
+    const lat = parseFloat(parts[0].trim());
+    const lng = parseFloat(parts[1].trim());
+    if (isNaN(lat) || isNaN(lng)) return null;
+    return { lat, lng };
+  };
+
+  const landmarkLocationCoords = parseLandmarkLocation(property.landmark_location);
 
   // Open location in Google Maps
   const handleOpenInGoogleMaps = () => {
@@ -435,18 +451,39 @@ export function PropertyDetailsModal({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm sm:text-base text-gray-600">Location</span>
+                  <span className="text-sm sm:text-base text-gray-600">Landmark</span>
                 </div>
-                <div className="text-right">
-                  {property.landmark_location && (
-                    <div className="text-sm sm:text-base font-semibold text-gray-900">
-                      {property.landmark_location}
-                    </div>
-                  )}
-                  {property.landmark_location_distance && (
-                    <div className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                      {property.landmark_location_distance} away
-                    </div>
+                <div className="text-right flex items-center gap-2 flex-wrap justify-end">
+                  {landmarkLocationCoords ? (
+                    <>
+                      {property.landmark_location_distance && (
+                        <div className="text-xs sm:text-sm text-gray-600">
+                          {property.landmark_location_distance}m away
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowLandmarkViewModal(true);
+                        }}
+                        className="text-sm sm:text-base font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <Navigation className="w-4 h-4" />
+                        Open
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {property.landmark_location && (
+                        <div className="text-sm sm:text-base font-semibold text-gray-900">
+                          {property.landmark_location}
+                        </div>
+                      )}
+                      {property.landmark_location_distance && (
+                        <div className="text-xs sm:text-sm text-gray-600 mt-0.5">
+                          {property.landmark_location_distance} away
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1055,6 +1092,14 @@ export function PropertyDetailsModal({
           property={property}
           onClose={() => setShowLocationViewModal(false)}
           onOpenInGoogleMaps={handleOpenInGoogleMaps}
+        />
+      )}
+
+      {showLandmarkViewModal && landmarkLocationCoords && (
+        <LandmarkViewModal
+          landmarkLocation={landmarkLocationCoords}
+          property={property}
+          onClose={() => setShowLandmarkViewModal(false)}
         />
       )}
 
