@@ -72,12 +72,12 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
   const buildShareText = (): string => {
     const parts: string[] = [];
 
-    // START LINE → "_#ID:_ *Heading*"
+    // HEADER → "_#ID:_ *Heading*"
     if (selectedFields.id || selectedFields.heading) {
-      const startLine: string[] = [];
+      const headerParts: string[] = [];
 
       if (selectedFields.id) {
-        startLine.push(`_${"#" + property.id}:_`);
+        headerParts.push(`_${"#" + property.id}:_`);
       }
 
       if (selectedFields.heading) {
@@ -91,10 +91,11 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
           property.area && property.city
             ? `${property.area}, ${property.city}`
             : property.area || property.city || "";
-        startLine.push(`*${property.type} in ${areaText}*`);
+
+        headerParts.push(`*${property.type} in ${areaText}*`);
       }
 
-      parts.push(startLine.join(" "));
+      parts.push(headerParts.join(" "));
       parts.push("---");
     }
 
@@ -118,14 +119,19 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
       parts.push(`_Description:_ ${property.description}`);
     }
 
-    // UID (ID again if user wants)
+    // NOTE
+    if (selectedFields.note && property.note_private) {
+      parts.push(`_Note:_ ${property.note_private}`);
+    }
+
+    // UID (ONLY HERE — in header — not again below)
     if (selectedFields.id) {
       parts.push(`_Uid: ${property.id}_`);
     }
 
     parts.push("---");
 
-    // LOCATION (ONLY if toggled)
+    // LOCATION
     if (selectedFields.locationLink) {
       const loc = parseLocation(property.location);
       if (loc) {
@@ -135,7 +141,19 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
       }
     }
 
-    // VIEW LINK (ONLY if toggled)
+    // LANDMARK
+    if (selectedFields.landmarkLink && property.landmark_location) {
+      const landmark = parseLocation(property.landmark_location);
+      if (landmark) {
+        parts.push(
+          `📍 Landmark: https://www.google.com/maps?q=${landmark.lat},${landmark.lng}`
+        );
+      } else {
+        parts.push(`📍 Landmark: ${property.landmark_location}`);
+      }
+    }
+
+    // VIEW LINK
     if (selectedFields.link && property.is_public === 1) {
       parts.push("");
       parts.push(`_---- Full Details👇-----_`);
