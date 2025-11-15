@@ -72,7 +72,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
   const buildShareText = (): string => {
     const parts: string[] = [];
 
-    // HEADER → "_#ID:_ *Heading*"
+    // HEADER
     if (selectedFields.id || selectedFields.heading) {
       const headerParts: string[] = [];
 
@@ -124,32 +124,45 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
       parts.push(`_Note:_ ${property.note_private}`);
     }
 
-    // UID (ONLY HERE — in header — not again below)
+    // UID only here
     if (selectedFields.id) {
       parts.push(`_Uid: ${property.id}_`);
     }
 
     parts.push("---");
 
-    // LOCATION
+    // LOCATION (Dynamic Distance)
     if (selectedFields.locationLink) {
       const loc = parseLocation(property.location);
       if (loc) {
+        let distText = "";
+
+        if (property.location_accuracy) {
+          distText = ` (${property.location_accuracy})`; // e.g. "200 Meter", "Near By"
+        }
+
         parts.push(
-          `📍 Location: https://www.google.com/maps?q=${loc.lat},${loc.lng} (Within 250 Meter)`
+          `📍 Location: https://www.google.com/maps?q=${loc.lat},${loc.lng}${distText}`
         );
       }
     }
 
-    // LANDMARK
+    // LANDMARK (Dynamic Distance)
     if (selectedFields.landmarkLink && property.landmark_location) {
       const landmark = parseLocation(property.landmark_location);
+
+      let distText = "";
+      if (property.landmark_location_distance) {
+        distText = ` (${property.landmark_location_distance})`;
+        // e.g. "150 Meter", "1 KM", "Near Market"
+      }
+
       if (landmark) {
         parts.push(
-          `📍 Landmark: https://www.google.com/maps?q=${landmark.lat},${landmark.lng}`
+          `📍 Landmark: https://www.google.com/maps?q=${landmark.lat},${landmark.lng}${distText}`
         );
       } else {
-        parts.push(`📍 Landmark: ${property.landmark_location}`);
+        parts.push(`📍 Landmark: ${property.landmark_location}${distText}`);
       }
     }
 
