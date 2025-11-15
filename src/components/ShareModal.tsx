@@ -72,7 +72,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
   const buildShareText = (): string => {
     const parts: string[] = [];
 
-    // HEADER
+    // HEADER → only place where ID/UID appear
     if (selectedFields.id || selectedFields.heading) {
       const headerParts: string[] = [];
 
@@ -124,49 +124,44 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
       parts.push(`_Note:_ ${property.note_private}`);
     }
 
-    // UID only here
-    if (selectedFields.id) {
-      parts.push(`_Uid: ${property.id}_`);
-    }
+    // ❌ REMOVED → UID duplication
+    // if (selectedFields.id) {
+    //   parts.push(`_Uid: ${property.id}_`);
+    // }
 
     parts.push("---");
 
-    // LOCATION (Dynamic Distance)
+    // LOCATION
     if (selectedFields.locationLink) {
       const loc = parseLocation(property.location);
       if (loc) {
-        let distText = "";
-
-        if (property.location_accuracy) {
-          distText = ` (${property.location_accuracy})`; // e.g. "200 Meter", "Near By"
-        }
-
+        let distTxt = property.location_accuracy
+          ? ` (${property.location_accuracy})`
+          : "";
         parts.push(
-          `📍 Location: https://www.google.com/maps?q=${loc.lat},${loc.lng}${distText}`
+          `📍 Location: https://www.google.com/maps?q=${loc.lat},${loc.lng}${distTxt}`
         );
       }
     }
 
-    // LANDMARK (Dynamic Distance)
+    // LANDMARK
     if (selectedFields.landmarkLink && property.landmark_location) {
       const landmark = parseLocation(property.landmark_location);
 
-      let distText = "";
-      if (property.landmark_location_distance) {
-        distText = ` (${property.landmark_location_distance})`;
-        // e.g. "150 Meter", "1 KM", "Near Market"
-      }
+      let distTxt = property.landmark_location_distance
+        ? ` (${property.landmark_location_distance})`
+        : "";
 
       if (landmark) {
         parts.push(
-          `📍 Landmark: https://www.google.com/maps?q=${landmark.lat},${landmark.lng}${distText}`
+          `📍 Landmark: https://www.google.com/maps?q=${landmark.lat},${landmark.lng}${distTxt}`
         );
       } else {
-        parts.push(`📍 Landmark: ${property.landmark_location}${distText}`);
+        parts.push(`📍 Landmark: ${property.landmark_location}${distTxt}`);
       }
     }
 
-    // VIEW LINK
+    // FULL LINK
     if (selectedFields.link && property.is_public === 1) {
       parts.push("");
       parts.push(`_---- Full Details👇-----_`);
