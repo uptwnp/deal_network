@@ -38,8 +38,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
     description: true,
     note: false, // unchecked by default
     locationLink: false,
-    landmarkLink: false,
-    link: false,
+    landmarkLink: true,
+    link: true,
   });
   const [copied, setCopied] = useState(false);
 
