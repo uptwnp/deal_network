@@ -58,11 +58,11 @@ export function getStoredToken(): string | null {
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
-    
+
     if (!token || !expiry) {
       return null;
     }
-    
+
     // Check if token has expired
     const expiryTime = parseInt(expiry, 10);
     if (Date.now() > expiryTime) {
@@ -70,7 +70,7 @@ export function getStoredToken(): string | null {
       clearStoredToken();
       return null;
     }
-    
+
     return token;
   } catch {
     return null;
@@ -102,11 +102,11 @@ export function getStoredUserId(): number | null {
   try {
     const stored = localStorage.getItem(USER_ID_KEY);
     const expiry = localStorage.getItem(USER_ID_EXPIRY_KEY);
-    
+
     if (!stored || !expiry) {
       return null;
     }
-    
+
     // Check if user ID has expired
     const expiryTime = parseInt(expiry, 10);
     if (Date.now() > expiryTime) {
@@ -114,7 +114,7 @@ export function getStoredUserId(): number | null {
       clearStoredToken();
       return null;
     }
-    
+
     return parseInt(stored, 10);
   } catch {
     return null;
@@ -146,12 +146,12 @@ export const authApi = {
           },
         }
       );
-      
+
       if (response.data.status && response.data.token && response.data.user_id) {
         setStoredToken(response.data.token);
         setStoredUserId(response.data.user_id);
       }
-      
+
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -174,15 +174,15 @@ export const authApi = {
           withCredentials: true,
         }
       );
-      
+
       console.log('Login response:', response.data);
-      
+
       // Check if response has data
       if (!response.data) {
         console.error('No response data received');
         return { status: false, message: 'No response from server' };
       }
-      
+
       // Handle successful login
       if (response.data.status && response.data.user?.token) {
         setStoredToken(response.data.user.token);
@@ -195,11 +195,11 @@ export const authApi = {
       } else {
         console.warn('Login response indicates failure:', response.data);
       }
-      
+
       return response.data;
     } catch (error: any) {
       console.error('Login API error:', error);
-      
+
       // Handle axios errors
       if (error.response) {
         // Server responded with error status
@@ -254,7 +254,7 @@ export const authApi = {
           timeout: 10000, // 10 second timeout
         }
       );
-      
+
       console.log('getProfile API response:', response.data);
       return response.data;
     } catch (error: any) {
@@ -313,7 +313,7 @@ export const authApi = {
           withCredentials: true,
         }
       );
-      
+
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -343,7 +343,7 @@ export const authApi = {
           withCredentials: true,
         }
       );
-      
+
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -355,6 +355,40 @@ export const authApi = {
 
   logout(): void {
     clearStoredToken();
+  },
+
+  async verifyToken(token: string): Promise<{ status: boolean; message: string; user?: { phone: string } }> {
+    try {
+      const response = await axios.get<{ status: boolean; message: string; user?: { phone: string } }>(
+        `${AUTH_API_BASE_URL}?action=me&token=${token}`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return { status: false, message: 'Invalid or expired token' };
+    }
+  },
+
+  async resetPassword(token: string, newPin: string): Promise<{ status: boolean; message: string }> {
+    try {
+      const response = await axios.post<{ status: boolean; message: string }>(
+        `${AUTH_API_BASE_URL}?action=reset_password`,
+        { token, new_pin: newPin },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return { status: false, message: 'Failed to reset password' };
+    }
   },
 };
 
