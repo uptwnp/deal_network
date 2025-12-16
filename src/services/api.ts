@@ -12,7 +12,7 @@ function handleAuthError() {
   // Clear all auth data
   clearStoredToken();
   logoutUser();
-  
+
   // Redirect to login page
   // Use window.location to ensure full page reload and clear any state
   if (window.location.pathname !== '/login' && !window.location.pathname.startsWith('/property/')) {
@@ -26,8 +26,8 @@ axios.interceptors.response.use(
     // Check if response data contains an authentication error
     if (response.data && typeof response.data === 'object' && 'error' in response.data) {
       const errorMessage = response.data.error || '';
-      if (errorMessage.toLowerCase().includes('authentication required') || 
-          errorMessage.toLowerCase().includes('invalid token')) {
+      if (errorMessage.toLowerCase().includes('authentication required') ||
+        errorMessage.toLowerCase().includes('invalid token')) {
         handleAuthError();
         return Promise.reject(new Error(errorMessage));
       }
@@ -40,8 +40,8 @@ axios.interceptors.response.use(
       const errorData = error.response.data;
       if (errorData && typeof errorData === 'object' && 'error' in errorData) {
         const errorMessage = errorData.error || '';
-        if (errorMessage.toLowerCase().includes('authentication required') || 
-            errorMessage.toLowerCase().includes('invalid token')) {
+        if (errorMessage.toLowerCase().includes('authentication required') ||
+          errorMessage.toLowerCase().includes('invalid token')) {
           handleAuthError();
         }
       }
@@ -85,6 +85,10 @@ function normalizeProperty(data: any): Property {
     is_public: data.is_public !== undefined ? Number(data.is_public) : 1, // Default to 1 (public) if not provided
     public_rating: data.public_rating ? Number(data.public_rating) : undefined,
     my_rating: data.my_rating ? Number(data.my_rating) : undefined,
+    // Handle is_favourite which might be boolean or number
+    is_favourite: data.is_favourite === true ? 1 : (data.is_favourite === false ? 0 : (data.is_favourite !== undefined ? Number(data.is_favourite) : 0)),
+    // Map my_note (backend) to user_note (frontend)
+    user_note: data.my_note || data.user_note || '',
   };
 }
 
@@ -96,17 +100,17 @@ function normalizeProperties(data: any): Property[] {
     // to prevent processing invalid data
     throw new Error(errorMessage);
   }
-  
+
   // Handle new fetch.php response format: {success, message, data, meta}
   if (data && typeof data === 'object' && 'success' in data && 'data' in data && Array.isArray(data.data)) {
     return data.data.map(normalizeProperty);
   }
-  
+
   // Handle old format (direct array) for backward compatibility
   if (Array.isArray(data)) {
     return data.map(normalizeProperty);
   }
-  
+
   return [];
 }
 
@@ -156,7 +160,7 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
 
   if (filters.city) queryParams.append('city', filters.city);
   if (filters.area) queryParams.append('area', filters.area);
-  
+
   // Handle type as string or array (for multi-select)
   if (filters.type) {
     if (Array.isArray(filters.type)) {
@@ -167,7 +171,7 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
       queryParams.append('type', filters.type);
     }
   }
-  
+
   // Handle tags as string or array (for multi-select)
   if (filters.tags) {
     if (Array.isArray(filters.tags)) {
@@ -178,7 +182,7 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
       queryParams.append('tags', filters.tags);
     }
   }
-  
+
   // Handle highlights as string or array (for multi-select)
   if (filters.highlights) {
     if (Array.isArray(filters.highlights)) {
@@ -189,12 +193,12 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
       queryParams.append('highlights', filters.highlights);
     }
   }
-  
+
   // Only send price filters if they're not at default values
   const minPrice = filters.min_price ?? DEFAULT_MIN_PRICE;
   const maxPrice = filters.max_price ?? DEFAULT_MAX_PRICE;
   const isPriceRangeApplied = !(minPrice === DEFAULT_MIN_PRICE && maxPrice === DEFAULT_MAX_PRICE);
-  
+
   if (isPriceRangeApplied) {
     if (minPrice !== DEFAULT_MIN_PRICE) {
       queryParams.append('min_price', minPrice.toString());
@@ -203,12 +207,12 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
       queryParams.append('max_price', maxPrice.toString());
     }
   }
-  
+
   // Only send size filters if they're not at default values
   const minSize = filters.size_min ?? DEFAULT_MIN_SIZE;
   const maxSize = filters.max_size ?? DEFAULT_MAX_SIZE;
   const isSizeRangeApplied = !(minSize === DEFAULT_MIN_SIZE && maxSize === DEFAULT_MAX_SIZE);
-  
+
   if (isSizeRangeApplied) {
     if (minSize !== DEFAULT_MIN_SIZE) {
       queryParams.append('min_size', minSize.toString());
@@ -221,12 +225,12 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
       queryParams.append('size_unit', filters.size_unit);
     }
   }
-  
+
   // Filter by specific size unit (separate from size_unit used for size range)
   if (filters.filter_size_unit) {
     queryParams.append('filter_size_unit', filters.filter_size_unit);
   }
-  
+
   // Map location filters
   if (filters.has_location !== undefined) {
     queryParams.append('has_location', filters.has_location.toString());
@@ -249,19 +253,19 @@ export const propertyApi = {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('list', 'mine'); // fetch.php uses 'list' parameter
-    
+
     // Add for=map parameter if requesting map data (only properties with location/landmark)
     if (forMap) {
       queryParams.append('for', 'map');
     }
-    
+
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
       queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
-    
+
     const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
@@ -282,19 +286,19 @@ export const propertyApi = {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('list', 'others'); // fetch.php uses 'list' parameter
-    
+
     // Add for=map parameter if requesting map data (only properties with location/landmark)
     if (forMap) {
       queryParams.append('for', 'map');
     }
-    
+
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
       queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
-    
+
     const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
@@ -315,19 +319,52 @@ export const propertyApi = {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('list', 'both'); // fetch.php uses 'list' parameter
-    
+
     // Add for=map parameter if requesting map data (only properties with location/landmark)
     if (forMap) {
       queryParams.append('for', 'map');
     }
-    
+
     if (pagination?.page !== undefined) {
       queryParams.append('page', pagination.page.toString());
     }
     if (pagination?.per_page !== undefined) {
       queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
     }
-    
+
+    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
+    const response = await axios.get(url, {
+      headers: getAuthHeaders(),
+      withCredentials: true,
+    });
+    const properties = normalizeProperties(response.data);
+    const meta = extractPaginationMeta(response.data) || {
+      page: pagination?.page || 1,
+      per_page: pagination?.per_page || 40,
+      total: properties.length,
+      total_pages: 1,
+      page_results: properties.length,
+    };
+    return { data: properties, meta };
+  },
+
+  async getSavedProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
+    validateOwnerId(ownerId);
+    const queryParams = new URLSearchParams();
+    queryParams.append('list', 'saved');
+
+    // Add for=map parameter if requesting map data (only properties with location/landmark)
+    if (forMap) {
+      queryParams.append('for', 'map');
+    }
+
+    if (pagination?.page !== undefined) {
+      queryParams.append('page', pagination.page.toString());
+    }
+    if (pagination?.per_page !== undefined) {
+      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
+    }
+
     const url = `${FETCH_API_URL}?${queryParams.toString()}`;
     const response = await axios.get(url, {
       headers: getAuthHeaders(),
@@ -407,7 +444,33 @@ export const propertyApi = {
     return response.data;
   },
 
-  async filterProperties(ownerId: number, list: 'mine' | 'others' | 'both', filters: FilterOptions, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
+  async favProperty(ownerId: number, propertyId: number, isFavourite: number, userNote: string): Promise<{ success: boolean; message: string }> {
+    validateOwnerId(ownerId);
+    const url = `${ACTION_API_URL}?action=fav_property`;
+    const response = await axios.post(
+      url,
+      {
+        owner_id: ownerId,
+        property_id: propertyId,
+        is_favourite: isFavourite,
+        user_note: userNote
+      },
+      {
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
+    // Check for error in response (action.php uses 'error' key)
+    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
+      throw new Error(response.data.error || 'Failed to update favorite');
+    }
+    return response.data;
+  },
+
+  async filterProperties(ownerId: number, list: 'mine' | 'others' | 'both' | 'saved', filters: FilterOptions, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('list', list); // fetch.php uses 'list' parameter
@@ -444,11 +507,11 @@ export const propertyApi = {
     return { data: properties, meta };
   },
 
-  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both', query: string, column?: string, pagination?: PaginationOptions, forMap?: boolean, filters?: FilterOptions): Promise<PaginatedResponse<Property>> {
+  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both' | 'saved', query: string, column?: string, pagination?: PaginationOptions, forMap?: boolean, filters?: FilterOptions): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
     const queryParams = new URLSearchParams();
     queryParams.append('list', list); // fetch.php uses 'list' parameter
-    
+
     // Only send search parameter if query is not empty (matches backend's !empty($search) check)
     if (query && query.trim()) {
       queryParams.append('search', query.trim()); // fetch.php uses 'search' parameter
@@ -513,10 +576,10 @@ export const propertyApi = {
           withCredentials: true,
           // No auth headers needed for this endpoint
         });
-        
+
         console.log('API response received:', publicResponse.status);
         console.log('API response data:', JSON.stringify(publicResponse.data, null, 2));
-        
+
         // Handle fetch.php response format: {success, message, data}
         let property: any = null;
         if (publicResponse.data && typeof publicResponse.data === 'object') {
@@ -536,13 +599,13 @@ export const propertyApi = {
             console.log('Unexpected response format:', publicResponse.data);
           }
         }
-        
+
         if (property) {
           const normalized = normalizeProperty(property);
           console.log('Normalized property:', normalized);
           return normalized;
         }
-        
+
         console.log('No property found in response');
         return null;
       } catch (error: any) {
@@ -558,7 +621,7 @@ export const propertyApi = {
 
     // Cache the request promise
     requestCache.set(propertyId, requestPromise);
-    
+
     return requestPromise;
   },
 };

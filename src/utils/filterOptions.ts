@@ -14,19 +14,22 @@ export const STORAGE_KEYS = {
  * Values map to API column names: All, All General, or specific column names
  */
 export const SEARCH_COLUMNS = [
-  { value: "all", label: "All Info" }, // Maps to 'All' in API
-  { value: "general", label: "All General" }, // Maps to 'All General' in API
-  { value: "id", label: "ID" },
-  { value: "city", label: "City" },
+  { value: "all", label: "Everything" }, // Maps to 'All' in API
+  { value: "general", label: "General" }, // Maps to 'All General' in API
   { value: "area", label: "Area" },
-  { value: "type", label: "Property Type" },
+
   { value: "description", label: "Description" },
   { value: "heading", label: "Heading" },
+
+  { value: "note_private", label: "Private Note" },
+
+  { value: "id", label: "ID" },
+  { value: "city", label: "City" },
+  { value: "type", label: "Property Type" },
   { value: "size", label: "Size" },
   { value: "price", label: "Price" },
   { value: "tags", label: "Tags" },
   { value: "highlights", label: "Highlights" },
-  { value: "note_private", label: "Private Note" },
 ] as const;
 
 /**
@@ -79,8 +82,8 @@ export function getSearchColumnsSortedByUsage(): Array<{
     // If usage is the same, maintain original order (All Info and All General first)
     if (aUsage === bUsage) {
       // Keep 'All Info' and 'All General' at the top
-      if (a.value === "") return -1;
-      if (b.value === "") return 1;
+      if (a.value === "all") return -1;
+      if (b.value === "all") return 1;
       if (a.value === "general") return -1;
       if (b.value === "general") return 1;
       return 0;

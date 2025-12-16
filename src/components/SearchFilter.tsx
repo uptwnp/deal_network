@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Filter, X, ChevronDown, MapPin } from 'lucide-react';
 import { FilterOptions } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
@@ -22,11 +23,13 @@ import { MultiSelect } from './MultiSelect';
 interface SearchFilterProps {
   onSearch: (query: string, column?: string) => void;
   onFilter: (filters: FilterOptions) => void;
+  totalCount?: number;
+  listName?: string;
 }
 
-export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
+export function SearchFilter({ onSearch, onFilter, totalCount, listName }: SearchFilterProps) {
   const { user } = useAuth();
-  
+
   // Load persisted state from localStorage
   const loadPersistedState = () => {
     try {
@@ -35,7 +38,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
       const savedArea = localStorage.getItem(STORAGE_KEYS.SELECTED_AREA) || '';
       const userSettings = getUserSettings();
-      
+
       // Use user settings as defaults if no saved filters
       // City should always be selected: saved city, user's default_city, or Panipat as fallback
       let parsedFilters: FilterOptions = {};
@@ -52,19 +55,19 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
           parsedFilters.highlights = parsedFilters.highlights.split(',');
         }
       }
-      
+
       // Determine default city: saved city, user's default_city from auth context, userSettings.city, or Panipat
       // Note: user might not be loaded yet, so we use fallback to 'Panipat'
       const userCity = user?.default_city || userSettings.city || 'Panipat';
       // Always ensure city is set - use saved city, or default to user's city or Panipat
       const defaultCity = parsedFilters.city || userCity;
-      
+
       // Default price and size ranges
       const defaultPriceMin = parsedFilters.min_price ?? 0;
       const defaultPriceMax = parsedFilters.max_price ?? 1000; // 1000 lakhs (10 crores) max
       const defaultSizeMin = parsedFilters.size_min ?? 0;
       const defaultSizeMax = parsedFilters.max_size ?? 10000; // Max size depends on unit
-      
+
       const defaultFilters: FilterOptions = savedFilters ? {
         ...parsedFilters,
         city: defaultCity, // Always set city - use saved city or default
@@ -82,7 +85,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         max_size: defaultSizeMax,
         size_unit: userSettings.defaultSizeUnit || 'Gaj',
       };
-      
+
       return {
         query: savedQuery,
         column: savedColumn,
@@ -117,7 +120,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const [searchColumn, setSearchColumn] = useState(persistedState.column);
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [showAreaSection, setShowAreaSection] = useState(false);
+
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
   const [selectedArea, setSelectedArea] = useState<string>(persistedState.selectedArea);
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false);
@@ -128,7 +131,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const [filters, setFilters] = useState<FilterOptions>(persistedState.filters);
   const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef(true); // Track if this is the initial mount
-  
+
   // Mark initial mount as complete after a short delay to allow all effects to skip on mount
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -136,17 +139,17 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     }, 100); // Short delay to ensure all mount effects have run
     return () => clearTimeout(timer);
   }, []);
-  
+
   // Dynamic city and area options from API
   const [cityOptions, setCityOptions] = useState<string[]>([]);
-  const [cityOptionsWithLabels, setCityOptionsWithLabels] = useState<Array<{value: string; label: string}>>([]);
+  const [cityOptionsWithLabels, setCityOptionsWithLabels] = useState<Array<{ value: string; label: string }>>([]);
   const [areaOptions, setAreaOptions] = useState<string[]>([]);
   const [filteredAreaOptions, setFilteredAreaOptions] = useState<string[]>([]);
-  
+
   // Dynamic highlight and tag options from API
-  const [highlightOptions, setHighlightOptions] = useState<Array<{value: string; label: string}>>([]);
-  const [tagOptions, setTagOptions] = useState<Array<{value: string; label: string}>>([]);
-  
+  const [highlightOptions, setHighlightOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [tagOptions, setTagOptions] = useState<Array<{ value: string; label: string }>>([]);
+
   // Range values for sliders
   const [priceRange, setPriceRange] = useState<[number, number]>([
     filters.min_price ?? 0,
@@ -156,7 +159,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     filters.size_min ?? 0,
     filters.max_size ?? 10000
   ]);
-  
+
   // Multi-select values
   const [selectedTypes, setSelectedTypes] = useState<string[]>(
     Array.isArray(filters.type) ? filters.type : filters.type ? [filters.type] : []
@@ -172,7 +175,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   useEffect(() => {
     // Fetch in background
     fetchAreaCityDataInBackground();
-    
+
     // Load cached data immediately
     getAreaCityData().then((data) => {
       if (data) {
@@ -185,7 +188,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         });
       }
     });
-    
+
     // Fetch city options from API
     getCityOptions().then((cities) => {
       if (cities && cities.length > 0) {
@@ -197,14 +200,14 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     }).catch((error) => {
       console.error('Failed to load city options:', error);
     });
-    
+
     // Fetch highlight and tag options
     getHighlightOptions().then((highlights) => {
       setHighlightOptions(highlights.map((h) => ({ value: h, label: h })));
     }).catch((error) => {
       console.error('Failed to load highlight options:', error);
     });
-    
+
     getTagOptions().then((tags) => {
       setTagOptions(tags.map((t) => ({ value: t, label: t })));
     }).catch((error) => {
@@ -220,7 +223,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       setFilteredAreaOptions([]);
       return;
     }
-    
+
     // Fetch areas for the selected city
     const fetchCityAreas = async () => {
       try {
@@ -248,7 +251,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         }
       }
     };
-    
+
     // Clear areas first, then fetch
     setFilteredAreaOptions([]);
     fetchCityAreas();
@@ -257,12 +260,12 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
-      
+
       // Check if click is inside any dropdown - if so, don't close
       if (columnDropdownRef.current?.contains(target)) return;
       if (areaDropdownRef.current?.contains(target)) return;
       // Note: sizeUnitDropdown is now a native select, so no need to handle it here
-      
+
       // Only close if clicking outside all dropdowns
       setShowColumnDropdown(false);
       setShowAreaDropdown(false);
@@ -303,7 +306,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     if (isInitialMountRef.current) {
       return;
     }
-    
+
     const timer = setTimeout(() => {
       onSearch(searchQuery, searchColumn || undefined);
       // Track column usage when search is performed (only if there's a query)
@@ -354,15 +357,15 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   const handleCitySelect = (cityValue: string) => {
     // Ensure city is never empty - use fallback if empty
     const validCity = cityValue || user?.default_city || 'Panipat';
-    
+
     // Update state using functional update to ensure we have latest state
     setFilters(prevFilters => {
       const cityChanged = validCity !== prevFilters.city;
-      const newFilters: FilterOptions = { 
-        ...prevFilters, 
-        city: validCity 
+      const newFilters: FilterOptions = {
+        ...prevFilters,
+        city: validCity
       };
-      
+
       // Clear area if city changed
       if (cityChanged) {
         newFilters.area = '';
@@ -371,13 +374,13 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         // Note: The useEffect that watches filters.city will handle fetching areas
         // We don't need to manually fetch here to avoid duplicate work
       }
-      
+
       // Save to localStorage
       localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-      
+
       // Apply filters
       applyFiltersDebounced(newFilters);
-      
+
       return newFilters;
     });
   };
@@ -388,10 +391,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     if (filterDebounceTimerRef.current) {
       clearTimeout(filterDebounceTimerRef.current);
     }
-    
+
     // Clean filters: remove empty strings, undefined, empty arrays, and ranges at min/max
     const cleanFilters: FilterOptions = {};
-    
+
     // Check price range - only include if not at both endpoints
     const minPrice = newFilters.min_price ?? 0;
     const maxPrice = newFilters.max_price ?? 1000;
@@ -400,7 +403,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       cleanFilters.min_price = minPrice;
       cleanFilters.max_price = maxPrice;
     }
-    
+
     // Check size range - only include if not at both endpoints
     const minSize = newFilters.size_min ?? 0;
     const maxSize = newFilters.max_size ?? 10000;
@@ -409,7 +412,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       cleanFilters.size_min = minSize;
       cleanFilters.max_size = maxSize;
     }
-    
+
     // Always include city first (before processing other filters)
     // City should always be set - use user's default_city or Panipat as fallback
     if (newFilters.city) {
@@ -418,14 +421,14 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       // If city is not set, use user's default_city from auth context or Panipat
       cleanFilters.city = user?.default_city || 'Panipat';
     }
-    
+
     // Process other filters
     for (const [key, value] of Object.entries(newFilters)) {
       // Skip price and size range as we've already handled them
       if (['min_price', 'max_price', 'size_min', 'max_size', 'city'].includes(key)) continue;
-      
+
       if (value === undefined || value === '') continue;
-      
+
       // Handle arrays - only include if not empty
       if (Array.isArray(value)) {
         if (value.length > 0) {
@@ -433,31 +436,31 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
         }
         continue;
       }
-      
+
       cleanFilters[key as keyof FilterOptions] = value;
     }
-    
+
     // Include size_unit if size range is applied (to tell backend what unit the range is in)
     if (isSizeRangeApplied && newFilters.size_unit) {
       cleanFilters.size_unit = newFilters.size_unit;
     }
-    
+
     // filter_size_unit is separate and should be included if set (for filtering by size unit)
     if (newFilters.filter_size_unit) {
       cleanFilters.filter_size_unit = newFilters.filter_size_unit;
     }
-    
+
     // Debounce filter application
     filterDebounceTimerRef.current = setTimeout(() => {
       onFilter(cleanFilters);
     }, 300);
   };
-  
+
   // Ensure city is always set - update when user context loads (after applyFiltersDebounced is defined)
   useEffect(() => {
     const currentCity = filters.city;
     const userCity = user?.default_city;
-    
+
     // Skip on initial mount - App component's initial load effect handles applying filters from localStorage
     if (isInitialMountRef.current) {
       // Still ensure city is set in state (but don't trigger filter API call)
@@ -479,7 +482,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       }
       return;
     }
-    
+
     // After initial mount, apply filters when city changes
     // Only update if city is empty and we have a user default_city
     // Or if city is 'Panipat' (the default) and user has a different default_city
@@ -518,7 +521,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       }
       return;
     }
-    
+
     // For all other filters, only update local state - don't apply immediately
     // If clearing sortby, also clear order
     if (key === 'sortby' && (value === '' || value === undefined)) {
@@ -528,20 +531,20 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
       // Don't apply filters immediately - wait for Apply button
       return;
     }
-    
+
     // If setting sortby and order is not set, default to DESC
     if (key === 'sortby' && typeof value === 'string' && value && !filters.order) {
-      const newFilters: FilterOptions = { 
-        ...filters, 
-        sortby: value as FilterOptions['sortby'], 
-        order: 'DESC' 
+      const newFilters: FilterOptions = {
+        ...filters,
+        sortby: value as FilterOptions['sortby'],
+        order: 'DESC'
       };
       setFilters(newFilters);
       localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
       // Don't apply filters immediately - wait for Apply button
       return;
     }
-    
+
     const newFilters: FilterOptions = { ...filters, [key]: value as any };
     setFilters(newFilters);
     // Auto-save to localStorage
@@ -558,8 +561,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Handle price range change - only update local state, don't apply filters
   const handlePriceRangeChange = (range: [number, number]) => {
     setPriceRange(range);
-    const newFilters = { 
-      ...filters, 
+    const newFilters = {
+      ...filters,
       min_price: range[0],
       max_price: range[1]
     };
@@ -571,8 +574,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Handle size range change - only update local state, don't apply filters
   const handleSizeRangeChange = (range: [number, number]) => {
     setSizeRange(range);
-    const newFilters = { 
-      ...filters, 
+    const newFilters = {
+      ...filters,
       size_min: range[0],
       max_size: range[1]
     };
@@ -584,8 +587,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Handle type multi-select - only update local state, don't apply filters
   const handleTypeChange = (types: string[]) => {
     setSelectedTypes(types);
-    const newFilters = { 
-      ...filters, 
+    const newFilters = {
+      ...filters,
       type: types.length > 0 ? types : undefined
     };
     setFilters(newFilters);
@@ -596,8 +599,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Handle tags multi-select - only update local state, don't apply filters
   const handleTagsChange = (tags: string[]) => {
     setSelectedTags(tags);
-    const newFilters = { 
-      ...filters, 
+    const newFilters = {
+      ...filters,
       tags: tags.length > 0 ? tags : undefined
     };
     setFilters(newFilters);
@@ -608,8 +611,8 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Handle highlights multi-select - only update local state, don't apply filters
   const handleHighlightsChange = (highlights: string[]) => {
     setSelectedHighlights(highlights);
-    const newFilters = { 
-      ...filters, 
+    const newFilters = {
+      ...filters,
       highlights: highlights.length > 0 ? highlights : undefined
     };
     setFilters(newFilters);
@@ -629,15 +632,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
     setShowAreaDropdown(false);
   };
 
-  const handleAreaClear = () => {
-    setSelectedArea('');
-    const newFilters = { ...filters, area: '' };
-    setFilters(newFilters);
-    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
-    localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
-    // Auto-apply area filter immediately (this is the separate area filter, not inside main filters modal)
-    applyFiltersDebounced(newFilters);
-  };
+
 
   const clearFilters = () => {
     const userSettings = getUserSettings();
@@ -677,35 +672,35 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
   // Count active filters excluding city (city is always selected, so it doesn't count as a filter)
   const activeFilterCount = (() => {
     let count = 0;
-    
+
     // Check price range
     const minPrice = filters.min_price ?? 0;
     const maxPrice = filters.max_price ?? 1000;
     if (!(minPrice === 0 && maxPrice === 1000)) {
       count++; // Count price range as one filter
     }
-    
+
     // Check size range
     const minSize = filters.size_min ?? 0;
     const maxSize = filters.max_size ?? 10000;
     if (!(minSize === 0 && maxSize === 10000)) {
       count++; // Count size range as one filter
     }
-    
+
     // Count other filters
     for (const [key, value] of Object.entries(filters)) {
       if (key === 'city') continue;
       // Skip range filters as we've already counted them
       if (['min_price', 'max_price', 'size_min', 'max_size'].includes(key)) continue;
-      
+
       if (value === '' || value === undefined) continue;
-      
+
       // Handle arrays
       if (Array.isArray(value)) {
         if (value.length > 0) count++;
         continue;
       }
-      
+
       count++;
     }
     return count;
@@ -732,11 +727,49 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
 
   return (
     <div className="space-y-2 sm:space-y-3">
+      {/* All Properties in [City/Area] label with dropdown */}
+      <div className="flex items-center gap-2 text-sm sm:text-base">
+        <span className="text-gray-700 font-medium">
+          {listName || 'All Properties'} in
+        </span>
+        <div className="relative" ref={areaDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowAreaDropdown(!showAreaDropdown)}
+            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+          >
+            <span>{selectedArea || filters.city || 'Panipat'}</span>
+            {totalCount !== undefined && `(${totalCount})`}
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAreaDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showAreaDropdown && (
+            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50 min-w-[200px]">
+              {(filters.city && filteredAreaOptions.length > 0
+                ? filteredAreaOptions
+                : []).map((area, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAreaSelect(area)}
+                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedArea === area
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    {area}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <form onSubmit={handleSearchSubmit} className="flex gap-1.5 sm:gap-2">
         <div className="relative flex-1 flex">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-              <input
+            <input
               type="text"
               placeholder={`Search in ${selectedColumnLabel.toLowerCase()}...`}
               value={searchQuery}
@@ -770,11 +803,10 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                       trackColumnUsage(column.value); // Track usage when column is selected
                       setShowColumnDropdown(false);
                     }}
-                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${
-                      searchColumn === column.value
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${searchColumn === column.value
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                   >
                     {column.label}
                   </button>
@@ -796,77 +828,15 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={() => setShowAreaSection(!showAreaSection)}
-          className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
-          title="Area"
-        >
-          <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-          {selectedArea && (
-            <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
-              1
-            </span>
-          )}
-        </button>
+
       </form>
 
-      {showAreaSection && (
-        <div className="flex gap-1.5 sm:gap-2 w-full">
-          <div className="relative flex-1" ref={areaDropdownRef}>
-          <button
-            type="button"
-            onClick={() => setShowAreaDropdown(!showAreaDropdown)}
-            className="w-full h-9 sm:h-10 px-3 sm:px-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between text-xs sm:text-sm font-medium text-gray-700"
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-              <span>{selectedArea || 'Select Area'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {selectedArea && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAreaClear();
-                  }}
-                  className="p-0.5 sm:p-1 hover:bg-gray-200 rounded"
-                >
-                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
-                </button>
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${showAreaDropdown ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
-          {showAreaDropdown && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
-              {(filters.city && filteredAreaOptions.length > 0 
-                ? filteredAreaOptions 
-                : []).map((area, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleAreaSelect(area)}
-                  className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${
-                    selectedArea === area
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {area}
-                </button>
-              ))}
-            </div>
-          )}
-          </div>
-        </div>
-      )}
 
-      {showFilters && (
+
+      {showFilters && createPortal(
         <>
           {/* Mobile: Full-screen modal */}
-          <div className="fixed inset-0 z-50 flex items-end sm:hidden bg-black/50 p-0">
+          <div className="fixed inset-0 z-[100] flex items-end sm:hidden bg-black/50 p-0">
             <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[98vh] overflow-y-auto animate-slide-up">
               <div className="sticky top-0 z-[60] bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-2xl">
                 <h3 className="text-base font-semibold text-gray-900">Filters</h3>
@@ -915,23 +885,23 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                       <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                       {showAreaSuggestions && (
                         <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          {(filters.city && filteredAreaOptions.length > 0 
-                            ? filteredAreaOptions 
+                          {(filters.city && filteredAreaOptions.length > 0
+                            ? filteredAreaOptions
                             : []).filter(area =>
-                            area.toLowerCase().includes((filters.area || '').toLowerCase())
-                          ).map((area, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                handleFilterChange('area', area);
-                                setShowAreaSuggestions(false);
-                              }}
-                              className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
-                            >
-                              {area}
-                            </button>
-                          ))}
+                              area.toLowerCase().includes((filters.area || '').toLowerCase())
+                            ).map((area, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  handleFilterChange('area', area);
+                                  setShowAreaSuggestions(false);
+                                }}
+                                className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                              >
+                                {area}
+                              </button>
+                            ))}
                         </div>
                       )}
                     </div>
@@ -998,7 +968,7 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
                     <span>Additional</span>
                     <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showAdditionalFilters ? 'rotate-180' : ''}`} />
                   </button>
-                  
+
                   {showAdditionalFilters && (
                     <div className="space-y-3 pt-2">
                       {/* Tags - Multi-select */}
@@ -1122,263 +1092,275 @@ export function SearchFilter({ onSearch, onFilter }: SearchFilterProps) {
             </div>
           </div>
 
-          {/* Desktop: Inline filters */}
-          <div className="hidden sm:block bg-white border border-gray-200 rounded-lg p-4 space-y-4 shadow-lg z-[60]">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-semibold text-gray-900">Filters</h3>
-              <button
-                type="button"
-                onClick={() => setShowFilters(false)}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
+          {/* Desktop: Full-screen modal overlay */}
+          <div
+            className="hidden sm:flex fixed inset-0 z-[100] items-center justify-center bg-black/50 p-4"
+            onClick={() => setShowFilters(false)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto min-h-0">
 
-            {/* City and Area Section - Default Open */}
-            <div className="space-y-3">
-              {/* Area label with City dropdown on right */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-gray-700">
-                    Area/Address
-                  </label>
-                    <select
-                      value={filters.city || user?.default_city || 'Panipat'}
-                      onChange={(e) => {
-                        handleCitySelect(e.target.value);
-                      }}
-                      className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    >
-                      {cityOptionsWithLabels.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                </div>
-                {/* Area Input */}
-                <div className="relative">
-                  <input
-                    ref={areaInputRef}
-                    type="text"
-                    value={filters.area || ''}
-                    onChange={(e) => handleFilterChange('area', e.target.value)}
-                    onFocus={() => setShowAreaSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 200)}
-                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-400"
-                    placeholder="Sector 18"
-                  />
-                  <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  {showAreaSuggestions && (
-                    <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {(filters.city && filteredAreaOptions.length > 0 
-                        ? filteredAreaOptions 
-                        : []).filter(area =>
-                        area.toLowerCase().includes((filters.area || '').toLowerCase())
-                      ).map((area, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            handleFilterChange('area', area);
-                            setShowAreaSuggestions(false);
+                <div className="p-4 space-y-4">{/* City and Area Section - Default Open */}
+                  <div className="space-y-3">
+                    {/* Area label with City dropdown on right */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-gray-700">
+                          Area/Address
+                        </label>
+                        <select
+                          value={filters.city || user?.default_city || 'Panipat'}
+                          onChange={(e) => {
+                            handleCitySelect(e.target.value);
                           }}
-                          className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                          className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                         >
-                          {area}
-                        </button>
-                      ))}
+                          {cityOptionsWithLabels.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Area Input */}
+                      <div className="relative">
+                        <input
+                          ref={areaInputRef}
+                          type="text"
+                          value={filters.area || ''}
+                          onChange={(e) => handleFilterChange('area', e.target.value)}
+                          onFocus={() => setShowAreaSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 200)}
+                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-400"
+                          placeholder="Sector 18"
+                        />
+                        <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        {showAreaSuggestions && (
+                          <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {(filters.city && filteredAreaOptions.length > 0
+                              ? filteredAreaOptions
+                              : []).filter(area =>
+                                area.toLowerCase().includes((filters.area || '').toLowerCase())
+                              ).map((area, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    handleFilterChange('area', area);
+                                    setShowAreaSuggestions(false);
+                                  }}
+                                  className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                                >
+                                  {area}
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Type - Multi-select - Full width */}
-              <MultiSelect
-                options={[...PROPERTY_TYPE_OPTIONS]}
-                value={selectedTypes}
-                onChange={handleTypeChange}
-                placeholder="Select property types"
-                label="Type"
-              />
+                    {/* Type - Multi-select - Full width */}
+                    <MultiSelect
+                      options={[...PROPERTY_TYPE_OPTIONS]}
+                      value={selectedTypes}
+                      onChange={handleTypeChange}
+                      placeholder="Select property types"
+                      label="Type"
+                    />
 
-              {/* Price Range - Slider - Full width */}
-              <RangeSlider
-                min={0}
-                max={1000}
-                step={5}
-                value={priceRange}
-                onChange={handlePriceRangeChange}
-                formatValue={(v) => `${v} Lakhs`}
-                label="Price Range (Lakhs)"
-              />
+                    {/* Price Range - Slider - Full width */}
+                    <RangeSlider
+                      min={0}
+                      max={1000}
+                      step={5}
+                      value={priceRange}
+                      onChange={handlePriceRangeChange}
+                      formatValue={(v) => `${v} Lakhs`}
+                      label="Price Range (Lakhs)"
+                    />
 
-              {/* Size Range with Inline Size Unit - Slider - Full width */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2 flex-wrap">
-                  <span>Size Range (in </span>
-                  {/* Desktop: Use native select for consistent UX */}
-                  <select
-                    value={filters.size_unit || 'Gaj'}
-                    onChange={(e) => handleFilterChange('size_unit', e.target.value)}
-                    className="text-gray-700 text-xs font-medium border border-gray-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {SIZE_UNIT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span>)</span>
-                </label>
-                <RangeSlider
-                  min={0}
-                  max={10000}
-                  step={50}
-                  value={sizeRange}
-                  onChange={handleSizeRangeChange}
-                  formatValue={(v) => v.toString()}
-                />
-              </div>
-            </div>
-
-            {/* Additional Section - Collapsible */}
-            <div className="space-y-3 border-t border-gray-200 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowAdditionalFilters(!showAdditionalFilters)}
-                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900"
-              >
-                <span>Additional</span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showAdditionalFilters ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {showAdditionalFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                  {/* Tags - Multi-select */}
-                  <MultiSelect
-                    options={tagOptions}
-                    value={selectedTags}
-                    onChange={handleTagsChange}
-                    placeholder="Select tags"
-                    label="Tags"
-                  />
-
-                  {/* Highlights - Multi-select */}
-                  <MultiSelect
-                    options={highlightOptions}
-                    value={selectedHighlights}
-                    onChange={handleHighlightsChange}
-                    placeholder="Select highlights"
-                    label="Highlights"
-                  />
-
-                  {/* Location and Landmark */}
-                  <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-700">Location Filters</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="has_location_desktop"
-                        checked={filters.has_location === true}
-                        onChange={(e) => handleFilterChange('has_location', e.target.checked ? true : undefined)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="has_location_desktop" className="text-sm text-gray-700">
-                        Has Location
+                    {/* Size Range with Inline Size Unit - Slider - Full width */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2 flex-wrap">
+                        <span>Size Range (in </span>
+                        {/* Desktop: Use native select for consistent UX */}
+                        <select
+                          value={filters.size_unit || 'Gaj'}
+                          onChange={(e) => handleFilterChange('size_unit', e.target.value)}
+                          className="text-gray-700 text-xs font-medium border border-gray-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {SIZE_UNIT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span>)</span>
                       </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="has_landmark_desktop"
-                        checked={filters.has_landmark === true}
-                        onChange={(e) => handleFilterChange('has_landmark', e.target.checked ? true : undefined)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      <RangeSlider
+                        min={0}
+                        max={10000}
+                        step={50}
+                        value={sizeRange}
+                        onChange={handleSizeRangeChange}
+                        formatValue={(v) => v.toString()}
                       />
-                      <label htmlFor="has_landmark_desktop" className="text-sm text-gray-700">
-                        Has Landmark
-                      </label>
                     </div>
                   </div>
 
-                  {/* Filter by Size Unit */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Size Unit</label>
-                    <select
-                      value={filters.filter_size_unit || ''}
-                      onChange={(e) => handleFilterChange('filter_size_unit', e.target.value || undefined)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  {/* Additional Section - Collapsible */}
+                  <div className="space-y-3 border-t border-gray-200 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdditionalFilters(!showAdditionalFilters)}
+                      className="w-full flex items-center justify-between text-sm font-semibold text-gray-900"
                     >
-                      <option value="">All Units</option>
-                      {SIZE_UNIT_OPTIONS.map((unit) => (
-                        <option key={unit.value} value={unit.value}>
-                          {unit.label}
-                        </option>
-                      ))}
-                    </select>
+                      <span>Additional</span>
+                      <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showAdditionalFilters ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showAdditionalFilters && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                        {/* Tags - Multi-select */}
+                        <MultiSelect
+                          options={tagOptions}
+                          value={selectedTags}
+                          onChange={handleTagsChange}
+                          placeholder="Select tags"
+                          label="Tags"
+                        />
+
+                        {/* Highlights - Multi-select */}
+                        <MultiSelect
+                          options={highlightOptions}
+                          value={selectedHighlights}
+                          onChange={handleHighlightsChange}
+                          placeholder="Select highlights"
+                          label="Highlights"
+                        />
+
+                        {/* Location and Landmark */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-medium text-gray-700">Location Filters</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="has_location_desktop"
+                              checked={filters.has_location === true}
+                              onChange={(e) => handleFilterChange('has_location', e.target.checked ? true : undefined)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="has_location_desktop" className="text-sm text-gray-700">
+                              Has Location
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="has_landmark_desktop"
+                              checked={filters.has_landmark === true}
+                              onChange={(e) => handleFilterChange('has_landmark', e.target.checked ? true : undefined)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="has_landmark_desktop" className="text-sm text-gray-700">
+                              Has Landmark
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Filter by Size Unit */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Size Unit</label>
+                          <select
+                            value={filters.filter_size_unit || ''}
+                            onChange={(e) => handleFilterChange('filter_size_unit', e.target.value || undefined)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          >
+                            <option value="">All Units</option>
+                            {SIZE_UNIT_OPTIONS.map((unit) => (
+                              <option key={unit.value} value={unit.value}>
+                                {unit.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sort By - Directly (not in collapsible) */}
+                  <div className="space-y-3 border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-semibold text-gray-900">Sort By</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
+                        <select
+                          value={filters.sortby || ''}
+                          onChange={(e) => handleFilterChange('sortby', e.target.value || undefined)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        >
+                          <option value="">Default (ID)</option>
+                          <option value="id">ID</option>
+                          <option value="price">Price</option>
+                          <option value="size">Size</option>
+                          <option value="created_on">Created Date</option>
+                          <option value="updated_on">Updated Date</option>
+                        </select>
+                      </div>
+
+                      {filters.sortby && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
+                          <select
+                            value={filters.order || 'DESC'}
+                            onChange={(e) => handleFilterChange('order', e.target.value as 'ASC' | 'DESC')}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          >
+                            <option value="DESC">Descending</option>
+                            <option value="ASC">Ascending</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Sort By - Directly (not in collapsible) */}
-            <div className="space-y-3 border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-semibold text-gray-900">Sort By</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
-                  <select
-                    value={filters.sortby || ''}
-                    onChange={(e) => handleFilterChange('sortby', e.target.value || undefined)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  >
-                    <option value="">Default (ID)</option>
-                    <option value="id">ID</option>
-                    <option value="price">Price</option>
-                    <option value="size">Size</option>
-                    <option value="created_on">Created Date</option>
-                    <option value="updated_on">Updated Date</option>
-                  </select>
-                </div>
-
-                {filters.sortby && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
-                    <select
-                      value={filters.order || 'DESC'}
-                      onChange={(e) => handleFilterChange('order', e.target.value as 'ASC' | 'DESC')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      <option value="DESC">Descending</option>
-                      <option value="ASC">Ascending</option>
-                    </select>
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2 pt-4 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                Apply
-              </button>
+              {/* Action Buttons - Fixed at bottom */}
+              <div className="flex gap-2 p-4 border-t border-gray-200 bg-white">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={applyFilters}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  Apply
+                </button>
+              </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

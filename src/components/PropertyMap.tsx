@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents } from 'react-leaflet';
 import { Property } from '../types/property';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
@@ -13,17 +13,90 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 
 
 
-interface PropertyMapProps {
-  properties: Property[];
-  center?: [number, number];
-  onMarkerClick?: (property: Property) => void;
+// Interface for focus target
+export interface MapFocusPoint {
+  coords: [number, number];
+  zoom?: number;
+  trigger?: number; // Timestamp to force updates
 }
 
-function MapUpdater({ center }: { center: [number, number] }) {
+interface PropertyMapProps {
+  properties: Property[];
+  center?: [number, number]; // Default center if no saved state
+  onMarkerClick?: (property: Property) => void;
+  focusOn?: MapFocusPoint | null; // Prop to trigger programmatic moves
+}
+
+// Component to handle map movements and persistence
+function MapController({
+  focusOn,
+  defaultCenter
+}: {
+  focusOn: MapFocusPoint | null,
+  defaultCenter: [number, number]
+}) {
   const map = useMap();
+
+  // Handle focus changes (programmatic moves)
   useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
+    if (focusOn && focusOn.coords) {
+      try {
+        const [lat, lng] = focusOn.coords;
+        if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+          // Use a timeout to allow for layout changes (sidebar opening) to settle
+          // and invalidate map size to ensure correct centering. 
+          // 400ms covers standard CSS transitions (usually 150-300ms).
+          setTimeout(() => {
+            map.invalidateSize();
+            map.flyTo([lat, lng], focusOn.zoom || 18, {
+              animate: true,
+              duration: 1.0
+            });
+          }, 400);
+        } else {
+          console.warn("Invalid coordinates for map focus:", focusOn.coords);
+        }
+      } catch (error) {
+        console.error("Error animating map:", error);
+      }
+    }
+  }, [focusOn, map]);
+
+  // Handle map events (user saves)
+  useMapEvents({
+    moveend: () => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      localStorage.setItem('map_view_state', JSON.stringify({
+        lat: center.lat,
+        lng: center.lng,
+        zoom: zoom
+      }));
+    }
+  });
+
+  // Initial load logic
+  useEffect(() => {
+    // Try to load saved state
+    try {
+      const saved = localStorage.getItem('map_view_state');
+      if (saved) {
+        const { lat, lng, zoom } = JSON.parse(saved);
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(zoom)) {
+          map.setView([lat, lng], zoom);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load map state", e);
+    }
+
+    // If no saved state, use default center (only on mount)
+    if (map.getZoom() === undefined) {
+      map.setView(defaultCenter, 13);
+    }
+  }, [map, defaultCenter]);
+
   return null;
 }
 
@@ -46,7 +119,7 @@ function TileLayerSwitcher({ isSatelliteView }: { isSatelliteView: boolean }) {
   );
 }
 
-export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick }: PropertyMapProps) {
+export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick, ...props }: PropertyMapProps) {
   // Load saved map view preference from localStorage, default to map view
   const [isSatelliteView, setIsSatelliteView] = useState(() => {
     const saved = localStorage.getItem('mapViewPreference');
@@ -146,7 +219,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
         scrollWheelZoom={true}
         style={{ position: 'relative', zIndex: 1 }}
       >
-        <MapUpdater center={mapCenter} />
+        <MapController focusOn={props.focusOn || null} defaultCenter={center} />
         <TileLayerSwitcher isSatelliteView={isSatelliteView} />
 
         {/* Accuracy circles - rendered outside cluster group */}
@@ -255,6 +328,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
                         onClick={(e) => {
                           e.stopPropagation();
                           onMarkerClick(property);
+                          // Close popup after clicking
                         }}
                         className="w-full py-3 bg-white hover:bg-slate-50 text-blue-600 text-xs font-bold border-t border-gray-100 transition-colors flex items-center justify-center gap-2"
                       >
@@ -298,7 +372,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
 
       {/* Map Control Buttons Container */}
       <div className="absolute inset-0 pointer-events-none z-[2000]" style={{ zIndex: 2000 }}>
-        {/* Satellite View Toggle Button - Top Right */}
+        {/* Satellite View Toggle Button - Bottom Left */}
         <button
           type="button"
           onClick={() => {
@@ -307,7 +381,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
             // Save preference immediately
             localStorage.setItem('mapViewPreference', newView ? 'satellite' : 'map');
           }}
-          className={`absolute top-2 right-2 pointer-events-auto flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg shadow-lg transition-colors ${isSatelliteView
+          className={`absolute bottom-2 left-2 pointer-events-auto flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg shadow-lg transition-colors ${isSatelliteView
             ? 'bg-green-600 text-white hover:bg-green-700'
             : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
             }`}

@@ -25,6 +25,8 @@ export interface Property {
   owner_name?: string;
   owner_phone?: string;
   owner_firm_name?: string;
+  is_favourite?: number;
+  user_note?: string;
 }
 
 export interface PropertyFormData {

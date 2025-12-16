@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Home, Globe, ChevronDown, User, Map, List, X, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Home, Globe, ChevronDown, User, Map, List, X, Users, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
 import { SearchFilter } from './components/SearchFilter';
@@ -18,15 +18,17 @@ import { formatSize } from './utils/sizeFormatter';
 // Lazy load heavy components
 const PropertyModal = lazy(() => import('./components/PropertyModal').then(m => ({ default: m.PropertyModal })));
 const PropertyDetailsModal = lazy(() => import('./components/PropertyDetailsModal').then(m => ({ default: m.PropertyDetailsModal })));
+const PropertyDetailsContent = lazy(() => import('./components/PropertyDetailsContent').then(m => ({ default: m.PropertyDetailsContent })));
 const ContactModal = lazy(() => import('./components/ContactModal').then(m => ({ default: m.ContactModal })));
 const ProfilePage = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const HomePage = lazy(() => import('./components/HomePage').then(m => ({ default: m.HomePage })));
 const AuthPage = lazy(() => import('./components/AuthPage').then(m => ({ default: m.AuthPage })));
 const PublicPropertyPage = lazy(() => import('./components/PublicPropertyPage').then(m => ({ default: m.PublicPropertyPage })));
 const PropertyMap = lazy(() => import('./components/PropertyMap').then(m => ({ default: m.PropertyMap })));
+import { MapFocusPoint } from './components/PropertyMap';
 const ResetPinPage = lazy(() => import('./components/ResetPinPage').then(m => ({ default: m.ResetPinPage })));
 
-type FilterType = 'all' | 'my' | 'public';
+type FilterType = 'all' | 'my' | 'public' | 'saved';
 
 interface ToastState {
   message: string;
@@ -52,7 +54,7 @@ function App() {
   const loadPersistedFilter = (): FilterType => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_FILTER);
-      if (saved && (saved === 'all' || saved === 'my' || saved === 'public')) {
+      if (saved && (saved === 'all' || saved === 'my' || saved === 'public' || saved === 'saved')) {
         return saved as FilterType;
       }
     } catch { }
@@ -94,12 +96,13 @@ function App() {
   const [activeFilter, setActiveFilter] = useState<FilterType>(loadPersistedFilter());
   const [myProperties, setMyProperties] = useState<Property[]>([]);
   const [publicProperties, setPublicProperties] = useState<Property[]>([]);
+  const [savedProperties, setSavedProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState<PaginationOptions>({ page: 1, per_page: 40 });
   const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
   const loadingRef = useRef(false);
-  const loadedDataRef = useRef<{ ownerId: number; my: boolean; public: boolean; page?: number; per_page?: number } | null>(null);
+  const loadedDataRef = useRef<{ ownerId: number; my: boolean; public: boolean; saved: boolean; page?: number; per_page?: number } | null>(null);
   const forceReloadRef = useRef(false);
   const isRefreshingRef = useRef(false);
   const refreshInProgressRef = useRef(false);
@@ -120,6 +123,7 @@ function App() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [searchFilterKey, setSearchFilterKey] = useState(0); // Key to force SearchFilter reset
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [mapFocus, setMapFocus] = useState<MapFocusPoint | null>(null);
 
   const loadMyProperties = useCallback(async (paginationOptions?: PaginationOptions) => {
     if (!ownerId || ownerId <= 0) return;
@@ -143,6 +147,19 @@ function App() {
       setPaginationMeta(response.meta);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load public properties';
+      setToast({ message: errorMessage, type: 'error' });
+    }
+  }, [ownerId, pagination]);
+
+  const loadSavedProperties = useCallback(async (paginationOptions?: PaginationOptions) => {
+    if (!ownerId || ownerId <= 0) return;
+    try {
+      const paginationParams = paginationOptions || pagination;
+      const response = await propertyApi.getSavedProperties(ownerId, paginationParams);
+      setSavedProperties(response.data);
+      setPaginationMeta(response.meta);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load saved properties';
       setToast({ message: errorMessage, type: 'error' });
     }
   }, [ownerId, pagination]);
@@ -208,12 +225,15 @@ function App() {
     }
 
     // Check if we already have the data we need
+    // Check if we already have the data we need
     const needsMy = activeFilter === 'my' || activeFilter === 'all';
     const needsPublic = activeFilter === 'public' || activeFilter === 'all';
+    const needsSaved = activeFilter === 'saved';
 
     // Check what we've already loaded for this ownerId
     const hasMy = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.my;
     const hasPublic = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.public;
+    const hasSaved = loadedDataRef.current?.ownerId === ownerId && loadedDataRef.current.saved;
 
     // Check if pagination has changed - if so, we need to reload
     const paginationChanged = loadedDataRef.current?.page !== currentPage ||
@@ -227,9 +247,10 @@ function App() {
 
     // If we have all the data we need and not forcing reload and pagination hasn't changed, don't load
     if (!shouldForceReload && !paginationChanged) {
-      if (needsMy && needsPublic && hasMy && hasPublic) return;
-      if (needsMy && !needsPublic && hasMy) return;
-      if (!needsMy && needsPublic && hasPublic) return;
+      if (activeFilter === 'all' && hasMy && hasPublic) return;
+      if (activeFilter === 'my' && hasMy) return;
+      if (activeFilter === 'public' && hasPublic) return;
+      if (activeFilter === 'saved' && hasSaved) return;
     }
 
     // Mark as loading and track this request
@@ -249,6 +270,7 @@ function App() {
         ownerId,
         my: false,
         public: false,
+        saved: false,
         page: currentPage,
         per_page: currentPerPage
       };
@@ -335,6 +357,26 @@ function App() {
           })()
         );
       }
+      if (needsSaved && (!hasSaved || shouldForceReload || paginationChanged)) {
+        loadPromises.push(
+          (async () => {
+            try {
+              if (requestIdRef.current !== currentRequestId) return;
+              await loadSavedProperties(normalizedPagination);
+              if (requestIdRef.current !== currentRequestId) return;
+              if (loadedDataRef.current) {
+                loadedDataRef.current.saved = true;
+                loadedDataRef.current.page = currentPage;
+                loadedDataRef.current.per_page = currentPerPage;
+              }
+            } catch (error) {
+              if (requestIdRef.current === currentRequestId) {
+                // Error already handled in loadSavedProperties
+              }
+            }
+          })()
+        );
+      }
     }
 
     if (loadPromises.length === 0) {
@@ -372,13 +414,15 @@ function App() {
         propertiesToDisplay = myProperties;
       } else if (activeFilter === 'public') {
         propertiesToDisplay = publicProperties;
+      } else if (activeFilter === 'saved') {
+        propertiesToDisplay = savedProperties;
       }
 
       // Always update filteredProperties when there's no active search/filter
       // This ensures it stays in sync with the base properties
       setFilteredProperties(propertiesToDisplay);
     }
-  }, [activeFilter, myProperties, publicProperties, searchQuery, activeFilters]);
+  }, [activeFilter, myProperties, publicProperties, savedProperties, searchQuery, activeFilters]);
 
   // Apply filters/search on initial load if they exist (before properties are loaded)
   const initialLoadDoneRef = useRef(false);
@@ -419,11 +463,12 @@ function App() {
     if (hasActiveFilters || hasActiveSearch) {
       // Generate request key upfront to prevent duplicates
       const currentFilter = activeFilter;
-      const listParam: 'mine' | 'others' | 'both' =
+      const listParam: 'mine' | 'others' | 'both' | 'saved' =
         currentFilter === 'my' ? 'mine' :
           currentFilter === 'public' ? 'others' :
-            currentFilter === 'all' ? 'both' :
-              'both';
+            currentFilter === 'saved' ? 'saved' :
+              currentFilter === 'all' ? 'both' :
+                'both';
 
       // Sort filter keys to ensure consistent stringification
       const sortedFilters = Object.keys(activeFilters).sort().reduce((acc, key) => {
@@ -532,8 +577,14 @@ function App() {
       if (filters.size_unit && property.size_unit !== filters.size_unit) return false;
       if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
       if (filters.location && !property.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
-      if (filters.tags && !property.tags?.toLowerCase().includes(filters.tags.toLowerCase())) return false;
-      if (filters.highlights && !property.highlights?.toLowerCase().includes(filters.highlights.toLowerCase())) return false;
+      if (filters.tags) {
+        const filterTags = Array.isArray(filters.tags) ? filters.tags.join(',') : filters.tags;
+        if (!property.tags?.toLowerCase().includes(filterTags.toLowerCase())) return false;
+      }
+      if (filters.highlights) {
+        const filterHighlights = Array.isArray(filters.highlights) ? filters.highlights.join(',') : filters.highlights;
+        if (!property.highlights?.toLowerCase().includes(filterHighlights.toLowerCase())) return false;
+      }
       return true;
     });
   }, []);
@@ -550,12 +601,13 @@ function App() {
     isRefreshingRef.current = true;
 
     // Map activeFilter to API list parameter
-    // For filter API: mine, others, both
-    const listParam: 'mine' | 'others' | 'both' =
+    // For filter API: mine, others, both, saved
+    const listParam: 'mine' | 'others' | 'both' | 'saved' =
       activeFilter === 'my' ? 'mine' :
         activeFilter === 'public' ? 'others' :
-          activeFilter === 'all' ? 'both' :
-            'both';
+          activeFilter === 'saved' ? 'saved' :
+            activeFilter === 'all' ? 'both' :
+              'both';
 
     const hasActiveFilters = Object.keys(activeFilters).length > 0;
     const hasActiveSearch = searchQuery.trim().length > 0;
@@ -627,6 +679,11 @@ function App() {
       setPublicProperties(publicProps);
       setPaginationMeta(response.meta);
       if (loadedDataRef.current) loadedDataRef.current.public = true;
+    } else if (activeFilter === 'saved') {
+      const response = await propertyApi.getSavedProperties(ownerId, pagination);
+      setSavedProperties(response.data);
+      setPaginationMeta(response.meta);
+      if (loadedDataRef.current) loadedDataRef.current.saved = true;
     } else if (activeFilter === 'all') {
       // Use getAllProperties endpoint for efficiency (single API call)
       const response = await propertyApi.getAllProperties(ownerId, pagination);
@@ -640,6 +697,7 @@ function App() {
       if (loadedDataRef.current) {
         loadedDataRef.current.my = true;
         loadedDataRef.current.public = true;
+        // All properties doesn't necessarily include all saved properties, so we don't mark saved as true
       }
     }
 
@@ -648,7 +706,9 @@ function App() {
       ? [...myProps, ...publicProps]
       : activeFilter === 'my'
         ? myProps
-        : publicProps;
+        : activeFilter === 'public'
+          ? publicProps
+          : savedProperties;
 
     // Update selectedProperty if modal is open and updateSelectedProperty is true
     if (updateSelectedProperty && selectedProperty) {
@@ -798,6 +858,38 @@ function App() {
     }
   };
 
+  const handleFavProperty = async (id: number, isFavourite: boolean, userNote: string) => {
+    try {
+      // Optimistically update selected property if it's the one being favorited
+      if (selectedProperty && selectedProperty.id === id) {
+        setSelectedProperty({
+          ...selectedProperty,
+          is_favourite: isFavourite ? 1 : 0,
+          user_note: userNote
+        });
+      }
+
+      // Update in property lists
+      const updateList = (list: Property[]) => list.map(p =>
+        p.id === id ? { ...p, is_favourite: isFavourite ? 1 : 0, user_note: userNote } : p
+      );
+
+      setMyProperties(prev => updateList(prev));
+      setPublicProperties(prev => updateList(prev));
+      setFilteredProperties(prev => updateList(prev));
+
+      await propertyApi.favProperty(ownerId, id, isFavourite ? 1 : 0, userNote);
+      showToast(isFavourite ? 'Added to favorites' : 'Removed from favorites', 'success');
+
+      // Refresh in background to ensure sync, but minimal impact due to optimistic update
+      // await refreshPropertiesAndFilters(true);
+    } catch (error) {
+      showToast('Failed to update favorite', 'error');
+      // Revert via refresh
+      await refreshPropertiesAndFilters(true);
+    }
+  };
+
   const handleShare = async (property: Property) => {
     const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
     const priceText = formatPriceWithLabel(property.price_min, property.price_max);
@@ -841,12 +933,13 @@ function App() {
       const currentFilter = filterOverride || activeFilter;
 
       // Map activeFilter to API list parameter
-      // For filter/search API: mine, others, both
-      const listParam: 'mine' | 'others' | 'both' =
+      // For filter/search API: mine, others, both, saved
+      const listParam: 'mine' | 'others' | 'both' | 'saved' =
         currentFilter === 'my' ? 'mine' :
           currentFilter === 'public' ? 'others' :
-            currentFilter === 'all' ? 'both' :
-              'both';
+            currentFilter === 'saved' ? 'saved' :
+              currentFilter === 'all' ? 'both' :
+                'both';
 
       // Use the current search column if column parameter is not provided
       const currentColumn = column !== undefined ? column : searchColumn;
@@ -860,6 +953,8 @@ function App() {
           setFilteredProperties(myProperties);
         } else if (currentFilter === 'public') {
           setFilteredProperties(publicProperties);
+        } else if (currentFilter === 'saved') {
+          setFilteredProperties(savedProperties);
         }
         return;
       }
@@ -959,7 +1054,7 @@ function App() {
         }
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast, setPagination, pagination]
+    [activeFilter, myProperties, publicProperties, savedProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast, setPagination, pagination]
   );
 
   const handleFilter = useCallback(
@@ -974,12 +1069,13 @@ function App() {
       const currentFilter = filterOverride || activeFilter;
 
       // Map activeFilter to API list parameter
-      // For filter/search API: mine, others, both
-      const listParam: 'mine' | 'others' | 'both' =
+      // For filter/search API: mine, others, both, saved
+      const listParam: 'mine' | 'others' | 'both' | 'saved' =
         currentFilter === 'my' ? 'mine' :
           currentFilter === 'public' ? 'others' :
-            currentFilter === 'all' ? 'both' :
-              'both';
+            currentFilter === 'saved' ? 'saved' :
+              currentFilter === 'all' ? 'both' :
+                'both';
 
       // If no filters and no search query, show default list
       if (Object.keys(filters).length === 0 && !searchQuery.trim()) {
@@ -991,6 +1087,8 @@ function App() {
           setFilteredProperties(myProperties);
         } else if (currentFilter === 'public') {
           setFilteredProperties(publicProperties);
+        } else if (currentFilter === 'saved') {
+          setFilteredProperties(savedProperties);
         }
         return;
       }
@@ -1088,7 +1186,7 @@ function App() {
         }
       }
     },
-    [activeFilter, myProperties, publicProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast, setPagination, pagination]
+    [activeFilter, myProperties, publicProperties, savedProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast, setPagination, pagination]
   );
 
   const handleFilterChange = (filter: FilterType) => {
@@ -1213,6 +1311,33 @@ function App() {
 
   // Handle property view - always open modal in main app
   const handleViewProperty = (property: Property) => {
+    // If property has location, focus map on it
+    let coords: [number, number] | null = null;
+
+    if (property.location && property.location.includes(',')) {
+      const parts = property.location.split(',');
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        coords = [lat, lng];
+      }
+    } else if (property.landmark_location && property.landmark_location.includes(',')) {
+      const parts = property.landmark_location.split(',');
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        coords = [lat, lng];
+      }
+    }
+
+    if (coords) {
+      setMapFocus({
+        coords,
+        zoom: 18,
+        trigger: Date.now()
+      });
+    }
+
     setSelectedProperty(property);
     setShowDetailsModal(true);
   };
@@ -1287,6 +1412,7 @@ function App() {
             setActiveFilter={setActiveFilter}
             myProperties={myProperties}
             publicProperties={publicProperties}
+            savedProperties={savedProperties}
             filteredProperties={filteredProperties}
             loading={loading}
             showModal={showModal}
@@ -1333,6 +1459,9 @@ function App() {
             setLoading={setLoading}
             setFilteredProperties={setFilteredProperties}
             setPaginationMeta={setPaginationMeta}
+            mapFocus={mapFocus}
+            setMapFocus={setMapFocus}
+            handleFavProperty={handleFavProperty}
           />
         ) : (
           <Suspense fallback={
@@ -1374,6 +1503,7 @@ function App() {
             setActiveFilter={setActiveFilter}
             myProperties={myProperties}
             publicProperties={publicProperties}
+            savedProperties={savedProperties}
             filteredProperties={filteredProperties}
             loading={loading}
             showModal={showModal}
@@ -1420,6 +1550,9 @@ function App() {
             setLoading={setLoading}
             setFilteredProperties={setFilteredProperties}
             setPaginationMeta={setPaginationMeta}
+            mapFocus={mapFocus}
+            setMapFocus={setMapFocus}
+            handleFavProperty={handleFavProperty}
           />
         ) : (
           <Suspense fallback={
@@ -1448,6 +1581,7 @@ function App() {
             setActiveFilter={setActiveFilter}
             myProperties={myProperties}
             publicProperties={publicProperties}
+            savedProperties={savedProperties}
             filteredProperties={filteredProperties}
             loading={loading}
             showModal={showModal}
@@ -1494,6 +1628,9 @@ function App() {
             setLoading={setLoading}
             setFilteredProperties={setFilteredProperties}
             setPaginationMeta={setPaginationMeta}
+            mapFocus={mapFocus}
+            setMapFocus={setMapFocus}
+            handleFavProperty={handleFavProperty}
           />
         ) : (
           <Suspense fallback={
@@ -1558,6 +1695,7 @@ interface MainAppContentProps {
   setActiveFilter: (filter: FilterType) => void;
   myProperties: Property[];
   publicProperties: Property[];
+  savedProperties: Property[];
   filteredProperties: Property[];
   loading: boolean;
   showModal: boolean;
@@ -1604,6 +1742,9 @@ interface MainAppContentProps {
   setLoading: (loading: boolean) => void;
   setFilteredProperties: (properties: Property[]) => void;
   setPaginationMeta: (meta: PaginationMeta | null) => void;
+  mapFocus: MapFocusPoint | null;
+  setMapFocus: (focus: MapFocusPoint | null) => void;
+  handleFavProperty: (id: number, isFavourite: boolean, userNote: string) => void;
 }
 
 function MainAppContent({
@@ -1613,6 +1754,7 @@ function MainAppContent({
   setActiveFilter,
   myProperties,
   publicProperties,
+  savedProperties,
   filteredProperties,
   loading,
   showModal,
@@ -1659,9 +1801,20 @@ function MainAppContent({
   setLoading,
   setFilteredProperties,
   setPaginationMeta,
+  mapFocus,
+  setMapFocus,
+  handleFavProperty,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [mapProperties, setMapProperties] = useState<Property[]>([]);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  // Update isDesktop on resize
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Check if search or filters are active
   const hasActiveSearchOrFilter = searchQuery.trim().length > 0 || Object.keys(activeFilters).length > 0;
@@ -1679,23 +1832,39 @@ function MainAppContent({
       if (filters.size_unit && property.size_unit !== filters.size_unit) return false;
       if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
       if (filters.location && !property.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
-      if (filters.tags && !property.tags?.toLowerCase().includes(filters.tags.toLowerCase())) return false;
-      if (filters.highlights && !property.highlights?.toLowerCase().includes(filters.highlights.toLowerCase())) return false;
+
+      if (filters.tags) {
+        const filterTags = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
+        const propTags = property.tags?.toLowerCase() || '';
+        // If property tags contain ANY of the filter tags
+        const match = filterTags.some(tag => propTags.includes(tag.toLowerCase()));
+        if (!match) return false;
+      }
+
+      if (filters.highlights) {
+        const filterHighlights = Array.isArray(filters.highlights) ? filters.highlights : [filters.highlights];
+        const propHighlights = property.highlights?.toLowerCase() || '';
+        // If property highlights contain ANY of the filter highlights
+        const match = filterHighlights.some(highlight => propHighlights.includes(highlight.toLowerCase()));
+        if (!match) return false;
+      }
+
       return true;
     });
   }, []);
 
-  // Fetch properties for map view when viewMode changes to 'map'
+  // Fetch properties for map view when viewMode changes to 'map' or on desktop
   useEffect(() => {
-    if (viewMode === 'map' && ownerId > 0) {
+    if ((viewMode === 'map' || isDesktop) && ownerId > 0) {
       const fetchMapProperties = async () => {
         try {
           setLoading(true);
-          const listParam: 'mine' | 'others' | 'both' =
+          const listParam: 'mine' | 'others' | 'both' | 'saved' =
             activeFilter === 'my' ? 'mine' :
               activeFilter === 'public' ? 'others' :
-                activeFilter === 'all' ? 'both' :
-                  'both';
+                activeFilter === 'saved' ? 'saved' :
+                  activeFilter === 'all' ? 'both' :
+                    'both';
 
           let mapProps: Property[] = [];
 
@@ -1719,6 +1888,9 @@ function MainAppContent({
             } else if (activeFilter === 'public') {
               const response = await propertyApi.getPublicProperties(ownerId, pagination, true); // forMap = true
               mapProps = response.data;
+            } else if (activeFilter === 'saved') {
+              const response = await propertyApi.getSavedProperties(ownerId, pagination, true); // forMap = true
+              mapProps = response.data;
             } else if (activeFilter === 'all') {
               const response = await propertyApi.getAllProperties(ownerId, pagination, true); // forMap = true
               mapProps = response.data;
@@ -1735,33 +1907,32 @@ function MainAppContent({
       };
 
       fetchMapProperties();
-    } else if (viewMode === 'list') {
-      // Clear map properties when switching back to list view
+    } else if (viewMode === 'list' && !isDesktop) {
+      // Clear map properties when switching back to list view on mobile
       setMapProperties([]);
     }
-  }, [viewMode, ownerId, activeFilter, searchQuery, searchColumn, activeFilters, pagination, hasActiveSearchOrFilter, applyClientSideFilters, setLoading]);
+  }, [viewMode, ownerId, activeFilter, searchQuery, searchColumn, activeFilters, pagination, hasActiveSearchOrFilter, applyClientSideFilters, setLoading, isDesktop]);
 
-  // Get the base properties based on active filter
-  const getBaseProperties = () => {
-    if (activeFilter === 'all') {
-      return [...myProperties, ...publicProperties];
-    } else if (activeFilter === 'my') {
+  const currentProperties = useMemo(() => {
+    // If we have filtered properties (from search/filter), use those
+    if (filteredProperties.length > 0 || hasActiveSearchOrFilter) {
+      return filteredProperties;
+    }
+
+    // Otherwise use list based on view mode
+    if (activeFilter === 'my') {
       return myProperties;
-    } else {
+    }
+    if (activeFilter === 'public') {
       return publicProperties;
     }
-  };
+    if (activeFilter === 'saved') {
+      return savedProperties;
+    }
 
-  const baseProperties = getBaseProperties();
-
-  // If search/filter is active, always use filteredProperties (even if empty - shows "no results")
-  // Only fall back to base properties if there's no active search/filter
-  // For map view, always use mapProperties (fetched with forMap=true) - even if empty to show correct empty state
-  const currentProperties = viewMode === 'map'
-    ? mapProperties
-    : hasActiveSearchOrFilter
-      ? filteredProperties
-      : baseProperties;
+    // Default to combined list for 'all'
+    return [...myProperties, ...publicProperties].sort((a, b) => b.id - a.id);
+  }, [activeFilter, myProperties, publicProperties, savedProperties, filteredProperties, hasActiveSearchOrFilter]);
 
   // Determine if there's a next page
   // Show pagination when pagination metadata is available (works for both base lists and filtered/search results)
@@ -1785,11 +1956,12 @@ function MainAppContent({
       if (hasActiveSearchOrFilter) {
         setLoading(true);
         try {
-          const listParam: 'mine' | 'others' | 'both' =
+          const listParam: 'mine' | 'others' | 'both' | 'saved' =
             activeFilter === 'my' ? 'mine' :
               activeFilter === 'public' ? 'others' :
-                activeFilter === 'all' ? 'both' :
-                  'both';
+                activeFilter === 'saved' ? 'saved' :
+                  activeFilter === 'all' ? 'both' :
+                    'both';
 
           if (searchQuery.trim()) {
             const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, { ...pagination, page: newPage });
@@ -1825,11 +1997,12 @@ function MainAppContent({
       if (hasActiveSearchOrFilter) {
         setLoading(true);
         try {
-          const listParam: 'mine' | 'others' | 'both' =
+          const listParam: 'mine' | 'others' | 'both' | 'saved' =
             activeFilter === 'my' ? 'mine' :
               activeFilter === 'public' ? 'others' :
-                activeFilter === 'all' ? 'both' :
-                  'both';
+                activeFilter === 'saved' ? 'saved' :
+                  activeFilter === 'all' ? 'both' :
+                    'both';
 
           if (searchQuery.trim()) {
             const searchResponse = await propertyApi.searchProperties(ownerId, listParam, searchQuery, searchColumn, { ...pagination, page: newPage });
@@ -1859,6 +2032,7 @@ function MainAppContent({
   const getFilterLabel = () => {
     if (activeFilter === 'all') return 'All Properties';
     if (activeFilter === 'my') return 'My Properties';
+    if (activeFilter === 'saved') return 'Saved Properties';
     return 'Public Properties';
   };
 
@@ -1895,8 +2069,8 @@ function MainAppContent({
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-20">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+      <header className="bg-white border-b border-gray-200 sticky top-0 shadow-sm z-40">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 lg:max-w-full">
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-3">
               <Home className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
@@ -1904,6 +2078,14 @@ function MainAppContent({
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setShowModal(true)}
+                className="hidden md:flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-lg font-medium transition-all bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Property</span>
+              </button>
+
               <button
                 onClick={() => navigate('/profile')}
                 className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -1913,7 +2095,7 @@ function MainAppContent({
               </button>
               <button
                 onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
-                className={`p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors ${viewMode === 'map' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
+                className={`lg:hidden p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors ${viewMode === 'map' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
                   }`}
                 title={viewMode === 'list' ? 'Switch to Map View' : 'Switch to List View'}
               >
@@ -1923,7 +2105,7 @@ function MainAppContent({
                   <List className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
-              {/* Desktop filter menu - hidden on mobile */}
+              {/* Desktop filter menu - hidden on mobile, visible on desktop header */}
               <div className="relative hidden md:block" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -1972,6 +2154,19 @@ function MainAppContent({
                         <span>Public Properties</span>
                       </div>
                     </button>
+
+                    <button
+                      onClick={() => handleFilterChange('saved')}
+                      className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm transition-colors ${activeFilter === 'saved'
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>Saved Properties</span>
+                      </div>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1980,35 +2175,206 @@ function MainAppContent({
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
-        <SearchFilter
-          key={searchFilterKey}
-          onSearch={handleSearch}
-          onFilter={handleFilter}
-        />
+      {/* Desktop 3-Column Layout */}
+      <div className="hidden lg:flex fixed top-16 left-0 right-0 bottom-0 bg-white z-0">
+        {/* Left Column: List (Resizable/scrollable) */}
+        <div className="w-[400px] flex-shrink-0 flex flex-col border-r border-gray-200 bg-white h-full z-10">
+          <div className="p-4 border-b border-gray-200 bg-white z-10 relative">
+            <SearchFilter
+              key={searchFilterKey}
+              onSearch={handleSearch}
+              onFilter={handleFilter}
+              totalCount={paginationMeta?.total}
+              listName={getFilterLabel()}
+            />
 
-        <div className="mt-4 sm:mt-6">
-          {loading ? (
-            viewMode === 'list' ? (
-              <div className="space-y-3 sm:space-y-4">
-                {[...Array(3)].map((_, index) => (
+
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-gray-50 scrollbar-thin">
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, index) => (
                   <PropertyCardSkeleton key={index} noTopBorder={index === 0} />
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-lg border border-gray-200 h-[600px] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Loading map...</p>
+              <>
+                {currentProperties.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-gray-500 mb-4">No properties found</p>
+                    {hasActiveSearchOrFilter && (
+                      <button onClick={handleClearSearchAndFilters} className="text-blue-600 hover:underline text-sm font-medium">Clear filters</button>
+                    )}
+                  </div>
+                ) : (
+                  currentProperties.map((property) => (
+                    <PropertyCard
+                      key={property.id}
+                      property={property}
+                      isOwned={property.owner_id === ownerId}
+                      onViewDetails={(p) => {
+                        handleViewProperty(p);
+                      }}
+                      isSelected={selectedProperty?.id === property.id}
+                    />
+                  ))
+                )}
+                {shouldDisplayPagination && (
+                  <div className="pt-4 pb-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        onClick={handlePreviousPage}
+                        disabled={!hasPreviousPage}
+                        className="p-2 border rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={handleNextPage}
+                        disabled={!hasNextPage}
+                        className="p-2 border rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Center Column: Map */}
+        <div className="flex-1 relative bg-gray-100 h-full">
+          <Suspense fallback={
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          }>
+            <PropertyMap
+              properties={mapProperties}
+              center={getMapCenter()}
+              onMarkerClick={(p) => {
+                setSelectedProperty(p);
+                setShowDetailsModal(true);
+              }}
+              focusOn={mapFocus}
+            />
+          </Suspense>
+
+          {/* Add Property Button (Floating over map) */}
+          {/* Add Property Button (Floating over map - Top Right to avoid map controls) */}
+
+        </div>
+
+        {/* Right Column: Details (Conditional) */}
+        {selectedProperty && showDetailsModal && (
+          <div className="w-[450px] flex-shrink-0 border-l border-gray-200 bg-white h-full overflow-hidden shadow-xl z-20">
+            <Suspense fallback={<div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+              <PropertyDetailsContent
+                property={selectedProperty}
+                isOwned={selectedProperty.owner_id === ownerId}
+                onClose={() => {
+                  setShowDetailsModal(false);
+                  setSelectedProperty(null);
+                }}
+                onEdit={(p) => {
+                  setEditingProperty(p);
+                  setShowDetailsModal(false);
+                  setShowModal(true);
+                }}
+                onDelete={handleDeleteProperty}
+                onTogglePublic={handleTogglePublic}
+                onShare={handleShare}
+                onAskQuestion={handleAskQuestion}
+                onUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
+                onUpdateLocation={handleUpdateLocation}
+                onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
+                onFav={handleFavProperty}
+                className="h-full overflow-hidden" // Use h-full to fill the column
+              />
+            </Suspense>
+          </div>
+        )}
+      </div>
+
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:hidden">
+        <SearchFilter
+          key={searchFilterKey}
+          onSearch={handleSearch}
+          onFilter={handleFilter}
+          totalCount={paginationMeta?.total}
+          listName={getFilterLabel()}
+        />
+
+        <div className="mt-4 sm:mt-6 flex flex-col lg:flex-row gap-6 items-start">
+          <div className="flex-1 w-full min-w-0">
+            {loading ? (
+              viewMode === 'list' ? (
+                <div className="space-y-3 sm:space-y-4">
+                  {[...Array(3)].map((_, index) => (
+                    <PropertyCardSkeleton key={index} noTopBorder={index === 0} />
+                  ))}
                 </div>
-              </div>
-            )
-          ) : viewMode === 'map' ? (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
-              {currentProperties.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200 h-[600px] flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-sm sm:text-base text-gray-500 mb-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600">Loading map...</p>
+                  </div>
+                </div>
+              )
+            ) : viewMode === 'map' ? (
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
+                {currentProperties.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-sm sm:text-base text-gray-500 mb-3">
+                        {hasActiveSearchOrFilter
+                          ? 'No properties found matching your search or filters.'
+                          : activeFilter === 'my'
+                            ? 'No properties yet. Add your first property!'
+                            : 'No properties available'}
+                      </p>
+                      {hasActiveSearchOrFilter && (
+                        <button
+                          onClick={handleClearSearchAndFilters}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                          Clear Search & Filters
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <Suspense fallback={
+                    <div className="h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                        <p className="text-sm text-gray-600">Loading map...</p>
+                      </div>
+                    </div>
+                  }>
+                    <PropertyMap
+                      properties={currentProperties}
+                      center={getMapCenter()}
+                      onMarkerClick={handleViewProperty}
+                      focusOn={mapFocus}
+                    />
+                  </Suspense>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                <InstallPromptCard />
+                {currentProperties.length === 0 ? (
+                  <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
+                    <p className="text-sm sm:text-base text-gray-500 mb-4">
                       {hasActiveSearchOrFilter
                         ? 'No properties found matching your search or filters.'
                         : activeFilter === 'my'
@@ -2025,103 +2391,98 @@ function MainAppContent({
                       </button>
                     )}
                   </div>
-                </div>
-              ) : (
-                <Suspense fallback={
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-600">Loading map...</p>
-                    </div>
-                  </div>
-                }>
-                  <PropertyMap
-                    properties={currentProperties}
-                    center={getMapCenter()}
-                    onMarkerClick={handleViewProperty}
-                  />
-                </Suspense>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3 sm:space-y-4">
-              <InstallPromptCard />
-              {currentProperties.length === 0 ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
-                  <p className="text-sm sm:text-base text-gray-500 mb-4">
-                    {hasActiveSearchOrFilter
-                      ? 'No properties found matching your search or filters.'
-                      : activeFilter === 'my'
-                        ? 'No properties yet. Add your first property!'
-                        : 'No properties available'}
-                  </p>
-                  {hasActiveSearchOrFilter && (
-                    <button
-                      onClick={handleClearSearchAndFilters}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                      Clear Search & Filters
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {currentProperties.map((property) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      isOwned={property.owner_id === ownerId}
-                      onViewDetails={handleViewProperty}
-                    />
-                  ))}
+                ) : (
+                  <>
+                    {currentProperties.map((property) => (
+                      <PropertyCard
+                        key={property.id}
+                        property={property}
+                        isOwned={property.owner_id === ownerId}
+                        onViewDetails={handleViewProperty}
+                      />
+                    ))}
 
-                  {/* Pagination Controls - Only show for base lists, not filtered/search results */}
-                  {shouldDisplayPagination && (
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={handlePreviousPage}
-                          disabled={!hasPreviousPage}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasPreviousPage
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            }`}
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                          <span className="hidden sm:inline">Previous</span>
-                        </button>
+                    {/* Pagination Controls - Only show for base lists, not filtered/search results */}
+                    {shouldDisplayPagination && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={handlePreviousPage}
+                            disabled={!hasPreviousPage}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasPreviousPage
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                              }`}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Previous</span>
+                          </button>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">
-                            Page <span className="font-semibold">{currentPage}</span>
-                            {totalPages > 1 && (
-                              <span className="text-gray-500"> of {totalPages}</span>
-                            )}
-                          </span>
-                          {paginationMeta?.total !== undefined && (
-                            <span className="text-sm text-gray-500">
-                              ({paginationMeta.total} {paginationMeta.total === 1 ? 'property' : 'properties'})
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">
+                              Page <span className="font-semibold">{currentPage}</span>
+                              {totalPages > 1 && (
+                                <span className="text-gray-500"> of {totalPages}</span>
+                              )}
                             </span>
-                          )}
-                        </div>
+                            {paginationMeta?.total !== undefined && (
+                              <span className="text-sm text-gray-500">
+                                ({paginationMeta.total} {paginationMeta.total === 1 ? 'property' : 'properties'})
+                              </span>
+                            )}
+                          </div>
 
-                        <button
-                          onClick={handleNextPage}
-                          disabled={!hasNextPage}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasNextPage
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            }`}
-                        >
-                          <span className="hidden sm:inline">Next</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
+                          <button
+                            onClick={handleNextPage}
+                            disabled={!hasNextPage}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasNextPage
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                              }`}
+                          >
+                            <span className="hidden sm:inline">Next</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {selectedProperty && showDetailsModal && (
+            <div className="hidden lg:block w-[400px] xl:w-[450px] shrink-0 sticky top-24 h-[calc(100vh-8rem)]">
+              <Suspense fallback={
+                <div className="h-full flex items-center justify-center bg-white rounded-2xl border border-gray-200">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              }>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 h-full overflow-hidden">
+                  <PropertyDetailsContent
+                    property={selectedProperty}
+                    isOwned={selectedProperty.owner_id === ownerId}
+                    onClose={() => {
+                      setShowDetailsModal(false);
+                      setSelectedProperty(null);
+                    }}
+                    onEdit={(p) => {
+                      setEditingProperty(p);
+                      setShowDetailsModal(false);
+                      setShowModal(true);
+                    }}
+                    onDelete={handleDeleteProperty}
+                    onTogglePublic={handleTogglePublic}
+                    onShare={handleShare}
+                    onAskQuestion={handleAskQuestion}
+                    onUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
+                    onUpdateLocation={handleUpdateLocation}
+                    onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
+                    onFav={handleFavProperty}
+                  />
+                </div>
+              </Suspense>
             </div>
           )}
         </div>
@@ -2148,35 +2509,38 @@ function MainAppContent({
       )}
 
       {showDetailsModal && selectedProperty && (
-        <Suspense fallback={
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-              <p className="text-sm text-white">Loading...</p>
+        <div className="lg:hidden">
+          <Suspense fallback={
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                <p className="text-sm text-white">Loading...</p>
+              </div>
             </div>
-          </div>
-        }>
-          <PropertyDetailsModal
-            property={selectedProperty}
-            isOwned={selectedProperty.owner_id === ownerId}
-            onClose={() => {
-              setShowDetailsModal(false);
-              setSelectedProperty(null);
-            }}
-            onEdit={(p) => {
-              setEditingProperty(p);
-              setShowDetailsModal(false);
-              setShowModal(true);
-            }}
-            onDelete={handleDeleteProperty}
-            onTogglePublic={handleTogglePublic}
-            onShare={handleShare}
-            onAskQuestion={handleAskQuestion}
-            onUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
-            onUpdateLocation={handleUpdateLocation}
-            onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
-          />
-        </Suspense>
+          }>
+            <PropertyDetailsModal
+              property={selectedProperty}
+              isOwned={selectedProperty.owner_id === ownerId}
+              onClose={() => {
+                setShowDetailsModal(false);
+                setSelectedProperty(null);
+              }}
+              onEdit={(p) => {
+                setEditingProperty(p);
+                setShowDetailsModal(false);
+                setShowModal(true);
+              }}
+              onDelete={handleDeleteProperty}
+              onTogglePublic={handleTogglePublic}
+              onShare={handleShare}
+              onAskQuestion={handleAskQuestion}
+              onUpdateHighlightsAndTags={handleUpdateHighlightsAndTags}
+              onUpdateLocation={handleUpdateLocation}
+              onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
+              onFav={handleFavProperty}
+            />
+          </Suspense>
+        </div>
       )}
 
       {showContactModal && selectedProperty && (
@@ -2194,7 +2558,6 @@ function MainAppContent({
             senderId={ownerId}
             onClose={() => {
               setShowContactModal(false);
-              setSelectedProperty(null);
             }}
             onSubmit={handleContactSubmit}
           />
@@ -2236,22 +2599,35 @@ function MainAppContent({
             <Users className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Public Property</span>
           </button>
+          <button
+            onClick={() => handleFilterChange('saved')}
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${activeFilter === 'saved'
+              ? 'text-blue-600 bg-blue-50'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
+          >
+            <Heart className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Saved</span>
+          </button>
         </div>
       </div>
 
-      <button
-        onClick={() => {
-          setEditingProperty(null);
-          setShowModal(true);
-        }}
-        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 md:bottom-6 md:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
-        title="Add Property"
-      >
-        <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-      </button>
+      <div className="md:hidden">
+        <button
+          onClick={() => {
+            setEditingProperty(null);
+            setShowModal(true);
+          }}
+          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
+          title="Add Property"
+        >
+          <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
+      </div>
 
     </div>
   );
 }
 
 export default App;
+

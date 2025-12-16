@@ -1,4 +1,4 @@
-import { Globe, Lock, Ruler, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
+import { Globe, Lock, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
 import { Property } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
 import { formatPrice } from '../utils/priceFormatter';
@@ -8,6 +8,7 @@ interface PropertyCardProps {
   property: Property;
   isOwned: boolean;
   onViewDetails: (property: Property) => void;
+  isSelected?: boolean;
 }
 
 // Icon mappings for highlights
@@ -53,7 +54,7 @@ function getIconForHighlight(text: string) {
 function getPropertyTypeStyles(type: string) {
   const typeLower = type.toLowerCase();
   const isPlot = typeLower.includes('plot');
-  
+
   if (isPlot) {
     // Plot - dull color
     return {
@@ -79,22 +80,23 @@ export function PropertyCard({
   property,
   isOwned,
   onViewDetails,
+  isSelected,
 }: PropertyCardProps) {
   const typeStyles = getPropertyTypeStyles(property.type);
   const userSettings = getUserSettings();
   const userCity = userSettings.city || '';
-  
+
   // Trim description to 100 characters
-  const trimmedDescription = property.description && property.description.length > 100 
+  const trimmedDescription = property.description && property.description.length > 100
     ? property.description.substring(0, 100) + '...'
     : property.description || '';
-  
+
   // Format price
   const priceText = formatPrice(property.price_min, property.price_max);
-  
+
   // Format size
   const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
-  
+
   // Calculate rate per unit
   const calculateRatePerUnit = () => {
     const avgPrice = property.price_min > 0 && property.price_max > 0
@@ -104,7 +106,7 @@ export function PropertyCard({
         : property.price_max > 0
           ? property.price_max
           : 0;
-    
+
     const avgSize = property.size_min > 0 && property.size_max > 0
       ? (property.size_min + property.size_max) / 2
       : property.size_min > 0
@@ -112,12 +114,12 @@ export function PropertyCard({
         : property.size_max > 0
           ? property.size_max
           : 0;
-    
+
     if (avgPrice > 0 && avgSize > 0) {
       // Price is in lakhs, so convert to actual rupees (multiply by 100000)
       const priceInRupees = avgPrice * 100000;
       const ratePerUnit = priceInRupees / avgSize;
-      
+
       // Format the rate nicely
       if (ratePerUnit >= 10000000) {
         // If >= 1 crore, show in crores
@@ -134,21 +136,21 @@ export function PropertyCard({
     }
     return null;
   };
-  
+
   const ratePerUnitText = calculateRatePerUnit();
-  
+
   // Format location - show city only if it's not the user's city
   const locationText = property.city.toLowerCase() === userCity.toLowerCase()
     ? property.area
     : `${property.area}, ${property.city}`;
-  
+
   // Format created date
   const formatCreatedDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
       return 'Today';
     } else if (diffDays === 1) {
@@ -162,15 +164,21 @@ export function PropertyCard({
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
     }
   };
-  
+
   const createdDateText = formatCreatedDate(property.created_on);
-  
+
   return (
     <button
       onClick={() => onViewDetails(property)}
-      className={`w-full bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-3 sm:p-4 border-l-4 ${typeStyles.borderColor} border-t border-r border-b border-gray-200 text-left ${typeStyles.hoverBorderColor} relative`}
+      className={`w-full rounded-xl transition-all duration-200 p-3 sm:p-4 border-l-4 text-left relative group
+        ${isSelected
+          ? 'bg-blue-50/80 border-t border-r border-b border-blue-200 shadow-md scale-[1.01] z-10'
+          : `bg-white border-t border-r border-b border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:-translate-y-0.5`
+        }
+        ${typeStyles.borderColor} ${typeStyles.hoverBorderColor}
+      `}
     >
-     <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
+      <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
@@ -178,7 +186,7 @@ export function PropertyCard({
             </h3>
             <span className="text-[0.6rem] text-gray-400 font-normal">#{property.id}</span>
           </div>
-         
+
         </div>
         <div className="flex-shrink-0">
           <div className="flex items-center gap-0 text-sm sm:text-base font-semibold text-gray-900">
@@ -191,7 +199,7 @@ export function PropertyCard({
         <div className="flex items-start gap-1.5 sm:gap-2 mb-2 sm:mb-3">
           <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs sm:text-sm text-gray-700 leading-relaxed flex-1">{trimmedDescription} | {ratePerUnitText}</p>
-         
+
         </div>
       )}
 
@@ -257,7 +265,7 @@ export function PropertyCard({
           </>
         )}
       </div>
-    
+
     </button>
   );
 }
