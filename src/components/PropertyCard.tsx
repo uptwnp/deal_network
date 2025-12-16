@@ -172,7 +172,7 @@ export function PropertyCard({
       onClick={() => onViewDetails(property)}
       className={`w-full rounded-xl transition-all duration-200 p-3 sm:p-4 border-l-4 text-left relative group
         ${isSelected
-          ? 'bg-blue-50/80 border-t border-r border-b border-blue-200 shadow-md scale-[1.01] z-10'
+          ? 'bg-blue-50/80 border-t border-r border-b border-blue-200 shadow-md scale-[1.01]'
           : `bg-white border-t border-r border-b border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:-translate-y-0.5`
         }
         ${typeStyles.borderColor} ${typeStyles.hoverBorderColor}

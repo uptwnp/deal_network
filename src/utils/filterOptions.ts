@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   FILTERS: "propnetwork_filters",
   SELECTED_AREA: "propnetwork_selected_area",
   ACTIVE_FILTER: "propnetwork_active_filter",
+  RECENT_AREAS: "propnetwork_recent_areas",
 } as const;
 
 /**

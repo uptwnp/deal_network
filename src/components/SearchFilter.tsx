@@ -145,6 +145,15 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
   const [cityOptionsWithLabels, setCityOptionsWithLabels] = useState<Array<{ value: string; label: string }>>([]);
   const [areaOptions, setAreaOptions] = useState<string[]>([]);
   const [filteredAreaOptions, setFilteredAreaOptions] = useState<string[]>([]);
+  const [areaSearchQuery, setAreaSearchQuery] = useState('');
+  const [recentAreas, setRecentAreas] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.RECENT_AREAS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Dynamic highlight and tag options from API
   const [highlightOptions, setHighlightOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -627,9 +636,16 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
     setFilters(newFilters);
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
     localStorage.setItem(STORAGE_KEYS.SELECTED_AREA, area);
+
+    // Update recent areas
+    const newRecent = [area, ...recentAreas.filter(a => a !== area)].slice(0, 5);
+    setRecentAreas(newRecent);
+    localStorage.setItem(STORAGE_KEYS.RECENT_AREAS, JSON.stringify(newRecent));
+
     // Auto-apply area filter immediately (this is the separate area filter, not inside main filters modal)
     applyFiltersDebounced(newFilters);
     setShowAreaDropdown(false);
+    setAreaSearchQuery('');
   };
 
 
@@ -725,14 +741,25 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
     }
   };
 
+  const handleClearArea = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedArea('');
+    const newFilters = { ...filters, area: '' };
+    setFilters(newFilters);
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_AREA);
+    applyFiltersDebounced(newFilters);
+    setShowAreaDropdown(false);
+  };
+
   return (
     <div className="space-y-2 sm:space-y-3">
       {/* All Properties in [City/Area] label with dropdown */}
-      <div className="flex items-center gap-2 text-sm sm:text-base">
+      <div className="relative flex items-center gap-2 text-sm sm:text-base" ref={areaDropdownRef}>
         <span className="text-gray-700 font-medium">
           {listName || 'All Properties'} in
         </span>
-        <div className="relative" ref={areaDropdownRef}>
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setShowAreaDropdown(!showAreaDropdown)}
@@ -742,12 +769,69 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
             {totalCount !== undefined && `(${totalCount})`}
             <ChevronDown className={`w-4 h-4 transition-transform ${showAreaDropdown ? 'rotate-180' : ''}`} />
           </button>
+          {selectedArea && (
+            <button
+              type="button"
+              onClick={handleClearArea}
+              className="text-blue-600 hover:text-red-600 hover:bg-red-50 rounded-full p-0.5 transition-colors"
+              title="Clear selected area"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
-          {showAreaDropdown && (
-            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50 min-w-[200px]">
-              {(filters.city && filteredAreaOptions.length > 0
-                ? filteredAreaOptions
-                : []).map((area, idx) => (
+        {showAreaDropdown && (
+          <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[100] w-full sm:w-auto sm:min-w-[240px]">
+            <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search areas..."
+                  value={areaSearchQuery}
+                  onChange={(e) => setAreaSearchQuery(e.target.value)}
+                  className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="py-1">
+              {!areaSearchQuery && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                    Recent Areas
+                  </div>
+                  {recentAreas
+                    .filter(area => filteredAreaOptions.includes(area))
+                    .map((area, idx) => (
+                      <button
+                        key={`recent-${idx}`}
+                        type="button"
+                        onClick={() => handleAreaSelect(area)}
+                        className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedArea === area
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                      >
+                        {area}
+                      </button>
+                    ))}
+                  <div className="border-t border-gray-200 my-1" />
+                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                    All Areas
+                  </div>
+                </>
+              )}
+
+              {(filters.city ? filteredAreaOptions : [])
+                .filter(area =>
+                  !areaSearchQuery ||
+                  area.toLowerCase().includes(areaSearchQuery.toLowerCase())
+                )
+                .map((area, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -760,9 +844,19 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                     {area}
                   </button>
                 ))}
+
+              {(filters.city ? filteredAreaOptions : [])
+                .filter(area =>
+                  !areaSearchQuery ||
+                  area.toLowerCase().includes(areaSearchQuery.toLowerCase())
+                ).length === 0 && (
+                  <div className="px-3 py-4 text-center text-sm text-gray-500">
+                    No areas found
+                  </div>
+                )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSearchSubmit} className="flex gap-1.5 sm:gap-2">
