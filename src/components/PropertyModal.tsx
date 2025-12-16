@@ -24,8 +24,9 @@ const LAST_UNIT_KEY = 'propnetwork_last_unit';
 
 export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProps) {
   const [showNoteTooltip, setShowNoteTooltip] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
-  
+
   // Load draft from localStorage if no property (new property) - memoize to prevent re-renders
   // Re-compute when user changes to ensure we use latest defaults
   const draftData = useMemo(() => {
@@ -35,7 +36,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       if (draft) {
         return JSON.parse(draft);
       }
-    } catch {}
+    } catch { }
     return null;
   }, [property, user?.default_area]); // Re-compute when user defaults change
 
@@ -54,7 +55,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
   // Get user settings for defaults (fallback for size unit)
   const userSettings = getUserSettings();
-  
+
   // Parse user's default values from AuthContext
   // default_area can be a single value or comma-separated string
   const getDefaultArea = (): string => {
@@ -65,7 +66,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
     return '';
   };
-  
+
   const getDefaultType = (): string => {
     if (user?.default_type) {
       const types = user.default_type.split(',').map(t => t.trim()).filter(t => t);
@@ -73,7 +74,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
     return '';
   };
-  
+
   const getUserDefaultCity = (): string => {
     return user?.default_city || '';
   };
@@ -113,7 +114,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       const userDefaultArea = getDefaultArea();
       const userDefaultCity = getUserDefaultCity();
       const userDefaultType = getDefaultType();
-      
+
       if (draftData) {
         // If draft exists, use it but override with user defaults if they exist and draft fields are empty
         return {
@@ -126,7 +127,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           is_public: draftData.is_public !== undefined ? draftData.is_public : getUserDefaultPrivacy(),
         };
       }
-      
+
       // No draft: use user defaults > userSettings > fallback
       return {
         city: getLastSelections.city || userDefaultCity || userSettings.city || 'Panipat',
@@ -158,12 +159,12 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   const [showPropertyTypeDropdown, setShowPropertyTypeDropdown] = useState(false);
   const [showAddCityInput, setShowAddCityInput] = useState(false);
   const [newCityName, setNewCityName] = useState('');
-  
+
   // Dynamic area/city data from API
   const [cities, setCities] = useState<string[]>([]);
   const [areas, setAreas] = useState<string[]>([]);
   const [cityOptionsWithLabels, setCityOptionsWithLabels] = useState<Array<{ value: string; label: string }>>([]);
-  
+
   const sizeUnitDropdownRef = useRef<HTMLDivElement>(null);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
   const propertyTypeDropdownRef = useRef<HTMLDivElement>(null);
@@ -202,7 +203,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   useEffect(() => {
     // Fetch in background without blocking UI
     fetchAreaCityDataInBackground();
-    
+
     // Also try to load cached data immediately
     getAreaCityData().then((data) => {
       if (data) {
@@ -211,7 +212,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         setCityOptionsWithLabels(cityList.map((city) => ({ value: city, label: city })));
       }
     });
-    
+
     // Also fetch from API to ensure we have the latest data
     getCityOptionsWithLabels().then((options) => {
       if (options && options.length > 0) {
@@ -244,9 +245,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
             showSizeRange,
             showPriceRange,
           }));
-        } catch {}
+        } catch { }
       }, 300); // Debounce by 300ms
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [formData, showSizeRange, showPriceRange, property]);
@@ -256,7 +257,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     if (!property && formData.area) {
       try {
         localStorage.setItem(LAST_AREA_KEY, formData.area);
-      } catch {}
+      } catch { }
     }
   }, [formData.area, property]);
 
@@ -264,7 +265,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     if (!property && formData.city) {
       try {
         localStorage.setItem(LAST_CITY_KEY, formData.city);
-      } catch {}
+      } catch { }
     }
   }, [formData.city, property]);
 
@@ -272,7 +273,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     if (!property && formData.size_unit) {
       try {
         localStorage.setItem(LAST_UNIT_KEY, formData.size_unit);
-      } catch {}
+      } catch { }
     }
   }, [formData.size_unit, property]);
 
@@ -312,7 +313,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       if (typeof draftData.showPriceRange === 'boolean') {
         setShowPriceRange(prev => prev !== draftData.showPriceRange ? draftData.showPriceRange : prev);
       }
-      
+
       // Update formData with latest user defaults if draft fields are empty
       // This ensures that when user updates defaults in profile, they get used
       setFormData(prev => {
@@ -321,10 +322,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         const userDefaultType = getDefaultType();
         const userDefaultUnit = getUserDefaultUnit();
         const userDefaultPrivacy = getUserDefaultPrivacy();
-        
+
         const updates: Partial<PropertyFormData> = {};
         let hasUpdates = false;
-        
+
         // Only update if field is empty and user has a default
         if (!prev.area && userDefaultArea) {
           updates.area = userDefaultArea;
@@ -346,7 +347,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           updates.is_public = userDefaultPrivacy;
           hasUpdates = true;
         }
-        
+
         return hasUpdates ? { ...prev, ...updates } : prev;
       });
     } else if (!property && user) {
@@ -357,12 +358,12 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       const userDefaultType = getDefaultType();
       const userDefaultUnit = getUserDefaultUnit();
       const userDefaultPrivacy = getUserDefaultPrivacy();
-      
+
       setFormData(prev => {
         // Only update if current value is empty or matches old default
         const updates: Partial<PropertyFormData> = {};
         let hasUpdates = false;
-        
+
         // Update area if empty or if it matches the old default (user updated profile)
         if (!prev.area && userDefaultArea) {
           updates.area = userDefaultArea;
@@ -384,7 +385,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           updates.is_public = userDefaultPrivacy;
           hasUpdates = true;
         }
-        
+
         return hasUpdates ? { ...prev, ...updates } : prev;
       });
     }
@@ -398,7 +399,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     default_unit?: string;
     default_privacy?: string;
   }>({});
-  
+
   // Update defaults when user object becomes available or changes (for new properties only)
   // This handles the case where user loads after component mounts or updates profile
   useEffect(() => {
@@ -412,10 +413,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         default_unit: user.default_unit,
         default_privacy: user.default_privacy,
       };
-      
+
       // Check if user defaults have changed (for area specifically)
       const areaChanged = currentUserDefaults.default_area !== lastUserDefaultsRef.current.default_area;
-      
+
       setFormData(prev => {
         const updates: Partial<PropertyFormData> = {};
         let hasUpdates = false;
@@ -470,12 +471,12 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
 
         return hasUpdates ? { ...prev, ...updates } : prev;
       });
-      
+
       // Update the ref to track current defaults
       lastUserDefaultsRef.current = currentUserDefaults;
     }
   }, [user?.default_city, user?.default_area, user?.default_type, user?.default_unit, user?.default_privacy, property, draftData, userSettings.city, userSettings.defaultSizeUnit]);
-  
+
   // Reset tracking when modal opens for new property
   useEffect(() => {
     if (!property && user) {
@@ -490,8 +491,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     }
   }, [property, user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     if (!formData.city || !formData.area || !formData.type) {
       alert('Please fill in all required fields');
@@ -507,12 +509,19 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       tags: property?.tags || '',
     };
 
-    // Clear draft on successful submit
-    if (!property) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    try {
+      setIsSubmitting(true);
+      await onSubmit(finalData);
 
-    onSubmit(finalData);
+      // Clear draft on successful submit
+      if (!property) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch (error) {
+      console.error('Submission failed', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (
@@ -546,13 +555,15 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
           </h2>
           <button
             onClick={() => {
+              if (isSubmitting) return;
               // Clear draft when closed
               if (!property) {
                 localStorage.removeItem(STORAGE_KEY);
               }
               onClose();
             }}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            disabled={isSubmitting}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
           >
             <X className="w-4 h-4 text-gray-500" />
           </button>
@@ -586,11 +597,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                           setShowCityDropdown(false);
                           setShowAddCityInput(false);
                         }}
-                        className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${
-                          formData.city === option.value
+                        className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.city === option.value
                             ? 'bg-blue-50 text-blue-700 font-medium'
                             : 'text-gray-700'
-                        }`}
+                          }`}
                       >
                         {option.label}
                       </button>
@@ -685,11 +695,11 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                     const filteredAreas = availableAreas.filter(area =>
                       area.toLowerCase().includes(searchQuery)
                     );
-                    const exactMatch = availableAreas.some(area => 
+                    const exactMatch = availableAreas.some(area =>
                       area.toLowerCase() === searchQuery
                     );
                     const showAddNew = searchQuery.length > 0 && !exactMatch;
-                    
+
                     return (
                       <>
                         {filteredAreas.map((area, idx) => (
@@ -745,9 +755,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               <button
                 type="button"
                 onClick={() => setShowPropertyTypeDropdown(!showPropertyTypeDropdown)}
-                className={`w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 bg-white hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                  !formData.type ? 'text-gray-400' : 'text-gray-900'
-                }`}
+                className={`w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 bg-white hover:bg-gray-50 transition-colors flex items-center justify-between ${!formData.type ? 'text-gray-400' : 'text-gray-900'
+                  }`}
               >
                 <span>{currentPropertyTypeLabel}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${showPropertyTypeDropdown ? 'rotate-180' : ''}`} />
@@ -764,11 +773,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                         setFormData(prev => ({ ...prev, type: option.value }));
                         setShowPropertyTypeDropdown(false);
                       }}
-                      className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${
-                        formData.type === option.value
+                      className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.type === option.value
                           ? 'bg-blue-50 text-blue-700 font-medium'
                           : 'text-gray-700'
-                      }`}
+                        }`}
                     >
                       {option.label}
                     </button>
@@ -804,11 +812,10 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                             setFormData(prev => ({ ...prev, size_unit: option.value as any }));
                             setShowSizeUnitDropdown(false);
                           }}
-                          className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${
-                            formData.size_unit === option.value
+                          className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.size_unit === option.value
                               ? 'bg-blue-50 text-blue-700 font-medium'
                               : 'text-gray-700'
-                          }`}
+                            }`}
                         >
                           {option.label}
                         </button>
@@ -914,7 +921,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                   step="0.01"
                   required
                 />
-            
+
               </>
             )}
           </div>
@@ -939,8 +946,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
             <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
               <FileText className="w-3 h-3 text-gray-500" />
               Private notes{' '}
-              <span 
-                className="relative inline-flex items-center border-b border-dotted border-gray-400 cursor-help pb-0.5" 
+              <span
+                className="relative inline-flex items-center border-b border-dotted border-gray-400 cursor-help pb-0.5"
                 style={{ borderBottomWidth: '1px' }}
                 onMouseEnter={() => setShowNoteTooltip(true)}
                 onMouseLeave={() => setShowNoteTooltip(false)}
@@ -970,19 +977,18 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
               <div className="flex-1">
                 <span className="text-xs font-semibold text-gray-900">Privacy</span>
                 <p className="text-xs text-gray-500 leading-relaxed mt-0.5">
-                  {formData.is_public === 1 
-                    ? 'This property is visible to everyone' 
+                  {formData.is_public === 1
+                    ? 'This property is visible to everyone'
                     : 'This property is only visible to you'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }))}
-                className={`flex items-center gap-1 px-1.5 py-1 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
-                  formData.is_public === 1 
-                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' 
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${formData.is_public === 1
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
                     : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
                 aria-label={formData.is_public === 1 ? 'Make private' : 'Make public'}
               >
                 <div className="flex items-center gap-1">
@@ -1007,21 +1013,25 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
             <button
               type="button"
               onClick={() => {
+                if (isSubmitting) return;
                 // Clear draft when cancelled
                 if (!property) {
                   localStorage.removeItem(STORAGE_KEY);
                 }
                 onClose();
               }}
-              className="px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+              disabled={isSubmitting}
+              className="px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {property ? 'Update Property' : 'Add Property'}
+              {isSubmitting && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+              {property ? (isSubmitting ? 'Updating...' : 'Update Property') : (isSubmitting ? 'Adding...' : 'Add Property')}
             </button>
           </div>
         </form>
