@@ -25,46 +25,40 @@ export const defaultIcon = new L.Icon.Default();
 // Create a custom landmark icon
 export const landmarkIcon = L.divIcon({
   className: 'custom-landmark-marker',
-  html: `<div style="position: relative; width: 30px; height: 41px; opacity: 0.8;">
-    <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-      <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="#2563eb"/>
-      <circle cx="15" cy="15" r="6" fill="white"/>
-      <svg x="9" y="9" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-      </svg>
+  html: `<div style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background-color: #2563eb;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  ">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
     </svg>
   </div>`,
-  iconSize: [30, 41],
-  iconAnchor: [15, 41],
-  popupAnchor: [0, -41]
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+  popupAnchor: [0, -20]
 });
 
 // Create a user location icon
 export const getUserLocationIcon = () => L.divIcon({
   className: 'custom-user-marker',
   html: `<div style="
-    width: 40px;
-    height: 40px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background-color: #3b82f6;
-    border: 5px solid white;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
-    position: relative;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  ">
-    <div style="
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: white;
-    "></div>
-  </div>`,
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-  popupAnchor: [0, -20]
+    background-color: #4285F4;
+    border: 2px solid white;
+    box-shadow: 0 0 0 6px rgba(66, 133, 244, 0.2), 0 1px 4px rgba(0,0,0,0.3);
+  "></div>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -9]
 });
 
 // Create an exact location icon (custom blue marker)
@@ -101,18 +95,25 @@ export const privateLocationIcon = L.divIcon({
 // Helper function to create a property type icon
 const createPropertyIcon = (color: string, iconPath: string) => L.divIcon({
   className: 'custom-property-marker',
-  html: `<div style="position: relative; width: 30px; height: 41px;">
-    <svg width="30" height="41" viewBox="0 0 30 41" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-      <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 26 15 26s15-15.5 15-26C30 6.716 23.284 0 15 0z" fill="${color}"/>
-      <circle cx="15" cy="15" r="8" fill="white"/>
-      <svg x="8" y="8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-        ${iconPath}
-      </svg>
+  html: `<div style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background-color: ${color};
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease;
+  ">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+      ${iconPath}
     </svg>
   </div>`,
-  iconSize: [30, 41],
-  iconAnchor: [15, 41],
-  popupAnchor: [0, -41]
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+  popupAnchor: [0, -20]
 });
 
 // Property type specific icons with distinct colors using Lucide icons

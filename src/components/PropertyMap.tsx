@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents } 
 import { Property } from '../types/property';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
-import { Navigation, Satellite, MapPin, Maximize, ArrowRight } from 'lucide-react';
+import { Navigation, Satellite, MapPin, Maximize, ArrowRight, LocateFixed } from 'lucide-react';
 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -399,10 +399,10 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
           type="button"
           onClick={handleGetCurrentLocation}
           disabled={isGettingLocation}
-          className="absolute bottom-2 right-2 pointer-events-auto flex items-center justify-center w-10 h-10 bg-white text-blue-600 hover:bg-blue-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+          className="absolute bottom-2 right-2 pointer-events-auto flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:bg-gray-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
           title="Get Current Location"
         >
-          <Navigation
+          <LocateFixed
             className={`w-5 h-5 flex-shrink-0 ${isGettingLocation ? 'animate-spin' : ''}`}
             strokeWidth={2.5}
           />
