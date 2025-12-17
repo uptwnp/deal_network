@@ -2,15 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global Font Settings */
+/* Global Font Settings - Consistent across all devices */
+* {
+  /* Force consistent font rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
 h1,
 h2,
-h3 {
-  font-family: 'Outfit', sans-serif;
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+/* Ensure all text elements use the correct font */
+input,
+textarea,
+select,
+button {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
 }
 
 /* Property Card Custom Styles */

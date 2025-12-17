@@ -1,5 +1,5 @@
 import {
-  Globe, Lock, Clock, MessageSquare,
+  Globe, Lock, Clock, Tag, Heart, MessageSquare,
   Navigation, Flame, Compass, TreeDeciduous, Map
 } from 'lucide-react';
 import { Property } from '../types/property';
@@ -100,18 +100,18 @@ export function PropertyCard({
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffMinutes < 1) {
-      return 'just now';
+      return 'Just now';
     } else if (diffMinutes < 60) {
       return `${diffMinutes} ${diffMinutes === 1 ? 'min' : 'mins'} ago`;
     } else if (diffHours < 24) {
       return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
     } else if (diffDays === 1) {
-      return 'yesterday';
+      return 'Yesterday';
     } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
+      return `${diffDays} Days ago`;
     } else if (diffDays < 30) {
       const weeks = Math.floor(diffDays / 7);
-      return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+      return `${weeks} ${weeks === 1 ? 'Week' : 'Weeks'} ago`;
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
     }
@@ -149,9 +149,14 @@ export function PropertyCard({
       const trimmed = tag.trim();
       if (trimmed) {
         const Icon = getHighlightIcon(trimmed);
-        allTags.push({ text: trimmed, Icon: Icon || MessageSquare, type: 'tag' });
+        allTags.push({ text: trimmed, Icon: Icon || Tag, type: 'tag' });
       }
     });
+  }
+
+  // Add user note if it exists
+  if (property.user_note && property.user_note.trim()) {
+    allTags.push({ text: `Note: ${property.user_note.trim()}`, Icon: MessageSquare, type: 'tag' });
   }
 
   return (
@@ -237,11 +242,18 @@ export function PropertyCard({
             ))}
           </div>
 
-          {/* Timestamp with Public/Private icon */}
+          {/* Timestamp with Public/Private icon and Favorite icon */}
           <div className="text-right flex items-center justify-end gap-1">
             <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
               <Clock className="text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" /> {createdDateText}
             </span>
+            {/* Favorite/Saved Icon */}
+            {property.is_favourite === 1 && (
+              <span className="inline-flex items-center" title="Saved">
+                <Heart className="text-red-500 fill-red-500 text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" />
+              </span>
+            )}
+            {/* Public/Private Icon */}
             {isOwned && (
               <span className="inline-flex items-center">
                 {property.is_public === 1 ? (
