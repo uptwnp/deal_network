@@ -35,21 +35,34 @@ axios.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Handle HTTP error responses
+    // IMPORTANT: Only handle authentication errors, NOT network errors
+    // Network errors (offline, timeout, etc.) should NOT trigger logout
+
     if (error.response) {
+      // Server responded with an error status - check if it's an auth error
       const errorData = error.response.data;
-      if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+      const statusCode = error.response.status;
+
+      // Only logout for explicit authentication/authorization errors
+      if (statusCode === 401 || statusCode === 403) {
+        handleAuthError();
+      } else if (errorData && typeof errorData === 'object' && 'error' in errorData) {
         const errorMessage = errorData.error || '';
         if (errorMessage.toLowerCase().includes('authentication required') ||
           errorMessage.toLowerCase().includes('invalid token')) {
           handleAuthError();
         }
       }
-      // Also check for 401/403 status codes
-      if (error.response.status === 401 || error.response.status === 403) {
-        handleAuthError();
-      }
+    } else if (error.request) {
+      // Request was made but no response received (network error, timeout, offline, etc.)
+      // DO NOT logout - this is a connectivity issue, not an auth issue
+      console.warn('Network error detected (offline or timeout):', error.message);
+      // Just pass the error through without triggering logout
+    } else {
+      // Something else happened during request setup
+      console.warn('Request setup error:', error.message);
     }
+
     return Promise.reject(error);
   }
 );

@@ -697,14 +697,61 @@ export function PropertyDetailsContent({
                         </>
                     ) : (
                         <>
+                            {/* Favorite and Note Section - Now First */}
+                            <div className="space-y-3">
+                                <div className="flex gap-2 sm:gap-3">
+                                    <button
+                                        onClick={() => {
+                                            if (onFav) {
+                                                onFav(property.id, !property.is_favourite, property.user_note || '');
+                                            }
+                                        }}
+                                        className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center justify-center gap-2 text-sm sm:text-base font-semibold rounded-xl transition-all border-2 shadow-sm hover:shadow-md ${property.is_favourite
+                                            ? 'bg-gradient-to-r from-red-50 to-pink-50 text-red-600 border-red-300 hover:from-red-100 hover:to-pink-100'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-red-300 hover:bg-red-50'
+                                            }`}
+                                    >
+                                        <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${property.is_favourite ? 'fill-current' : ''}`} />
+                                        {property.is_favourite ? 'Saved' : 'Save'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setNoteDraft(property.user_note || '');
+                                            setShowFavModal(true);
+                                        }}
+                                        className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center justify-center gap-2 text-sm sm:text-base font-semibold rounded-xl transition-all border-2 shadow-sm hover:shadow-md ${property.user_note
+                                            ? 'bg-gradient-to-r from-yellow-50 to-amber-50 text-yellow-700 border-yellow-300 hover:from-yellow-100 hover:to-amber-100'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-yellow-300 hover:bg-yellow-50'
+                                            }`}
+                                    >
+                                        <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        {property.user_note ? 'Edit Note' : 'Add Note'}
+                                    </button>
+                                </div>
+
+                                {/* Display user note if it exists */}
+                                {!isOwned && property.user_note && (
+                                    <div className="p-3 sm:p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border-2 border-yellow-200 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-2 text-xs sm:text-sm font-bold text-yellow-900">
+                                            <FileText className="w-4 h-4" />
+                                            My Note (Private)
+                                        </div>
+                                        <p className="text-sm sm:text-base text-gray-800 leading-relaxed">
+                                            {property.user_note}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Contact Options Section - Now Second */}
                             <div className="flex gap-2 sm:gap-3">
                                 <button
                                     onClick={() => {
                                         onAskQuestion?.(property);
                                     }}
-                                    className="flex-1 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 bg-green-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                                    className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center justify-center gap-2 bg-green-600 text-white text-sm sm:text-base font-semibold rounded-xl hover:bg-green-700 transition-all shadow-sm hover:shadow-md"
                                 >
-                                    <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                     Ask Question
                                 </button>
                                 {property.owner_phone && (
@@ -712,54 +759,14 @@ export function PropertyDetailsContent({
                                         onClick={() => {
                                             window.location.href = `tel:${property.owner_phone}`;
                                         }}
-                                        className="flex-1 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                                        className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center justify-center gap-2 bg-blue-600 text-white text-sm sm:text-base font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
                                     >
-                                        <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
                                         <span className="md:hidden">Call</span>
                                         <span className="hidden md:inline">{property.owner_phone}</span>
                                     </button>
                                 )}
                             </div>
-                            <div className="flex gap-2 sm:gap-3 mt-3">
-                                <button
-                                    onClick={() => {
-                                        if (onFav) {
-                                            onFav(property.id, !property.is_favourite, property.user_note || '');
-                                        }
-                                    }}
-                                    className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors border ${property.is_favourite
-                                        ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${property.is_favourite ? 'fill-current' : ''}`} />
-                                    {property.is_favourite ? 'Favorited' : 'Favorite'}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setNoteDraft(property.user_note || '');
-                                        setShowFavModal(true);
-                                    }}
-                                    className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors border ${property.user_note
-                                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    {property.user_note ? 'Edit Note' : 'Add Note'}
-                                </button>
-                            </div>
-                            {!isOwned && property.user_note && (
-                                <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                                    <div className="flex items-center gap-2 mb-1 text-xs font-semibold text-yellow-800">
-                                        <FileText className="w-3 h-3" />
-                                        My Note (Private)
-                                    </div>
-                                    <p className="text-sm text-gray-800 leading-relaxed">
-                                        {property.user_note}
-                                    </p>
-                                </div>
-                            )}
                         </>
                     )}
                 </div>

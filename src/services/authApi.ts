@@ -259,13 +259,29 @@ export const authApi = {
       return response.data;
     } catch (error: any) {
       console.error('getProfile API error:', error);
+
+      // Check if this is a network error
+      if (!error.response) {
+        // No response from server - likely offline, network error, or timeout
+        if (error.code === 'ECONNABORTED') {
+          console.warn('Request timeout - user may be offline or server is slow');
+          return { status: false, message: 'Request timeout. Please check your connection.' };
+        } else if (error.code === 'ERR_NETWORK') {
+          console.warn('Network error - user is likely offline');
+          return { status: false, message: 'Network error. Please check your internet connection.' };
+        } else {
+          console.warn('No response from server - user may be offline');
+          return { status: false, message: 'Unable to connect. Please check your internet connection.' };
+        }
+      }
+
+      // Server responded with an error
       if (error.response?.data) {
         console.error('Error response data:', error.response.data);
         return error.response.data;
       }
-      if (error.code === 'ECONNABORTED') {
-        return { status: false, message: 'Request timeout. Please check your connection.' };
-      }
+
+      // Unknown error
       throw new Error(error.message || 'Failed to get profile');
     }
   },

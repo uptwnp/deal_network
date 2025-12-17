@@ -3,14 +3,12 @@ import {
   User,
   Phone,
   Lock,
-  Building,
   MapPin,
   ChevronDown,
   Eye,
   EyeOff,
 } from "lucide-react";
-import { PROPERTY_TYPES, getCityOptions } from "../utils/filterOptions";
-import { getAllAreas } from "../utils/areaCityApi";
+import { getCityOptions } from "../utils/filterOptions";
 
 interface AuthPageProps {
   onLogin: (userId: number) => void;
@@ -31,19 +29,15 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
   // Signup form state
   const [signupName, setSignupName] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
-  const [signupAddress, setSignupAddress] = useState("");
-  const [signupFirmName, setSignupFirmName] = useState("");
   const [signupPin, setSignupPin] = useState("");
   const [signupCity, setSignupCity] = useState("");
-  const [signupArea, setSignupArea] = useState<string[]>([]);
-  const [signupPropertyType, setSignupPropertyType] = useState<string[]>([]);
-  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
+  const [customCity, setCustomCity] = useState("");
+  const [showCustomCityInput, setShowCustomCityInput] = useState(false);
 
-  // Dynamic city and area options from API
+  // Dynamic city options from API
   const [cityOptions, setCityOptions] = useState<string[]>([]);
-  const [areaOptions, setAreaOptions] = useState<string[]>([]);
 
-  // Fetch city and area options on mount
+  // Fetch city options on mount
   useEffect(() => {
     getCityOptions()
       .then((cities) => {
@@ -51,14 +45,6 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
       })
       .catch((error) => {
         console.error("Failed to load city options:", error);
-      });
-
-    getAllAreas()
-      .then((areas) => {
-        setAreaOptions(areas);
-      })
-      .catch((error) => {
-        console.error("Failed to load area options:", error);
       });
   }, []);
 
@@ -367,7 +353,6 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
                       onClick={() => {
                         setIsLogin(false);
                         setError("");
-                        setShowAdditionalDetails(true);
                       }}
                       className="text-blue-600 hover:text-blue-700 font-semibold"
                     >
@@ -420,40 +405,6 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Office Address{" "}
-                    <span className="text-gray-400 text-xs">(Optional)</span>
-                  </label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={signupAddress}
-                      onChange={(e) => setSignupAddress(e.target.value)}
-                      placeholder="Enter your office address"
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Firm Name{" "}
-                    <span className="text-gray-400 text-xs">(Optional)</span>
-                  </label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={signupFirmName}
-                      onChange={(e) => setSignupFirmName(e.target.value)}
-                      placeholder="Enter your firm name"
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     PIN <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -484,37 +435,27 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
                   <p className="mt-1 text-xs text-gray-500">Minimum 4 digits</p>
                 </div>
 
-                {/* Additional Details Toggle */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowAdditionalDetails(!showAdditionalDetails)
-                    }
-                    className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <span className="text-sm font-medium text-gray-700">
-                      Additional Details (Optional)
-                    </span>
-                    <ChevronDown
-                      className={`w-5 h-5 text-gray-400 transition-transform ${showAdditionalDetails ? "rotate-180" : ""
-                        }`}
-                    />
-                  </button>
-                </div>
 
-                {/* Additional Details Fields */}
-                {showAdditionalDetails && (
-                  <div className="space-y-4 pt-2 border-t border-gray-200">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City
-                      </label>
+                {/* City Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+
+                  {!showCustomCityInput ? (
+                    <>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <select
                           value={signupCity}
-                          onChange={(e) => setSignupCity(e.target.value)}
+                          onChange={(e) => {
+                            if (e.target.value === "add_new") {
+                              setShowCustomCityInput(true);
+                              setSignupCity("");
+                            } else {
+                              setSignupCity(e.target.value);
+                            }
+                          }}
                           className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
                         >
                           <option value="">Select City</option>
@@ -523,95 +464,38 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
                               {city}
                             </option>
                           ))}
+                          <option value="add_new" className="font-semibold text-blue-600">
+                            + Add New City
+                          </option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Area
-                      </label>
-                      <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto bg-white">
-                        <div className="space-y-2">
-                          {areaOptions.map((area) => (
-                            <label
-                              key={area}
-                              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={signupArea.includes(area)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSignupArea([...signupArea, area]);
-                                  } else {
-                                    setSignupArea(
-                                      signupArea.filter((a) => a !== area)
-                                    );
-                                  }
-                                }}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-gray-700">
-                                {area}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={customCity}
+                          onChange={(e) => setCustomCity(e.target.value)}
+                          placeholder="Enter city name"
+                          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
                       </div>
-                      {signupArea.length > 0 && (
-                        <p className="mt-2 text-xs text-gray-500">
-                          Selected: {signupArea.join(", ")}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Property Type
-                      </label>
-                      <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto bg-white">
-                        <div className="space-y-2">
-                          {PROPERTY_TYPES.map((type) => (
-                            <label
-                              key={type}
-                              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={signupPropertyType.includes(type)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSignupPropertyType([
-                                      ...signupPropertyType,
-                                      type,
-                                    ]);
-                                  } else {
-                                    setSignupPropertyType(
-                                      signupPropertyType.filter(
-                                        (t) => t !== type
-                                      )
-                                    );
-                                  }
-                                }}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-gray-700">
-                                {type}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      {signupPropertyType.length > 0 && (
-                        <p className="mt-2 text-xs text-gray-500">
-                          Selected: {signupPropertyType.join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomCityInput(false);
+                          setCustomCity("");
+                        }}
+                        className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        ← Back to city list
+                      </button>
+                    </>
+                  )}
+                </div>
 
                 <button
                   type="submit"

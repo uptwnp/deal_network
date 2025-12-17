@@ -23,12 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return currentUser?.id || 0;
   });
 
-  // Start with false to allow immediate render, verify in background
-  const [loading, setLoading] = useState(false);
+  // Loading is always false - we use localStorage for immediate state
+  const loading = false;
 
   // Track if profile check has been initiated to prevent duplicate calls (StrictMode)
   const profileCheckInitiatedRef = useRef(false);
-  
+
   // Check for existing token and fetch user profile on mount (non-blocking)
   useEffect(() => {
     // Prevent duplicate calls (especially in StrictMode double-render)
@@ -37,17 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     profileCheckInitiatedRef.current = true;
-    
+
     const checkAuth = async () => {
       const token = getStoredToken();
       const storedUser = getCurrentUser();
-      
+
       // Set initial state immediately from localStorage (non-blocking)
       if (storedUser) {
         setUserState(storedUser);
         setOwnerIdState(storedUser.id);
       }
-      
+
       // Verify token in background if we have one
       if (token && storedUser) {
         // Verify token is still valid by fetching profile (non-blocking)
@@ -74,16 +74,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setCurrentUser(apiUser);
             setOwnerIdState(apiUser.id);
           } else {
-            // Token invalid, clear storage
+            // Token invalid (server explicitly said so), clear storage
+            console.warn('Token verification failed - server returned invalid status');
             authApi.logout();
             setUserState(null);
             setCurrentUser(null);
             setOwnerIdState(0);
           }
-        } catch (error) {
-          console.error('Failed to verify token:', error);
-          // On error, keep stored user but mark as potentially stale
-          // Already set from localStorage above, so no need to update
+        } catch (error: any) {
+          // Check if this is a network error vs an auth error
+          const isNetworkError = error.code === 'ECONNABORTED' ||
+            error.code === 'ERR_NETWORK' ||
+            error.message?.toLowerCase().includes('network') ||
+            error.message?.toLowerCase().includes('timeout') ||
+            !error.response; // No response typically means network issue
+
+          if (isNetworkError) {
+            // Network error (offline, timeout, etc.) - keep user logged in
+            console.warn('Network error during token verification - keeping user logged in:', error.message);
+            // User data already set from localStorage above, so no need to update
+          } else {
+            // Actual auth error from server - log out
+            console.error('Authentication error during token verification - logging out:', error);
+            authApi.logout();
+            setUserState(null);
+            setCurrentUser(null);
+            setOwnerIdState(0);
+          }
         }
       } else if (!storedUser) {
         // No token and no stored user - clear ownerId
@@ -92,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     checkAuth();
-    
+
     // Cleanup: reset flag only on unmount (allows re-check if component remounts)
     return () => {
       // Note: We don't reset here to prevent duplicate calls during StrictMode double-render
@@ -153,10 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ 
-      ownerId, 
-      setOwnerId, 
-      user, 
+    <AuthContext.Provider value={{
+      ownerId,
+      setOwnerId,
+      user,
       setUser,
       isAuthenticated: !!user,
       loading
