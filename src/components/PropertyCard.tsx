@@ -1,8 +1,12 @@
-import { Globe, Lock, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
+import {
+  Globe, Lock, Clock, MessageSquare,
+  Navigation, Flame, Compass, TreeDeciduous, Map
+} from 'lucide-react';
 import { Property } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
+import { propertyTypeDefinitions } from '../utils/leafletIcons';
 
 interface PropertyCardProps {
   property: Property;
@@ -11,69 +15,21 @@ interface PropertyCardProps {
   isSelected?: boolean;
 }
 
-// Icon mappings for highlights
-const HIGHLIGHT_ICONS: Record<string, any> = {
-  'Corner': CornerDownRight,
-  'Urgent Sale': AlertCircle,
-  'On 12 Meter': Navigation,
-  'On 18 Meter': Navigation,
-  'On 24 Meter': Navigation,
-  'On Wide Road': Navigation,
-  'Prime Location': MapPin,
-  'Two Side Open': CornerDownRight,
-  'Park Facing': TreePine,
-  'East Facing': Navigation,
-  'South Facing': Navigation,
-  '3 Side Open': CornerDownRight,
-  'Gated Society': Shield,
-  'Good Connectivity': Wifi,
-  'Multipurpose': Building,
-  'Green Belt': TreePine,
-  'Extra Space': Home,
-  'Luxury Builtup': Star,
-  'Very Less Price': DollarSign,
-  'Great Investment': TrendingUp,
-  // Legacy support
-  'Excellent location': MapPin,
-  'Ready to move': CheckCircle,
-  'Prime property': Star,
-  'Near amenities': Building,
-  'Corner plot': CornerDownRight,
-  'Main road facing': Navigation,
-  'Gated community': Shield,
-  'Well connected': Wifi,
-};
-
-// Get icon for highlight text
-function getIconForHighlight(text: string) {
-  const trimmed = text.trim();
-  return HIGHLIGHT_ICONS[trimmed] || Sparkles;
+// Get property icon SVG from the exact same definitions used in the map
+function getPropertyTypeIconSVG(type: string): { color: string; path: string } | null {
+  return propertyTypeDefinitions[type] || null;
 }
 
-// Get type-specific styling
-function getPropertyTypeStyles(type: string) {
-  const typeLower = type.toLowerCase();
-  const isPlot = typeLower.includes('plot');
-
-  if (isPlot) {
-    // Plot - dull color
-    return {
-      borderColor: 'border-l-gray-300',
-      hoverBorderColor: 'hover:border-l-gray-400',
-      bgColor: 'bg-gray-50',
-      accentColor: 'bg-gray-100',
-      iconColor: 'text-gray-700',
-    };
-  } else {
-    // Other - orange color
-    return {
-      borderColor: 'border-l-orange-500',
-      hoverBorderColor: 'hover:border-l-orange-600',
-      bgColor: 'bg-orange-50',
-      accentColor: 'bg-orange-100',
-      iconColor: 'text-orange-700',
-    };
-  }
+// Get highlight icon
+function getHighlightIcon(text: string) {
+  const textLower = text.toLowerCase();
+  if (textLower.includes('corner')) return Navigation;
+  if (textLower.includes('park')) return TreeDeciduous;
+  if (textLower.includes('urgent')) return Flame;
+  if (textLower.includes('road') || textLower.includes('meter')) return Navigation;
+  if (textLower.includes('facing')) return Compass;
+  if (textLower.includes('plot')) return Map;
+  return null;
 }
 
 export function PropertyCard({
@@ -82,13 +38,12 @@ export function PropertyCard({
   onViewDetails,
   isSelected,
 }: PropertyCardProps) {
-  const typeStyles = getPropertyTypeStyles(property.type);
   const userSettings = getUserSettings();
   const userCity = userSettings.city || '';
 
-  // Trim description to 100 characters
-  const trimmedDescription = property.description && property.description.length > 100
-    ? property.description.substring(0, 100) + '...'
+  // Trim description to 150 characters
+  const trimmedDescription = property.description && property.description.length > 150
+    ? property.description.substring(0, 150) + '...'
     : property.description || '';
 
   // Format price
@@ -116,22 +71,13 @@ export function PropertyCard({
           : 0;
 
     if (avgPrice > 0 && avgSize > 0) {
-      // Price is in lakhs, so convert to actual rupees (multiply by 100000)
       const priceInRupees = avgPrice * 100000;
       const ratePerUnit = priceInRupees / avgSize;
 
-      // Format the rate nicely
-      if (ratePerUnit >= 10000000) {
-        // If >= 1 crore, show in crores
-        return `₹${(ratePerUnit / 10000000).toFixed(2)} Cr/${property.size_unit}`;
-      } else if (ratePerUnit >= 100000) {
-        // If >= 1 lakh, show in lakhs
-        return `₹${(ratePerUnit / 100000).toFixed(2)} L/${property.size_unit}`;
-      } else if (ratePerUnit >= 1000) {
-        // If >= 1000, show in thousands
-        return `₹${(ratePerUnit / 1000).toFixed(1)}K/${property.size_unit}`;
+      if (ratePerUnit >= 10000) {
+        return `₹ ${Math.round(ratePerUnit).toLocaleString('en-IN')}`;
       } else {
-        return `₹${Math.round(ratePerUnit)}/${property.size_unit}`;
+        return `₹ ${Math.round(ratePerUnit).toLocaleString('en-IN')}`;
       }
     }
     return null;
@@ -139,7 +85,7 @@ export function PropertyCard({
 
   const ratePerUnitText = calculateRatePerUnit();
 
-  // Format location - show city only if it's not the user's city
+  // Format location
   const locationText = property.city.toLowerCase() === userCity.toLowerCase()
     ? property.area
     : `${property.area}, ${property.city}`;
@@ -149,12 +95,18 @@ export function PropertyCard({
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) {
-      return 'Today';
+    if (diffMinutes < 1) {
+      return 'just now';
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes} ${diffMinutes === 1 ? 'min' : 'mins'} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
     } else if (diffDays === 1) {
-      return 'Yesterday';
+      return 'yesterday';
     } else if (diffDays < 7) {
       return `${diffDays} days ago`;
     } else if (diffDays < 30) {
@@ -167,105 +119,141 @@ export function PropertyCard({
 
   const createdDateText = formatCreatedDate(property.created_on);
 
+  // Get the exact icon definition from the map
+  const iconDef = getPropertyTypeIconSVG(property.type);
+
+  // Combine highlights and tags
+  const allTags: { text: string; Icon?: any; type: 'highlight' | 'tag' }[] = [];
+
+  // Add highlights
+  if (property.highlights) {
+    property.highlights.split(',').forEach((highlight) => {
+      const trimmed = highlight.trim();
+      if (trimmed) {
+        const Icon = getHighlightIcon(trimmed);
+        allTags.push({ text: trimmed, Icon: Icon || undefined, type: 'highlight' });
+      }
+    });
+  }
+
+  // Add "My Property" tag if owned
+  if (isOwned) {
+    allTags.push({ text: 'My Property', type: 'tag' });
+  }
+
+  // Note: Public/Private status is now shown as an icon next to timestamp, not as a tag
+
+  // Add other custom tags (limit to 2)
+  if (property.tags) {
+    property.tags.split(',').slice(0, 2).forEach((tag) => {
+      const trimmed = tag.trim();
+      if (trimmed) {
+        const Icon = getHighlightIcon(trimmed);
+        allTags.push({ text: trimmed, Icon: Icon || MessageSquare, type: 'tag' });
+      }
+    });
+  }
+
   return (
     <button
       onClick={() => onViewDetails(property)}
-      className={`w-full rounded-xl transition-all duration-200 p-3 sm:p-4 border-l-4 text-left relative group
-        ${isSelected
-          ? 'bg-blue-50/80 border-t border-r border-b border-blue-200 shadow-md scale-[1.01]'
-          : `bg-white border-t border-r border-b border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:-translate-y-0.5`
-        }
-        ${typeStyles.borderColor} ${typeStyles.hoverBorderColor}
+      className={`c2_property-card relative bg-white rounded-lg sm:rounded-xl md:rounded-xl p-2.5 sm:p-3 md:p-3.5 border border-gray-200 overflow-hidden transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-lg shadow-md w-full text-left
+        ${isSelected ? 'ring-2 ring-blue-500 shadow-xl' : ''}
       `}
     >
-      <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
-              {sizeText} {property.type} in {locationText}
-            </h3>
-            <span className="text-[0.6rem] text-gray-400 font-normal">#{property.id}</span>
-          </div>
+      {/* Decorative Background */}
+      <div className="c2_card-bg-gradient"></div>
+      <div className="c2_card-bg-orb"></div>
 
-        </div>
-        <div className="flex-shrink-0">
-          <div className="flex items-center gap-0 text-sm sm:text-base font-semibold text-gray-900">
-            <IndianRupee className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{priceText}</span>
+      {/* Card Content */}
+      <div className="relative z-0">
+        {/* Card Header with Icon, Title & Price */}
+        <header className="flex flex-row justify-between items-start gap-2 sm:gap-2.5 md:gap-2.5 mb-2 sm:mb-2.5 md:mb-2.5">
+          <div className="flex gap-2 sm:gap-2.5 md:gap-2.5 items-start flex-1 min-w-0">
+            {/* Icon - Using exact SVG from map, more compact on desktop */}
+            <div
+              className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full border border-opacity-30 flex items-center justify-center flex-shrink-0"
+              style={{
+                backgroundColor: iconDef ? `${iconDef.color}15` : '#dbeafe',
+                borderColor: iconDef ? iconDef.color : '#3b82f6'
+              }}
+            >
+              {iconDef && (
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={iconDef.color}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-3 h-3 sm:w-4 sm:h-4 md:w-4 md:h-4"
+                  dangerouslySetInnerHTML={{ __html: iconDef.path }}
+                />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              {/* Title - More compact on desktop */}
+              <h3 className="text-xs sm:text-sm md:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-0.5 flex items-center flex-wrap gap-1">
+                {sizeText} | {locationText}
+              </h3>
+              {/* Subtitle */}
+              <p className="text-[10px] sm:text-xs md:text-xs text-gray-500">{property.type} - #{property.id}</p>
+            </div>
           </div>
-        </div>
-      </div>
-      {property.description && (
-        <div className="flex items-start gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs sm:text-sm text-gray-700 leading-relaxed flex-1">{trimmedDescription} | {ratePerUnitText}</p>
-
-        </div>
-      )}
-
-      <div className="space-y-1.5 sm:space-y-2">
-        {property.highlights && (
-          <div className="flex flex-nowrap gap-1 overflow-x-auto scrollbar-hide pb-1">
-            {property.highlights.split(',').map((highlight, idx) => {
-              const trimmedHighlight = highlight.trim();
-              if (!trimmedHighlight) return null;
-              const Icon = getIconForHighlight(trimmedHighlight);
-              return (
-                <span
-                  key={idx}
-                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs text-gray-700 bg-gray-100 rounded flex items-center gap-1 flex-shrink-0 whitespace-nowrap`}
-                >
-                  <Icon className="w-3 h-3 flex-shrink-0" />
-                  {trimmedHighlight}
-                </span>
-              );
-            })}
+          {/* Price Section */}
+          <div className="text-right">
+            <p className="text-xs sm:text-sm md:text-sm font-bold text-blue-600 mb-0.5 sm:mb-1 md:mb-0.5 whitespace-nowrap">
+              ₹ {priceText}
+            </p>
+            {ratePerUnitText && (
+              <p className="text-[10px] sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
+                {ratePerUnitText} <span className="text-gray-400">/{property.size_unit}</span>
+              </p>
+            )}
           </div>
+        </header>
+
+        {/* Description - More compact on desktop */}
+        {trimmedDescription && (
+          <p className="text-xs sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2">
+            {trimmedDescription}
+          </p>
         )}
 
-        {isOwned && (
-          <div className="flex flex-wrap gap-1">
-            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded font-medium">
-              My Property
-            </span>
-            {property.tags && property.tags.split(',').slice(0, 3).map((tag, idx) => (
+        {/* Card Footer with Tags & Timestamp */}
+        <footer className="c2_footer pt-2 sm:pt-2.5 md:pt-2.5 border-t border-gray-200">
+          {/* Tags */}
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 md:gap-1.5">
+            {allTags.map((tag, idx) => (
               <span
                 key={idx}
-                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-600 rounded flex items-center gap-1"
+                className="inline-flex items-center gap-1 py-0.5 px-1.5 sm:py-1 sm:px-2 md:py-0.5 md:px-2 rounded-full text-[10px] sm:text-xs md:text-xs font-normal bg-gray-50 text-gray-700 border border-gray-200 whitespace-nowrap transition-all duration-200 hover:bg-gray-100"
               >
-                <Tag className="w-3 h-3" />
-                {tag.trim()}
+                {tag.Icon && <tag.Icon className="text-gray-500 text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" />}
+                {tag.text}
               </span>
             ))}
-            {property.tags && property.tags.split(',').length > 3 && (
-              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                +{property.tags.split(',').length - 3}
+          </div>
+
+          {/* Timestamp with Public/Private icon */}
+          <div className="text-right flex items-center justify-end gap-1">
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
+              <Clock className="text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" /> {createdDateText}
+            </span>
+            {isOwned && (
+              <span className="inline-flex items-center">
+                {property.is_public === 1 ? (
+                  <Globe className="text-gray-500 text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" />
+                ) : (
+                  <Lock className="text-gray-500 text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" />
+                )}
               </span>
             )}
           </div>
-        )}
+        </footer>
       </div>
-
-      {/* Created date and Public/Private icon in bottom right */}
-      <div className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 flex items-center gap-1.5 sm:gap-2">
-        <span className={`text-[0.65rem] opacity-60`}>
-          {createdDateText}
-        </span>
-        {isOwned && (
-          <>
-            {property.is_public === 1 ? (
-              <div className="p-1 sm:p-1.5 bg-green-100 text-green-700 rounded shadow-sm" title="Public">
-                <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </div>
-            ) : (
-              <div className="p-1 sm:p-1.5 bg-blue-100 text-blue-700 rounded shadow-sm" title="Private">
-                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
     </button>
   );
 }

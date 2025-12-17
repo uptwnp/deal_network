@@ -119,6 +119,71 @@ function TileLayerSwitcher({ isSatelliteView }: { isSatelliteView: boolean }) {
   );
 }
 
+// Component to handle user location focus (when GPS button is clicked)
+function UserLocationFocuser({ userLocation, shouldFocus }: { userLocation: [number, number] | null; shouldFocus: boolean }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (userLocation && shouldFocus) {
+      // Fly to user location with a nice animation
+      map.flyTo(userLocation, 16, {
+        animate: true,
+        duration: 1.2
+      });
+    }
+  }, [userLocation, shouldFocus, map]);
+
+  return null;
+}
+
+// Component to handle map size invalidation (fixes issue with map not rendering after modals close)
+function MapSizeInvalidator() {
+  const map = useMap();
+
+  useEffect(() => {
+    // Create an intersection observer to detect when map becomes visible
+    const container = map.getContainer();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Map is visible, invalidate size after a short delay to allow transitions
+            setTimeout(() => {
+              map.invalidateSize();
+            }, 100);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(container);
+
+    // Also invalidate on window resize
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Invalidate size periodically when map might be affected by DOM changes
+    const interval = setInterval(() => {
+      // Only invalidate if map container is visible
+      if (container.offsetParent !== null) {
+        map.invalidateSize();
+      }
+    }, 500);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', handleResize);
+      clearInterval(interval);
+    };
+  }, [map]);
+
+  return null;
+}
+
 export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick, ...props }: PropertyMapProps) {
   // Load saved map view preference from localStorage, default to map view
   const [isSatelliteView, setIsSatelliteView] = useState(() => {
@@ -128,35 +193,40 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
   const [mapCenter, setMapCenter] = useState<[number, number]>(center);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [shouldFocusUserLocation, setShouldFocusUserLocation] = useState(false);
 
   // Helper function to get coordinates for a property (location first, then landmark_location as fallback)
-  const getPropertyCoords = (property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
-    // Try exact location first
-    if (property.location && property.location.includes(',')) {
-      const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        return { coords: [coords[0], coords[1]], isLandmark: false };
+  // Memoized to improve performance
+  const getPropertyCoords = useMemo(() => {
+    return (property: Property): { coords: [number, number] | null; isLandmark: boolean } => {
+      // Try exact location first
+      if (property.location && property.location.includes(',')) {
+        const coords = property.location.split(',').map((c) => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          return { coords: [coords[0], coords[1]], isLandmark: false };
+        }
       }
-    }
 
-    // Fallback to landmark_location
-    if (property.landmark_location && property.landmark_location.includes(',')) {
-      const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        return { coords: [coords[0], coords[1]], isLandmark: true };
+      // Fallback to landmark_location
+      if (property.landmark_location && property.landmark_location.includes(',')) {
+        const coords = property.landmark_location.split(',').map((c) => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          return { coords: [coords[0], coords[1]], isLandmark: true };
+        }
       }
-    }
 
-    return { coords: null, isLandmark: false };
-  };
+      return { coords: null, isLandmark: false };
+    };
+  }, []);
 
   // Filter properties that have either location or landmark_location
-  const propertiesWithCoords = properties.filter(
+  // Memoized to improve performance
+  const propertiesWithCoords = useMemo(() => properties.filter(
     (p) => {
       const { coords } = getPropertyCoords(p);
       return coords !== null;
     }
-  );
+  ), [properties, getPropertyCoords]);
 
   // Create user location icon (memoized to avoid recreating on each render)
   const userIcon = useMemo(() => getUserLocationIcon(), []);
@@ -173,6 +243,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
     }
 
     setIsGettingLocation(true);
+    setShouldFocusUserLocation(false); // Reset first
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -180,8 +251,9 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
         const lng = position.coords.longitude;
         const userPos: [number, number] = [lat, lng];
         setUserLocation(userPos);
-        setMapCenter(userPos);
         setIsGettingLocation(false);
+        // Trigger focus after location is set
+        setShouldFocusUserLocation(true);
       },
       (error) => {
         setIsGettingLocation(false);
@@ -220,6 +292,8 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
         style={{ position: 'relative', zIndex: 1 }}
       >
         <MapController focusOn={props.focusOn || null} defaultCenter={center} />
+        <UserLocationFocuser userLocation={userLocation} shouldFocus={shouldFocusUserLocation} />
+        <MapSizeInvalidator />
         <TileLayerSwitcher isSatelliteView={isSatelliteView} />
 
         {/* Accuracy circles - rendered outside cluster group */}

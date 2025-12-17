@@ -117,7 +117,7 @@ const createPropertyIcon = (color: string, iconPath: string) => L.divIcon({
 });
 
 // Property type definitions with distinct colors and SVG paths
-const propertyTypeDefinitions: Record<string, { color: string; path: string }> = {
+export const propertyTypeDefinitions: Record<string, { color: string; path: string }> = {
   // Residential properties - Blue/Purple shades
   'Residential Plot': { color: '#8b5cf6', path: '<path d="m12 8 6-3-6-3v10"/><path d="m8 11.99-5.5 3.14a1 1 0 0 0 0 1.74l8.5 4.86a2 2 0 0 0 2 0l8.5-4.86a1 1 0 0 0 0-1.74L16 12"/><path d="m6.49 12.85 11.02 6.3"/><path d="M17.51 12.85 6.5 19.15"/>' },
   'Residential House': { color: '#6366f1', path: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>' },

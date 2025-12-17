@@ -2577,7 +2577,7 @@ function MainAppContent({
               }`}
           >
             <Globe className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">All Property</span>
+            <span className="text-xs font-medium">All</span>
           </button>
           <button
             onClick={() => handleFilterChange('my')}
@@ -2587,7 +2587,7 @@ function MainAppContent({
               }`}
           >
             <Home className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">My Property</span>
+            <span className="text-xs font-medium">My</span>
           </button>
           <button
             onClick={() => handleFilterChange('public')}
@@ -2597,7 +2597,7 @@ function MainAppContent({
               }`}
           >
             <Users className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Public Property</span>
+            <span className="text-xs font-medium">Public</span>
           </button>
           <button
             onClick={() => handleFilterChange('saved')}

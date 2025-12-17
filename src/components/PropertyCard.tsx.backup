@@ -1,0 +1,271 @@
+import { Globe, Lock, IndianRupee, MapPin, Sparkles, Tag, Star, Building, CornerDownRight, Navigation, Shield, Wifi, CheckCircle, FileText, AlertCircle, TreePine, Home, TrendingUp, DollarSign } from 'lucide-react';
+import { Property } from '../types/property';
+import { getUserSettings } from '../types/userSettings';
+import { formatPrice } from '../utils/priceFormatter';
+import { formatSize } from '../utils/sizeFormatter';
+
+interface PropertyCardProps {
+  property: Property;
+  isOwned: boolean;
+  onViewDetails: (property: Property) => void;
+  isSelected?: boolean;
+}
+
+// Icon mappings for highlights
+const HIGHLIGHT_ICONS: Record<string, any> = {
+  'Corner': CornerDownRight,
+  'Urgent Sale': AlertCircle,
+  'On 12 Meter': Navigation,
+  'On 18 Meter': Navigation,
+  'On 24 Meter': Navigation,
+  'On Wide Road': Navigation,
+  'Prime Location': MapPin,
+  'Two Side Open': CornerDownRight,
+  'Park Facing': TreePine,
+  'East Facing': Navigation,
+  'South Facing': Navigation,
+  '3 Side Open': CornerDownRight,
+  'Gated Society': Shield,
+  'Good Connectivity': Wifi,
+  'Multipurpose': Building,
+  'Green Belt': TreePine,
+  'Extra Space': Home,
+  'Luxury Builtup': Star,
+  'Very Less Price': DollarSign,
+  'Great Investment': TrendingUp,
+  // Legacy support
+  'Excellent location': MapPin,
+  'Ready to move': CheckCircle,
+  'Prime property': Star,
+  'Near amenities': Building,
+  'Corner plot': CornerDownRight,
+  'Main road facing': Navigation,
+  'Gated community': Shield,
+  'Well connected': Wifi,
+};
+
+// Get icon for highlight text
+function getIconForHighlight(text: string) {
+  const trimmed = text.trim();
+  return HIGHLIGHT_ICONS[trimmed] || Sparkles;
+}
+
+// Get type-specific styling
+function getPropertyTypeStyles(type: string) {
+  const typeLower = type.toLowerCase();
+  const isPlot = typeLower.includes('plot');
+
+  if (isPlot) {
+    // Plot - dull color
+    return {
+      borderColor: 'border-l-gray-300',
+      hoverBorderColor: 'hover:border-l-gray-400',
+      bgColor: 'bg-gray-50',
+      accentColor: 'bg-gray-100',
+      iconColor: 'text-gray-700',
+    };
+  } else {
+    // Other - orange color
+    return {
+      borderColor: 'border-l-orange-500',
+      hoverBorderColor: 'hover:border-l-orange-600',
+      bgColor: 'bg-orange-50',
+      accentColor: 'bg-orange-100',
+      iconColor: 'text-orange-700',
+    };
+  }
+}
+
+export function PropertyCard({
+  property,
+  isOwned,
+  onViewDetails,
+  isSelected,
+}: PropertyCardProps) {
+  const typeStyles = getPropertyTypeStyles(property.type);
+  const userSettings = getUserSettings();
+  const userCity = userSettings.city || '';
+
+  // Trim description to 100 characters
+  const trimmedDescription = property.description && property.description.length > 100
+    ? property.description.substring(0, 100) + '...'
+    : property.description || '';
+
+  // Format price
+  const priceText = formatPrice(property.price_min, property.price_max);
+
+  // Format size
+  const sizeText = formatSize(property.size_min, property.size_max, property.size_unit);
+
+  // Calculate rate per unit
+  const calculateRatePerUnit = () => {
+    const avgPrice = property.price_min > 0 && property.price_max > 0
+      ? (property.price_min + property.price_max) / 2
+      : property.price_min > 0
+        ? property.price_min
+        : property.price_max > 0
+          ? property.price_max
+          : 0;
+
+    const avgSize = property.size_min > 0 && property.size_max > 0
+      ? (property.size_min + property.size_max) / 2
+      : property.size_min > 0
+        ? property.size_min
+        : property.size_max > 0
+          ? property.size_max
+          : 0;
+
+    if (avgPrice > 0 && avgSize > 0) {
+      // Price is in lakhs, so convert to actual rupees (multiply by 100000)
+      const priceInRupees = avgPrice * 100000;
+      const ratePerUnit = priceInRupees / avgSize;
+
+      // Format the rate nicely
+      if (ratePerUnit >= 10000000) {
+        // If >= 1 crore, show in crores
+        return `₹${(ratePerUnit / 10000000).toFixed(2)} Cr/${property.size_unit}`;
+      } else if (ratePerUnit >= 100000) {
+        // If >= 1 lakh, show in lakhs
+        return `₹${(ratePerUnit / 100000).toFixed(2)} L/${property.size_unit}`;
+      } else if (ratePerUnit >= 1000) {
+        // If >= 1000, show in thousands
+        return `₹${(ratePerUnit / 1000).toFixed(1)}K/${property.size_unit}`;
+      } else {
+        return `₹${Math.round(ratePerUnit)}/${property.size_unit}`;
+      }
+    }
+    return null;
+  };
+
+  const ratePerUnitText = calculateRatePerUnit();
+
+  // Format location - show city only if it's not the user's city
+  const locationText = property.city.toLowerCase() === userCity.toLowerCase()
+    ? property.area
+    : `${property.area}, ${property.city}`;
+
+  // Format created date
+  const formatCreatedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }
+  };
+
+  const createdDateText = formatCreatedDate(property.created_on);
+
+  return (
+    <button
+      onClick={() => onViewDetails(property)}
+      className={`w-full rounded-xl transition-all duration-200 p-3 sm:p-4 border-l-4 text-left relative group
+        ${isSelected
+          ? 'bg-blue-50/80 border-t border-r border-b border-blue-200 shadow-md scale-[1.01]'
+          : `bg-white border-t border-r border-b border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:-translate-y-0.5`
+        }
+        ${typeStyles.borderColor} ${typeStyles.hoverBorderColor}
+      `}
+    >
+      <div className="flex items-start gap-2 sm:gap-3 mb-1 sm:mb-0">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
+              {sizeText} {property.type} in {locationText}
+            </h3>
+            <span className="text-[0.6rem] text-gray-400 font-normal">#{property.id}</span>
+          </div>
+
+        </div>
+        <div className="flex-shrink-0">
+          <div className="flex items-center gap-0 text-sm sm:text-base font-semibold text-gray-900">
+            <IndianRupee className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>{priceText}</span>
+          </div>
+        </div>
+      </div>
+      {property.description && (
+        <div className="flex items-start gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs sm:text-sm text-gray-700 leading-relaxed flex-1">{trimmedDescription} | {ratePerUnitText}</p>
+
+        </div>
+      )}
+
+      <div className="space-y-1.5 sm:space-y-2">
+        {property.highlights && (
+          <div className="flex flex-nowrap gap-1 overflow-x-auto scrollbar-hide pb-1">
+            {property.highlights.split(',').map((highlight, idx) => {
+              const trimmedHighlight = highlight.trim();
+              if (!trimmedHighlight) return null;
+              const Icon = getIconForHighlight(trimmedHighlight);
+              return (
+                <span
+                  key={idx}
+                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs text-gray-700 bg-gray-100 rounded flex items-center gap-1 flex-shrink-0 whitespace-nowrap`}
+                >
+                  <Icon className="w-3 h-3 flex-shrink-0" />
+                  {trimmedHighlight}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {isOwned && (
+          <div className="flex flex-wrap gap-1">
+            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-100 text-blue-700 rounded font-medium">
+              My Property
+            </span>
+            {property.tags && property.tags.split(',').slice(0, 3).map((tag, idx) => (
+              <span
+                key={idx}
+                className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-600 rounded flex items-center gap-1"
+              >
+                <Tag className="w-3 h-3" />
+                {tag.trim()}
+              </span>
+            ))}
+            {property.tags && property.tags.split(',').length > 3 && (
+              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                +{property.tags.split(',').length - 3}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Created date and Public/Private icon in bottom right */}
+      <div className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 flex items-center gap-1.5 sm:gap-2">
+        <span className={`text-[0.65rem] opacity-60`}>
+          {createdDateText}
+        </span>
+        {isOwned && (
+          <>
+            {property.is_public === 1 ? (
+              <div className="p-1 sm:p-1.5 bg-green-100 text-green-700 rounded shadow-sm" title="Public">
+                <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+            ) : (
+              <div className="p-1 sm:p-1.5 bg-blue-100 text-blue-700 rounded shadow-sm" title="Private">
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+    </button>
+  );
+}

@@ -2,6 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global Font Settings */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Property Card Custom Styles */
+/* Decorative Background Elements */
+.c2_card-bg-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(to top, rgba(219, 234, 254, 0.5), transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.c2_card-bg-orb {
+  position: absolute;
+  top: -2.5rem;
+  left: -2.5rem;
+  width: 6rem;
+  height: 6rem;
+  background-color: rgba(37, 99, 235, 0.1);
+  border-radius: 50%;
+  filter: blur(32px);
+  transition: all 0.5s ease;
+  pointer-events: none;
+}
+
+.c2_property-card:hover .c2_card-bg-orb {
+  background-color: rgba(37, 99, 235, 0.15);
+}
+
+/* Footer Grid Layout - Two columns on all screen sizes */
+.c2_footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+@media (min-width: 640px) {
+  .c2_footer {
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .c2_footer {
+    gap: 1rem;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+
+  .c2_property-card,
+  .c2_card-bg-orb {
+    transition: none !important;
+  }
+
+  .c2_property-card:hover {
+    transform: none !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .c2_property-card {
+    border-width: 2px !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .c2_property-card {
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}
+
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);
