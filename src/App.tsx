@@ -14,6 +14,7 @@ import { authApi } from './services/authApi';
 import { STORAGE_KEYS } from './utils/filterOptions';
 import { formatPriceWithLabel } from './utils/priceFormatter';
 import { formatSize } from './utils/sizeFormatter';
+import { PullToRefresh } from './components/PullToRefresh';
 
 // Lazy load heavy components
 const PropertyModal = lazy(() => import('./components/PropertyModal').then(m => ({ default: m.PropertyModal })));
@@ -1462,6 +1463,7 @@ function App() {
             mapFocus={mapFocus}
             setMapFocus={setMapFocus}
             handleFavProperty={handleFavProperty}
+            refreshProperties={refreshPropertiesAndFilters}
           />
         ) : (
           <Suspense fallback={
@@ -1553,6 +1555,7 @@ function App() {
             mapFocus={mapFocus}
             setMapFocus={setMapFocus}
             handleFavProperty={handleFavProperty}
+            refreshProperties={refreshPropertiesAndFilters}
           />
         ) : (
           <Suspense fallback={
@@ -1631,6 +1634,7 @@ function App() {
             mapFocus={mapFocus}
             setMapFocus={setMapFocus}
             handleFavProperty={handleFavProperty}
+            refreshProperties={refreshPropertiesAndFilters}
           />
         ) : (
           <Suspense fallback={
@@ -1745,6 +1749,7 @@ interface MainAppContentProps {
   mapFocus: MapFocusPoint | null;
   setMapFocus: (focus: MapFocusPoint | null) => void;
   handleFavProperty: (id: number, isFavourite: boolean, userNote: string) => void;
+  refreshProperties: () => Promise<void>;
 }
 
 function MainAppContent({
@@ -1804,6 +1809,7 @@ function MainAppContent({
   mapFocus,
   setMapFocus,
   handleFavProperty,
+  refreshProperties,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [mapProperties, setMapProperties] = useState<Property[]>([]);
@@ -2370,85 +2376,87 @@ function MainAppContent({
                 )}
               </div>
             ) : (
-              <div className="space-y-3 sm:space-y-4">
-                <InstallPromptCard />
-                {currentProperties.length === 0 ? (
-                  <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
-                    <p className="text-sm sm:text-base text-gray-500 mb-4">
-                      {hasActiveSearchOrFilter
-                        ? 'No properties found matching your search or filters.'
-                        : activeFilter === 'my'
-                          ? 'No properties yet. Add your first property!'
-                          : 'No properties available'}
-                    </p>
-                    {hasActiveSearchOrFilter && (
-                      <button
-                        onClick={handleClearSearchAndFilters}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                        Clear Search & Filters
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    {currentProperties.map((property) => (
-                      <PropertyCard
-                        key={property.id}
-                        property={property}
-                        isOwned={property.owner_id === ownerId}
-                        onViewDetails={handleViewProperty}
-                      />
-                    ))}
+              <PullToRefresh onRefresh={refreshProperties}>
+                <div className="space-y-3 sm:space-y-4">
+                  <InstallPromptCard />
+                  {currentProperties.length === 0 ? (
+                    <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
+                      <p className="text-sm sm:text-base text-gray-500 mb-4">
+                        {hasActiveSearchOrFilter
+                          ? 'No properties found matching your search or filters.'
+                          : activeFilter === 'my'
+                            ? 'No properties yet. Add your first property!'
+                            : 'No properties available'}
+                      </p>
+                      {hasActiveSearchOrFilter && (
+                        <button
+                          onClick={handleClearSearchAndFilters}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                          Clear Search & Filters
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {currentProperties.map((property) => (
+                        <PropertyCard
+                          key={property.id}
+                          property={property}
+                          isOwned={property.owner_id === ownerId}
+                          onViewDetails={handleViewProperty}
+                        />
+                      ))}
 
-                    {/* Pagination Controls - Only show for base lists, not filtered/search results */}
-                    {shouldDisplayPagination && (
-                      <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-                        <div className="flex items-center justify-between">
-                          <button
-                            onClick={handlePreviousPage}
-                            disabled={!hasPreviousPage}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasPreviousPage
-                              ? 'bg-blue-600 text-white hover:bg-blue-700'
-                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                              }`}
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                            <span className="hidden sm:inline">Previous</span>
-                          </button>
+                      {/* Pagination Controls - Only show for base lists, not filtered/search results */}
+                      {shouldDisplayPagination && (
+                        <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                          <div className="flex items-center justify-between">
+                            <button
+                              onClick={handlePreviousPage}
+                              disabled={!hasPreviousPage}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasPreviousPage
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                              <span className="hidden sm:inline">Previous</span>
+                            </button>
 
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-600">
-                              Page <span className="font-semibold">{currentPage}</span>
-                              {totalPages > 1 && (
-                                <span className="text-gray-500"> of {totalPages}</span>
-                              )}
-                            </span>
-                            {paginationMeta?.total !== undefined && (
-                              <span className="text-sm text-gray-500">
-                                ({paginationMeta.total} {paginationMeta.total === 1 ? 'property' : 'properties'})
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600">
+                                Page <span className="font-semibold">{currentPage}</span>
+                                {totalPages > 1 && (
+                                  <span className="text-gray-500"> of {totalPages}</span>
+                                )}
                               </span>
-                            )}
-                          </div>
+                              {paginationMeta?.total !== undefined && (
+                                <span className="text-sm text-gray-500">
+                                  ({paginationMeta.total} {paginationMeta.total === 1 ? 'property' : 'properties'})
+                                </span>
+                              )}
+                            </div>
 
-                          <button
-                            onClick={handleNextPage}
-                            disabled={!hasNextPage}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasNextPage
-                              ? 'bg-blue-600 text-white hover:bg-blue-700'
-                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                              }`}
-                          >
-                            <span className="hidden sm:inline">Next</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
+                            <button
+                              onClick={handleNextPage}
+                              disabled={!hasNextPage}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${hasNextPage
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                              <span className="hidden sm:inline">Next</span>
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </PullToRefresh>
             )}
           </div>
 

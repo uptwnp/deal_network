@@ -547,7 +547,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container" style={{ width: '100vw', height: '100vh', minHeight: '100vh' }}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-3xl mobile-modal-content sm:max-h-[90vh] overflow-y-auto animate-slide-up">
         <div className="z-10 sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between rounded-t-2xl">
           <h2 className="text-base sm:text-lg font-bold text-gray-900">
@@ -598,8 +598,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                           setShowAddCityInput(false);
                         }}
                         className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.city === option.value
-                            ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-gray-700'
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'text-gray-700'
                           }`}
                       >
                         {option.label}
@@ -774,8 +774,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                         setShowPropertyTypeDropdown(false);
                       }}
                       className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.type === option.value
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'text-gray-700'
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-gray-700'
                         }`}
                     >
                       {option.label}
@@ -813,8 +813,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                             setShowSizeUnitDropdown(false);
                           }}
                           className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.size_unit === option.value
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-gray-700'
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-gray-700'
                             }`}
                         >
                           {option.label}
@@ -986,8 +986,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                 type="button"
                 onClick={() => setFormData((prev) => ({ ...prev, is_public: prev.is_public === 1 ? 0 : 1 }))}
                 className={`flex items-center gap-1 px-1.5 py-1 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${formData.is_public === 1
-                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
-                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
                   }`}
                 aria-label={formData.is_public === 1 ? 'Make private' : 'Make public'}
               >
