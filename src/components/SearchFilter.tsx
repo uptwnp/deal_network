@@ -554,6 +554,14 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       return;
     }
 
+    // Update recent areas when area is selected from filter modal
+    if (key === 'area' && typeof value === 'string' && value.trim()) {
+      const area = value.trim();
+      const newRecent = [area, ...recentAreas.filter(a => a !== area)].slice(0, 5);
+      setRecentAreas(newRecent);
+      localStorage.setItem(STORAGE_KEYS.RECENT_AREAS, JSON.stringify(newRecent));
+    }
+
     const newFilters: FilterOptions = { ...filters, [key]: value as any };
     setFilters(newFilters);
     // Auto-save to localStorage
@@ -955,7 +963,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                         onChange={(e) => {
                           handleCitySelect(e.target.value);
                         }}
-                        className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        className=""
                       >
                         {cityOptionsWithLabels.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -979,6 +987,32 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                       <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                       {showAreaSuggestions && (
                         <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {!filters.area && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                                Recent Areas
+                              </div>
+                              {recentAreas
+                                .filter(area => filteredAreaOptions.includes(area))
+                                .map((area, idx) => (
+                                  <button
+                                    key={`recent-${idx}`}
+                                    type="button"
+                                    onClick={() => {
+                                      handleFilterChange('area', area);
+                                      setShowAreaSuggestions(false);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                                  >
+                                    {area}
+                                  </button>
+                                ))}
+                              <div className="border-t border-gray-200 my-1" />
+                              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                                All Areas
+                              </div>
+                            </>
+                          )}
                           {(filters.city && filteredAreaOptions.length > 0
                             ? filteredAreaOptions
                             : []).filter(area =>
@@ -1023,23 +1057,25 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
                   {/* Size Range with Inline Size Unit - Slider */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2 flex-wrap">
-                      <span>Size Range (in </span>
-                      {/* Use native select for better mobile UX */}
-                      <select
-                        value={filters.size_unit || 'Gaj'}
-                        onChange={(e) => handleFilterChange('size_unit', e.target.value)}
-                        className="text-gray-700 text-xs font-medium border border-gray-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        onClick={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                      >
-                        {SIZE_UNIT_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <span>)</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Size Range (in{' '}
+                      <span className="relative inline-block">
+                        <select
+                          value={filters.size_unit || 'Gaj'}
+                          onChange={(e) => handleFilterChange('size_unit', e.target.value)}
+                          className="text-gray-700 p-0"
+                          onClick={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                        >
+                          {SIZE_UNIT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-600 pointer-events-none" />
+                      </span>
+                      )
                     </label>
                     <RangeSlider
                       min={0}
@@ -1244,6 +1280,32 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                         <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                         {showAreaSuggestions && (
                           <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {!filters.area && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                                  Recent Areas
+                                </div>
+                                {recentAreas
+                                  .filter(area => filteredAreaOptions.includes(area))
+                                  .map((area, idx) => (
+                                    <button
+                                      key={`recent-${idx}`}
+                                      type="button"
+                                      onClick={() => {
+                                        handleFilterChange('area', area);
+                                        setShowAreaSuggestions(false);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                                    >
+                                      {area}
+                                    </button>
+                                  ))}
+                                <div className="border-t border-gray-200 my-1" />
+                                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                                  All Areas
+                                </div>
+                              </>
+                            )}
                             {(filters.city && filteredAreaOptions.length > 0
                               ? filteredAreaOptions
                               : []).filter(area =>
@@ -1288,22 +1350,24 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
                     {/* Size Range with Inline Size Unit - Slider - Full width */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2 flex-wrap">
-                        <span>Size Range (in </span>
-                        {/* Desktop: Use native select for consistent UX */}
-                        <select
-                          value={filters.size_unit || 'Gaj'}
-                          onChange={(e) => handleFilterChange('size_unit', e.target.value)}
-                          className="text-gray-700 text-xs font-medium border border-gray-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {SIZE_UNIT_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <span>)</span>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Size Range (in{' '}
+                        <span className="relative inline-block">
+                          <select
+                            value={filters.size_unit || 'Gaj'}
+                            onChange={(e) => handleFilterChange('size_unit', e.target.value)}
+                            className="appearance-none text-blue-600 border-0 border-b border-blue-300 rounded-none px-1 pr-5 py-0 focus:ring-0 focus:border-blue-500 bg-transparent cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {SIZE_UNIT_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-600 pointer-events-none" />
+                        </span>
+                        )
                       </label>
                       <RangeSlider
                         min={0}
