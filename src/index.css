@@ -33,6 +33,16 @@ button {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
 }
 
+/* iOS Safari zoom prevention */
+input,
+textarea,
+select {
+  /* Prevent iOS Safari from zooming on input focus */
+  font-size: max(16px, 1em) !important;
+  /* Prevent touch zoom gestures on input fields */
+  touch-action: manipulation;
+}
+
 /* Property Card Custom Styles */
 /* Decorative Background Elements */
 .c2_card-bg-gradient {
