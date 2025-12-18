@@ -252,6 +252,11 @@ function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions
     queryParams.append('has_landmark', filters.has_landmark.toString());
   }
 
+  // Map privacy filter
+  if (filters.is_public !== undefined) {
+    queryParams.append('is_public', filters.is_public.toString());
+  }
+
   // Add sorting parameters
   if (filters.sortby) {
     queryParams.append('sortby', filters.sortby);

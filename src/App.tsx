@@ -125,6 +125,44 @@ function App() {
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const [mapFocus, setMapFocus] = useState<MapFocusPoint | null>(null);
 
+  // Persist current route to localStorage
+  useEffect(() => {
+    // Only persist routes for authenticated users
+    if (isAuthenticated && location.pathname !== '/') {
+      try {
+        // Don't persist public property routes or login/reset-pin routes
+        if (!location.pathname.startsWith('/property/') &&
+          location.pathname !== '/login' &&
+          location.pathname !== '/reset-pin') {
+          localStorage.setItem('last_route', location.pathname);
+        }
+      } catch (error) {
+        console.error('Failed to save route:', error);
+      }
+    }
+  }, [location.pathname, isAuthenticated]);
+
+  // Restore last route on app load for authenticated users
+  useEffect(() => {
+    // Only run once when authentication is ready
+    if (!authLoading && isAuthenticated && location.pathname === '/') {
+      try {
+        const lastRoute = localStorage.getItem('last_route');
+        // If we have a saved route and user is on root path, restore the last route
+        if (lastRoute && lastRoute !== '/' && lastRoute !== '/login') {
+          navigate(lastRoute, { replace: true });
+        } else {
+          // No saved route, go to /home by default for authenticated users
+          navigate('/home', { replace: true });
+        }
+      } catch (error) {
+        console.error('Failed to restore route:', error);
+        // Fallback to /home on error
+        navigate('/home', { replace: true });
+      }
+    }
+  }, [authLoading, isAuthenticated, location.pathname, navigate]);
+
   const loadMyProperties = useCallback(async (paginationOptions?: PaginationOptions) => {
     if (!ownerId || ownerId <= 0) return;
     try {
@@ -1304,6 +1342,7 @@ function App() {
     setShowLandingPage(true);
     try {
       localStorage.removeItem('has_visited_app');
+      localStorage.removeItem('last_route'); // Clear persisted route
     } catch (error) {
       console.error('Failed to clear localStorage:', error);
     }

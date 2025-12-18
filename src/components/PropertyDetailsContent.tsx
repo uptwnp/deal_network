@@ -3,6 +3,7 @@ import { X, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapP
 import { Property } from '../types/property';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
+import { formatRatePerUnit } from '../utils/rateFormatter';
 import { getHighlightOptions, getTagOptions } from '../utils/filterOptions';
 import { LocationModal } from './LocationModal';
 import { LocationViewModal } from './LocationViewModal';
@@ -327,19 +328,11 @@ export function PropertyDetailsContent({
                                         if (avgPrice > 0 && avgSize > 0) {
                                             const priceInRupees = avgPrice * 100000;
                                             const ratePerUnit = priceInRupees / avgSize;
+                                            const rateText = formatRatePerUnit(ratePerUnit);
 
-                                            let rateText = '';
-                                            if (ratePerUnit >= 10000000) {
-                                                rateText = `₹${(ratePerUnit / 10000000).toFixed(2)} Cr/${property.size_unit}`;
-                                            } else if (ratePerUnit >= 100000) {
-                                                rateText = `₹${(ratePerUnit / 100000).toFixed(2)} L/${property.size_unit}`;
-                                            } else if (ratePerUnit >= 1000) {
-                                                rateText = `₹${(ratePerUnit / 1000).toFixed(1)}K/${property.size_unit}`;
-                                            } else {
-                                                rateText = `₹${Math.round(ratePerUnit)}/${property.size_unit}`;
+                                            if (rateText) {
+                                                return <span className="text-gray-600 font-normal ml-1">({rateText}/{property.size_unit})</span>;
                                             }
-
-                                            return <span className="text-gray-600 font-normal ml-1">({rateText})</span>;
                                         }
                                         return null;
                                     })()}

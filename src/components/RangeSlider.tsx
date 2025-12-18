@@ -10,37 +10,37 @@ interface RangeSliderProps {
   label?: string;
 }
 
-export function RangeSlider({ 
-  min, 
-  max, 
-  step = 1, 
-  value, 
-  onChange, 
+export function RangeSlider({
+  min,
+  max,
+  step = 1,
+  value,
+  onChange,
   formatValue = (v) => v.toString(),
-  label 
+  label
 }: RangeSliderProps) {
   const [minVal, setMinVal] = useState(value[0]);
   const [maxVal, setMaxVal] = useState(value[1]);
   const [isDragging, setIsDragging] = useState<'min' | 'max' | null>(null);
   const [hoveredHandle, setHoveredHandle] = useState<'min' | 'max' | null>(null);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const minHandleRef = useRef<HTMLDivElement>(null);
   const maxHandleRef = useRef<HTMLDivElement>(null);
   const rangeRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  
+
   const dragStartPos = useRef<{ x: number; value: number } | null>(null);
   const isDraggingRef = useRef<'min' | 'max' | null>(null);
   const minValRef = useRef(minVal);
   const maxValRef = useRef(maxVal);
-  
+
   // Keep refs in sync with state
   useEffect(() => {
     minValRef.current = minVal;
     maxValRef.current = maxVal;
   }, [minVal, maxVal]);
-  
+
   useEffect(() => {
     isDraggingRef.current = isDragging;
   }, [isDragging]);
@@ -110,10 +110,10 @@ export function RangeSlider({
       if (activeHandle === 'min') {
         const currentMax = maxValRef.current;
         const clampedValue = Math.min(newValue, currentMax - step);
-        
+
         // Update refs immediately for smooth visual updates
         minValRef.current = clampedValue;
-        
+
         // Update visual position directly via DOM for smoothness
         if (minHandleRef.current) {
           const minPercent = valueToPercent(clampedValue);
@@ -125,16 +125,16 @@ export function RangeSlider({
           rangeRef.current.style.left = `${minPercent}%`;
           rangeRef.current.style.width = `${maxPercent - minPercent}%`;
         }
-        
+
         // Update state (but don't call onChange during drag - only on release)
         setMinVal(clampedValue);
       } else if (activeHandle === 'max') {
         const currentMin = minValRef.current;
         const clampedValue = Math.max(newValue, currentMin + step);
-        
+
         // Update refs immediately for smooth visual updates
         maxValRef.current = clampedValue;
-        
+
         // Update visual position directly via DOM for smoothness
         if (maxHandleRef.current) {
           const maxPercent = valueToPercent(clampedValue);
@@ -146,7 +146,7 @@ export function RangeSlider({
           rangeRef.current.style.left = `${minPercent}%`;
           rangeRef.current.style.width = `${maxPercent - minPercent}%`;
         }
-        
+
         // Update state (but don't call onChange during drag - only on release)
         setMaxVal(clampedValue);
       }
@@ -163,7 +163,7 @@ export function RangeSlider({
       } else if (activeHandle === 'max') {
         onChange([minValRef.current, maxValRef.current]);
       }
-      
+
       setIsDragging(null);
       isDraggingRef.current = null;
       dragStartPos.current = null;
@@ -179,7 +179,7 @@ export function RangeSlider({
     }
 
     e.preventDefault();
-    
+
     requestAnimationFrame(() => {
       if (!isDraggingRef.current || !containerRef.current) return;
 
@@ -193,10 +193,10 @@ export function RangeSlider({
       if (activeHandle === 'min') {
         const currentMax = maxValRef.current;
         const clampedValue = Math.min(newValue, currentMax - step);
-        
+
         // Update refs immediately for smooth visual updates
         minValRef.current = clampedValue;
-        
+
         // Update visual position directly via DOM for smoothness
         if (minHandleRef.current) {
           const minPercent = valueToPercent(clampedValue);
@@ -208,16 +208,16 @@ export function RangeSlider({
           rangeRef.current.style.left = `${minPercent}%`;
           rangeRef.current.style.width = `${maxPercent - minPercent}%`;
         }
-        
+
         // Update state (but don't call onChange during drag - only on release)
         setMinVal(clampedValue);
       } else if (activeHandle === 'max') {
         const currentMin = minValRef.current;
         const clampedValue = Math.max(newValue, currentMin + step);
-        
+
         // Update refs immediately for smooth visual updates
         maxValRef.current = clampedValue;
-        
+
         // Update visual position directly via DOM for smoothness
         if (maxHandleRef.current) {
           const maxPercent = valueToPercent(clampedValue);
@@ -229,7 +229,7 @@ export function RangeSlider({
           rangeRef.current.style.left = `${minPercent}%`;
           rangeRef.current.style.width = `${maxPercent - minPercent}%`;
         }
-        
+
         // Update state (but don't call onChange during drag - only on release)
         setMaxVal(clampedValue);
       }
@@ -245,7 +245,7 @@ export function RangeSlider({
       } else if (activeHandle === 'max') {
         onChange([minValRef.current, maxValRef.current]);
       }
-      
+
       setIsDragging(null);
       isDraggingRef.current = null;
       dragStartPos.current = null;
@@ -258,18 +258,18 @@ export function RangeSlider({
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>, handle: 'min' | 'max') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setIsDragging(handle);
     isDraggingRef.current = handle;
     const touch = e.touches[0];
-    
+
     if (containerRef.current) {
       dragStartPos.current = {
         x: touch.clientX,
         value: handle === 'min' ? minValRef.current : maxValRef.current
       };
     }
-    
+
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
   }, [handleTouchMove, handleTouchEnd]);
@@ -278,14 +278,14 @@ export function RangeSlider({
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, handle: 'min' | 'max') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setIsDragging(handle);
     isDraggingRef.current = handle;
     dragStartPos.current = {
       x: e.clientX,
       value: handle === 'min' ? minValRef.current : maxValRef.current
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, [handleMouseMove, handleMouseUp]);
@@ -306,9 +306,6 @@ export function RangeSlider({
     e.stopPropagation();
   }, []);
 
-  const isMinAtStart = minVal === min;
-  const isMaxAtEnd = maxVal === max;
-
   return (
     <div className="w-full">
       {label && (
@@ -316,114 +313,111 @@ export function RangeSlider({
           {label}
         </label>
       )}
-      
-      {/* Slider Container */}
-      <div className="relative py-4">
-        {/* Track Background */}
-        <div
-          ref={trackRef}
-          className="absolute top-1/2 left-0 right-0 h-1.5 bg-gray-200 rounded-full -translate-y-1/2 cursor-not-allowed"
-          onClick={handleTrackClick}
-          style={{ pointerEvents: 'none' }}
-        />
-        
-        {/* Active Range */}
-        <div
-          ref={rangeRef}
-          className="absolute top-1/2 h-1.5 bg-blue-600 rounded-full -translate-y-1/2 pointer-events-none"
-          style={{
-            transition: isDragging ? 'none' : 'left 0.1s ease-out, width 0.1s ease-out',
-          }}
-        />
-        
-        {/* Container for drag calculations - must be behind handles */}
-        <div
-          ref={containerRef}
-          className="absolute top-0 left-0 right-0 h-full"
-          style={{ pointerEvents: 'none', zIndex: 0 }}
-        />
-        
-        {/* Min Handle */}
-        <div
-          ref={minHandleRef}
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 touch-none ${
-            isDragging === 'min' 
-              ? 'scale-125 z-50' 
-              : hoveredHandle === 'min' 
-              ? 'scale-110 z-40 transition-all duration-150 ease-out' 
-              : 'scale-100 z-30 transition-all duration-150 ease-out'
-          }`}
-          style={{
-            left: `${valueToPercent(minVal)}%`,
-            cursor: isDragging === 'min' ? 'grabbing' : 'grab',
-            pointerEvents: 'all',
-            transition: isDragging === 'min' ? 'none' : 'left 0.1s ease-out, transform 0.15s ease-out',
-          }}
-          onMouseDown={(e) => handleMouseDown(e, 'min')}
-          onTouchStart={(e) => handleTouchStart(e, 'min')}
-          onMouseEnter={() => setHoveredHandle('min')}
-          onMouseLeave={() => {
-            if (isDragging !== 'min') {
-              setHoveredHandle(null);
-            }
-          }}
-        >
-          {/* Larger hit area for easier interaction */}
-          <div className="absolute inset-0 -m-2" style={{ pointerEvents: 'none' }} />
-          <div className="w-5 h-5 bg-white border-2 border-blue-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-150 flex items-center justify-center relative z-10">
-            <div className="w-2 h-2 bg-blue-600 rounded-full" />
+
+      {/* 90% Width Wrapper - Centered */}
+      <div className="w-[95%] mx-auto">
+        {/* Labels Above Slider */}
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs text-gray-500">min</span>
+          <span className="text-xs text-gray-500">max</span>
+        </div>
+
+        {/* Slider Container */}
+        <div className="relative py-4">
+          {/* Track Background */}
+          <div
+            ref={trackRef}
+            className="absolute top-1/2 left-0 right-0 h-1.5 bg-gray-200 rounded-full -translate-y-1/2 cursor-not-allowed"
+            onClick={handleTrackClick}
+            style={{ pointerEvents: 'none' }}
+          />
+
+          {/* Active Range */}
+          <div
+            ref={rangeRef}
+            className="absolute top-1/2 h-1.5 bg-blue-600 rounded-full -translate-y-1/2 pointer-events-none"
+            style={{
+              transition: isDragging ? 'none' : 'left 0.1s ease-out, width 0.1s ease-out',
+            }}
+          />
+
+          {/* Container for drag calculations - must be behind handles */}
+          <div
+            ref={containerRef}
+            className="absolute top-0 left-0 right-0 h-full"
+            style={{ pointerEvents: 'none', zIndex: 0 }}
+          />
+
+          {/* Min Handle */}
+          <div
+            ref={minHandleRef}
+            className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 touch-none ${isDragging === 'min'
+              ? 'scale-125 z-50'
+              : hoveredHandle === 'min'
+                ? 'scale-110 z-40 transition-all duration-150 ease-out'
+                : 'scale-100 z-30 transition-all duration-150 ease-out'
+              }`}
+            style={{
+              left: `${valueToPercent(minVal)}%`,
+              cursor: isDragging === 'min' ? 'grabbing' : 'grab',
+              pointerEvents: 'all',
+              transition: isDragging === 'min' ? 'none' : 'left 0.1s ease-out, transform 0.15s ease-out',
+            }}
+            onMouseDown={(e) => handleMouseDown(e, 'min')}
+            onTouchStart={(e) => handleTouchStart(e, 'min')}
+            onMouseEnter={() => setHoveredHandle('min')}
+            onMouseLeave={() => {
+              if (isDragging !== 'min') {
+                setHoveredHandle(null);
+              }
+            }}
+          >
+            {/* Larger hit area for easier interaction */}
+            <div className="absolute inset-0 -m-2" style={{ pointerEvents: 'none' }} />
+            <div className="w-5 h-5 bg-white border-2 border-blue-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-150 flex items-center justify-center relative z-10">
+              <div className="w-2 h-2 bg-blue-600 rounded-full" />
+            </div>
+          </div>
+
+          {/* Max Handle */}
+          <div
+            ref={maxHandleRef}
+            className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 touch-none ${isDragging === 'max'
+              ? 'scale-125 z-50'
+              : hoveredHandle === 'max'
+                ? 'scale-110 z-40 transition-all duration-150 ease-out'
+                : 'scale-100 z-30 transition-all duration-150 ease-out'
+              }`}
+            style={{
+              left: `${valueToPercent(maxVal)}%`,
+              cursor: isDragging === 'max' ? 'grabbing' : 'grab',
+              pointerEvents: 'all',
+              transition: isDragging === 'max' ? 'none' : 'left 0.1s ease-out, transform 0.15s ease-out',
+            }}
+            onMouseDown={(e) => handleMouseDown(e, 'max')}
+            onTouchStart={(e) => handleTouchStart(e, 'max')}
+            onMouseEnter={() => setHoveredHandle('max')}
+            onMouseLeave={() => {
+              if (isDragging !== 'max') {
+                setHoveredHandle(null);
+              }
+            }}
+          >
+            {/* Larger hit area for easier interaction */}
+            <div className="absolute inset-0 -m-2" style={{ pointerEvents: 'none' }} />
+            <div className="w-5 h-5 bg-white border-2 border-blue-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-150 flex items-center justify-center relative z-10">
+              <div className="w-2 h-2 bg-blue-600 rounded-full" />
+            </div>
           </div>
         </div>
-        
-        {/* Max Handle */}
-        <div
-          ref={maxHandleRef}
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 touch-none ${
-            isDragging === 'max' 
-              ? 'scale-125 z-50' 
-              : hoveredHandle === 'max' 
-              ? 'scale-110 z-40 transition-all duration-150 ease-out' 
-              : 'scale-100 z-30 transition-all duration-150 ease-out'
-          }`}
-          style={{
-            left: `${valueToPercent(maxVal)}%`,
-            cursor: isDragging === 'max' ? 'grabbing' : 'grab',
-            pointerEvents: 'all',
-            transition: isDragging === 'max' ? 'none' : 'left 0.1s ease-out, transform 0.15s ease-out',
-          }}
-          onMouseDown={(e) => handleMouseDown(e, 'max')}
-          onTouchStart={(e) => handleTouchStart(e, 'max')}
-          onMouseEnter={() => setHoveredHandle('max')}
-          onMouseLeave={() => {
-            if (isDragging !== 'max') {
-              setHoveredHandle(null);
-            }
-          }}
-        >
-          {/* Larger hit area for easier interaction */}
-          <div className="absolute inset-0 -m-2" style={{ pointerEvents: 'none' }} />
-          <div className="w-5 h-5 bg-white border-2 border-blue-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-150 flex items-center justify-center relative z-10">
-            <div className="w-2 h-2 bg-blue-600 rounded-full" />
-          </div>
-        </div>
-      </div>
-      
-      {/* Value Labels */}
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex flex-col items-start">
-          <span className="text-xs text-gray-500 mb-0.5">Min</span>
-          <span className={`text-sm font-semibold transition-colors duration-150 ${
-            isMinAtStart ? 'text-gray-400' : 'text-gray-900'
-          }`}>
-            {isMinAtStart ? 'Min' : formatValue(minVal)}
+
+        {/* Values Below Slider */}
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-xs font-semibold text-gray-900">
+            {formatValue(minVal)}
           </span>
-        </div>
-        <div className="flex flex-col items-end">
-          <span className="text-xs text-gray-500 mb-0.5">Max</span>
-          <span className={`text-sm font-semibold transition-colors duration-150 ${
-            isMaxAtEnd ? 'text-gray-400' : 'text-gray-900'
-          }`}>
-            {isMaxAtEnd ? 'Max' : formatValue(maxVal)}
+          <span className="text-xs font-semibold text-gray-900">
+            {formatValue(maxVal)}
           </span>
         </div>
       </div>

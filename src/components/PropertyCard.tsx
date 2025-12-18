@@ -6,6 +6,7 @@ import { Property } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
+import { formatRatePerUnit } from '../utils/rateFormatter';
 import { propertyTypeDefinitions } from '../utils/leafletIcons';
 
 interface PropertyCardProps {
@@ -73,12 +74,7 @@ export function PropertyCard({
     if (avgPrice > 0 && avgSize > 0) {
       const priceInRupees = avgPrice * 100000;
       const ratePerUnit = priceInRupees / avgSize;
-
-      if (ratePerUnit >= 10000) {
-        return `₹ ${Math.round(ratePerUnit).toLocaleString('en-IN')}`;
-      } else {
-        return `₹ ${Math.round(ratePerUnit).toLocaleString('en-IN')}`;
-      }
+      return formatRatePerUnit(ratePerUnit);
     }
     return null;
   };
@@ -139,6 +135,11 @@ export function PropertyCard({
   // Add "My Property" tag if owned
   if (isOwned) {
     allTags.push({ text: 'My Property', type: 'tag' });
+
+    // Add "Location Pending" tag if property is owned but has no location
+    if (!property.location || property.location.trim() === '') {
+      allTags.push({ text: 'Location Pending', Icon: Map, type: 'tag' });
+    }
   }
 
   // Note: Public/Private status is now shown as an icon next to timestamp, not as a tag

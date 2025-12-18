@@ -39,7 +39,13 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true
+        enabled: false // Disable service worker in development to avoid console warnings
+      },
+      workbox: {
+        // Suppress Workbox console logs
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ],

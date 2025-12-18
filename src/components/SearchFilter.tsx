@@ -62,28 +62,15 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       // Always ensure city is set - use saved city, or default to user's city or Panipat
       const defaultCity = parsedFilters.city || userCity;
 
-      // Default price and size ranges
-      const defaultPriceMin = parsedFilters.min_price ?? 0;
-      const defaultPriceMax = parsedFilters.max_price ?? 1000; // 1000 lakhs (10 crores) max
-      const defaultSizeMin = parsedFilters.size_min ?? 0;
-      const defaultSizeMax = parsedFilters.max_size ?? 10000; // Max size depends on unit
-
       const defaultFilters: FilterOptions = savedFilters ? {
         ...parsedFilters,
         city: defaultCity, // Always set city - use saved city or default
-        min_price: defaultPriceMin,
-        max_price: defaultPriceMax,
-        size_min: defaultSizeMin,
-        max_size: defaultSizeMax,
+        // DON'T add default max values - only use what was actually saved
       } : {
         city: defaultCity, // Always set city by default
         area: '',
         type: [],
-        min_price: defaultPriceMin,
-        max_price: defaultPriceMax,
-        size_min: defaultSizeMin,
-        max_size: defaultSizeMax,
-        size_unit: userSettings.defaultSizeUnit || 'Gaj',
+        // Don't set price/size ranges in defaults - only set when user explicitly filters
       };
 
       return {
@@ -103,11 +90,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
           city: userCity, // Always set city by default
           area: '',
           type: [],
-          min_price: 0,
-          max_price: 1000,
-          size_min: 0,
-          max_size: 10000,
-          size_unit: userSettings.defaultSizeUnit || 'Gaj',
+          // Don't set price/size ranges in defaults - only set when user explicitly filters
         },
         selectedArea: userSettings.preferredAreas.length > 0 ? userSettings.preferredAreas[0] : '',
       };
@@ -122,12 +105,14 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
   const [showFilters, setShowFilters] = useState(false);
 
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [selectedArea, setSelectedArea] = useState<string>(persistedState.selectedArea);
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false);
   const [showAdditionalFilters, setShowAdditionalFilters] = useState(false);
   const areaInputRef = useRef<HTMLInputElement>(null);
   const columnDropdownRef = useRef<HTMLDivElement>(null);
   const areaDropdownRef = useRef<HTMLDivElement>(null);
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<FilterOptions>(persistedState.filters);
   const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef(true); // Track if this is the initial mount
@@ -166,7 +151,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
   ]);
   const [sizeRange, setSizeRange] = useState<[number, number]>([
     filters.size_min ?? 0,
-    filters.max_size ?? 10000
+    filters.max_size ?? 1000
   ]);
 
   // Multi-select values
@@ -273,11 +258,13 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       // Check if click is inside any dropdown - if so, don't close
       if (columnDropdownRef.current?.contains(target)) return;
       if (areaDropdownRef.current?.contains(target)) return;
+      if (typeDropdownRef.current?.contains(target)) return;
       // Note: sizeUnitDropdown is now a native select, so no need to handle it here
 
       // Only close if clicking outside all dropdowns
       setShowColumnDropdown(false);
       setShowAreaDropdown(false);
+      setShowTypeDropdown(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -334,7 +321,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
   // Sync range states with filters
   useEffect(() => {
     setPriceRange([filters.min_price ?? 0, filters.max_price ?? 1000]);
-    setSizeRange([filters.size_min ?? 0, filters.max_size ?? 10000]);
+    setSizeRange([filters.size_min ?? 0, filters.max_size ?? 1000]);
   }, [filters.min_price, filters.max_price, filters.size_min, filters.max_size]);
 
   // Sync multi-select states with filters
@@ -415,8 +402,8 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
     // Check size range - only include if not at both endpoints
     const minSize = newFilters.size_min ?? 0;
-    const maxSize = newFilters.max_size ?? 10000;
-    const isSizeRangeApplied = !(minSize === 0 && maxSize === 10000);
+    const maxSize = newFilters.max_size ?? 1000;
+    const isSizeRangeApplied = !(minSize === 0 && maxSize === 1000);
     if (isSizeRangeApplied) {
       cleanFilters.size_min = minSize;
       cleanFilters.max_size = maxSize;
@@ -656,6 +643,21 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
     setAreaSearchQuery('');
   };
 
+  const handleTypeSelect = (type: string) => {
+    // Toggle type selection - if clicking on already selected type, deselect all types
+    const isCurrentlySelected = selectedTypes.includes(type);
+    const newTypes = isCurrentlySelected ? [] : [type];
+
+    setSelectedTypes(newTypes);
+    const newFilters = { ...filters, type: newTypes.length > 0 ? newTypes : undefined };
+    setFilters(newFilters);
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+
+    // Auto-apply type filter immediately (this is the separate type filter, not inside main filters modal)
+    applyFiltersDebounced(newFilters);
+    setShowTypeDropdown(false);
+  };
+
 
 
   const clearFilters = () => {
@@ -666,12 +668,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       city: defaultCity, // Keep city selected even when clearing filters
       area: '',
       type: [],
-      min_price: 0,
-      max_price: 1000,
-      size_min: 0,
-      max_size: 10000,
-      size_unit: userSettings.defaultSizeUnit || 'Gaj',
-      filter_size_unit: undefined,
+      // Don't set price/size ranges - they should be undefined when cleared
       tags: [],
       highlights: [],
       has_location: undefined,
@@ -682,7 +679,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
     setFilters(emptyFilters);
     setSelectedArea('');
     setPriceRange([0, 1000]);
-    setSizeRange([0, 10000]);
+    setSizeRange([0, 1000]);
     setSelectedTypes([]);
     setSelectedTags([]);
     setSelectedHighlights([]);
@@ -706,8 +703,8 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
     // Check size range
     const minSize = filters.size_min ?? 0;
-    const maxSize = filters.max_size ?? 10000;
-    if (!(minSize === 0 && maxSize === 10000)) {
+    const maxSize = filters.max_size ?? 1000;
+    if (!(minSize === 0 && maxSize === 1000)) {
       count++; // Count size range as one filter
     }
 
@@ -762,12 +759,72 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
   return (
     <div className="space-y-2 sm:space-y-3">
-      {/* All Properties in [City/Area] label with dropdown */}
-      <div className="relative flex items-center gap-2 text-sm sm:text-base" ref={areaDropdownRef}>
+      {/* All {Property Type} in [City/Area] label with dropdowns */}
+      <div className="relative flex items-center flex-wrap gap-2 text-sm sm:text-base">
         <span className="text-gray-700 font-medium">
-          {listName || 'All Properties'} in
+          {(listName || 'All').replace(/\s*(Properties|Property)\s*$/i, '').trim() || 'All'}
         </span>
-        <div className="flex items-center gap-1">
+
+        {/* Property Type Dropdown */}
+        <div className="relative flex items-center gap-1" ref={typeDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            className="flex items-center gap-1.5 text-gray-700 hover:text-gray-900 font-semibold transition-colors"
+          >
+            <span>
+              {selectedTypes.length === 1
+                ? selectedTypes[0]
+                : selectedTypes.length > 1
+                  ? `${selectedTypes.length} Types`
+                  : 'Properties'}
+            </span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          {selectedTypes.length > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTypeSelect(''); // Clear types
+                setSelectedTypes([]);
+                const newFilters = { ...filters, type: undefined };
+                setFilters(newFilters);
+                localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
+                applyFiltersDebounced(newFilters);
+              }}
+              className="text-blue-600 hover:text-red-600 hover:bg-red-50 rounded-full p-0.5 transition-colors"
+              title="Clear selected type"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+
+          {showTypeDropdown && (
+            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[100] w-full sm:w-auto sm:min-w-[240px]">
+              <div className="py-1">
+                {PROPERTY_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleTypeSelect(option.value)}
+                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedTypes.includes(option.value)
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <span className="text-gray-700 font-medium">in</span>
+
+        {/* Area Dropdown */}
+        <div className="relative flex items-center gap-1" ref={areaDropdownRef}>
           <button
             type="button"
             onClick={() => setShowAreaDropdown(!showAreaDropdown)}
@@ -1051,7 +1108,11 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                     step={5}
                     value={priceRange}
                     onChange={handlePriceRangeChange}
-                    formatValue={(v) => `${v} Lakhs`}
+                    formatValue={(v) => {
+                      if (v === 0) return 'Min';
+                      if (v === 1000) return 'Max';
+                      return `${v} Lakhs`;
+                    }}
                     label="Price Range (Lakhs)"
                   />
 
@@ -1079,11 +1140,15 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                     </label>
                     <RangeSlider
                       min={0}
-                      max={10000}
-                      step={50}
+                      max={1000}
+                      step={10}
                       value={sizeRange}
                       onChange={handleSizeRangeChange}
-                      formatValue={(v) => v.toString()}
+                      formatValue={(v) => {
+                        if (v === 0) return 'Min';
+                        if (v === 1000) return 'Max';
+                        return `${v} ${filters.size_unit || 'Gaj'}`;
+                      }}
                     />
                   </div>
                 </div>
@@ -1119,32 +1184,117 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                         label="Highlights"
                       />
 
-                      {/* Location and Landmark */}
-                      <div className="space-y-2">
-                        <label className="block text-xs font-medium text-gray-700">Location Filters</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="has_location_mobile"
-                            checked={filters.has_location === true}
-                            onChange={(e) => handleFilterChange('has_location', e.target.checked ? true : undefined)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor="has_location_mobile" className="text-sm text-gray-700">
-                            Has Location
-                          </label>
+                      {/* Location Filter */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-medium text-gray-700">Location</label>
+                          {filters.has_location !== undefined && (
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('has_location', undefined)}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Clear
+                            </button>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="has_landmark_mobile"
-                            checked={filters.has_landmark === true}
-                            onChange={(e) => handleFilterChange('has_landmark', e.target.checked ? true : undefined)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor="has_landmark_mobile" className="text-sm text-gray-700">
-                            Has Landmark
-                          </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleFilterChange('has_location', filters.has_location === true ? undefined : true)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === true
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                          >
+                            Added
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFilterChange('has_location', filters.has_location === false ? undefined : false)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === false
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                          >
+                            Not Added
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Landmark Filter */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-medium text-gray-700">Landmark</label>
+                          {filters.has_landmark !== undefined && (
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('has_landmark', undefined)}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleFilterChange('has_landmark', filters.has_landmark === true ? undefined : true)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === true
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                          >
+                            Added
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFilterChange('has_landmark', filters.has_landmark === false ? undefined : false)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === false
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                          >
+                            Not Added
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Privacy Filter */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-medium text-gray-700">Privacy</label>
+                          {filters.is_public !== undefined && (
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('is_public', undefined)}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleFilterChange('is_public', filters.is_public === 1 ? undefined : 1)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 1
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                          >
+                            Public
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFilterChange('is_public', filters.is_public === 0 ? undefined : 0)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 0
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                          >
+                            Private
+                          </button>
                         </div>
                       </div>
 
@@ -1256,7 +1406,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                           onChange={(e) => {
                             handleCitySelect(e.target.value);
                           }}
-                          className="px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          className=""
                         >
                           {cityOptionsWithLabels.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1344,7 +1494,11 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                       step={5}
                       value={priceRange}
                       onChange={handlePriceRangeChange}
-                      formatValue={(v) => `${v} Lakhs`}
+                      formatValue={(v) => {
+                        if (v === 0) return 'Min';
+                        if (v === 1000) return 'Max';
+                        return `${v} Lakhs`;
+                      }}
                       label="Price Range (Lakhs)"
                     />
 
@@ -1356,7 +1510,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                           <select
                             value={filters.size_unit || 'Gaj'}
                             onChange={(e) => handleFilterChange('size_unit', e.target.value)}
-                            className="appearance-none text-blue-600 border-0 border-b border-blue-300 rounded-none px-1 pr-5 py-0 focus:ring-0 focus:border-blue-500 bg-transparent cursor-pointer"
+                            className=""
                             onClick={(e) => e.stopPropagation()}
                           >
                             {SIZE_UNIT_OPTIONS.map((option) => (
@@ -1371,11 +1525,15 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                       </label>
                       <RangeSlider
                         min={0}
-                        max={10000}
-                        step={50}
+                        max={1000}
+                        step={10}
                         value={sizeRange}
                         onChange={handleSizeRangeChange}
-                        formatValue={(v) => v.toString()}
+                        formatValue={(v) => {
+                          if (v === 0) return 'Min';
+                          if (v === 1000) return 'Max';
+                          return `${v} ${filters.size_unit || 'Gaj'}`;
+                        }}
                       />
                     </div>
                   </div>
@@ -1411,32 +1569,117 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                           label="Highlights"
                         />
 
-                        {/* Location and Landmark */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-medium text-gray-700">Location Filters</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="has_location_desktop"
-                              checked={filters.has_location === true}
-                              onChange={(e) => handleFilterChange('has_location', e.target.checked ? true : undefined)}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="has_location_desktop" className="text-sm text-gray-700">
-                              Has Location
-                            </label>
+                        {/* Location Filter */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="block text-xs font-medium text-gray-700">Location</label>
+                            {filters.has_location !== undefined && (
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('has_location', undefined)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                Clear
+                              </button>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="has_landmark_desktop"
-                              checked={filters.has_landmark === true}
-                              onChange={(e) => handleFilterChange('has_landmark', e.target.checked ? true : undefined)}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="has_landmark_desktop" className="text-sm text-gray-700">
-                              Has Landmark
-                            </label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('has_location', filters.has_location === true ? undefined : true)}
+                              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === true
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                              Added
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('has_location', filters.has_location === false ? undefined : false)}
+                              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === false
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                              Not Added
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Landmark Filter */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="block text-xs font-medium text-gray-700">Landmark</label>
+                            {filters.has_landmark !== undefined && (
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('has_landmark', undefined)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('has_landmark', filters.has_landmark === true ? undefined : true)}
+                              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === true
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                              Added
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('has_landmark', filters.has_landmark === false ? undefined : false)}
+                              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === false
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                              Not Added
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Privacy Filter */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="block text-xs font-medium text-gray-700">Privacy</label>
+                            {filters.is_public !== undefined && (
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('is_public', undefined)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('is_public', filters.is_public === 1 ? undefined : 1)}
+                              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 1
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                              Public
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('is_public', filters.is_public === 0 ? undefined : 0)}
+                              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 0
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                              Private
+                            </button>
                           </div>
                         </div>
 
@@ -1463,7 +1706,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                   {/* Sort By - Directly (not in collapsible) */}
                   <div className="space-y-3 border-t border-gray-200 pt-4">
                     <h4 className="text-sm font-semibold text-gray-900">Sort By</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
                         <select
@@ -1520,6 +1763,6 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
         </>,
         document.body
       )}
-    </div>
+    </div >
   );
 }
