@@ -847,562 +847,176 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
               <X className="w-4 h-4" />
             </button>
           )}
-        </div>
 
-        {showAreaDropdown && (
-          <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full sm:w-auto sm:min-w-[240px]">
-            <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search areas..."
-                  value={areaSearchQuery}
-                  onChange={(e) => setAreaSearchQuery(e.target.value)}
-                  className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  onClick={(e) => e.stopPropagation()}
-                  autoFocus
-                />
+          {showAreaDropdown && (
+            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full sm:w-auto sm:min-w-[240px]">
+              <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search areas..."
+                    value={areaSearchQuery}
+                    onChange={(e) => setAreaSearchQuery(e.target.value)}
+                    className="w-full pl-7 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="py-1">
-              {!areaSearchQuery && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
-                <>
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
-                    Recent Areas
-                  </div>
-                  {recentAreas
-                    .filter(area => filteredAreaOptions.includes(area))
-                    .map((area, idx) => (
-                      <button
-                        key={`recent-${idx}`}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAreaSelect(area);
-                        }}
-                        className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedArea === area
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                      >
-                        {area}
-                      </button>
-                    ))}
-                  <div className="border-t border-gray-200 my-1" />
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
-                    All Areas
-                  </div>
-                </>
-              )}
-
-              {(filters.city ? filteredAreaOptions : [])
-                .filter(area =>
-                  !areaSearchQuery ||
-                  area.toLowerCase().includes(areaSearchQuery.toLowerCase())
-                )
-                .map((area, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAreaSelect(area);
-                    }}
-                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedArea === area
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    {area}
-                  </button>
-                ))}
-
-              {(filters.city ? filteredAreaOptions : [])
-                .filter(area =>
-                  !areaSearchQuery ||
-                  area.toLowerCase().includes(areaSearchQuery.toLowerCase())
-                ).length === 0 && (
-                  <div className="px-3 py-4 text-center text-sm text-gray-500">
-                    No areas found
-                  </div>
+              <div className="py-1">
+                {!areaSearchQuery && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Recent Areas
+                    </div>
+                    {recentAreas
+                      .filter(area => filteredAreaOptions.includes(area))
+                      .map((area, idx) => (
+                        <button
+                          key={`recent-${idx}`}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAreaSelect(area);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedArea === area
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                        >
+                          {area}
+                        </button>
+                      ))}
+                    <div className="border-t border-gray-200 my-1" />
+                    <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                      All Areas
+                    </div>
+                  </>
                 )}
-            </div>
-          </div>
-        )}
-      </div>
 
-      <form onSubmit={handleSearchSubmit} className="flex gap-1.5 sm:gap-2">
-        <div className="relative flex-1 flex">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder={`Search in ${selectedColumnLabel.toLowerCase()}...`}
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                // Auto-save to localStorage
-                localStorage.setItem(STORAGE_KEYS.SEARCH_QUERY, e.target.value);
-              }}
-              onKeyDown={handleKeyDown}
-              className="w-full h-9 sm:h-10 pl-8 sm:pl-10 pr-3 sm:pr-4 border border-r-0 border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            />
-          </div>
-          <div className="relative flex-shrink-0" ref={columnDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-              className="h-9 sm:h-10 px-2 sm:px-3 border border-l-0 border-gray-300 rounded-r-lg bg-gray-50 hover:bg-gray-100 transition-colors flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap"
-            >
-              <span className="truncate max-w-[100px] sm:max-w-[120px] md:max-w-none">{selectedColumnLabel}</span>
-              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${showColumnDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            {showColumnDropdown && (
-              <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
-                {sortedSearchColumns.map((column) => (
-                  <button
-                    key={column.value}
-                    type="button"
-                    onClick={() => {
-                      setSearchColumn(column.value);
-                      localStorage.setItem(STORAGE_KEYS.SEARCH_COLUMN, column.value);
-                      trackColumnUsage(column.value); // Track usage when column is selected
-                      setShowColumnDropdown(false);
-                    }}
-                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${searchColumn === column.value
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    {column.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowFilters(!showFilters)}
-          className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
-          title="Filter"
-        >
-          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-          {activeFilterCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
-      </form>
-
-
-
-      {showFilters && createPortal(
-        <>
-          {/* Mobile: Full-screen modal */}
-          <div className="fixed inset-0 z-[100] flex items-end sm:hidden bg-black/50 p-0">
-            <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[98vh] overflow-y-auto animate-slide-up">
-              <div className="sticky top-0 z-[60] bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-2xl">
-                <h3 className="text-base font-semibold text-gray-900">Filters</h3>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-              <div className="p-4 space-y-4">
-                {/* City and Area Section - Default Open */}
-                <div className="space-y-3">
-                  {/* Area label with City dropdown on right */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-gray-700">
-                        Area/Address
-                      </label>
-                      <select
-                        value={filters.city || user?.default_city || 'Panipat'}
-                        onChange={(e) => {
-                          handleCitySelect(e.target.value);
-                        }}
-                        className=""
-                      >
-                        {cityOptionsWithLabels.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {/* Area Input */}
-                    <div className="relative">
-                      <input
-                        ref={areaInputRef}
-                        type="text"
-                        value={filters.area || ''}
-                        onChange={(e) => handleFilterChange('area', e.target.value)}
-                        onFocus={() => setShowAreaSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 200)}
-                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-400"
-                        placeholder="Sector 18"
-                      />
-                      <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                      {showAreaSuggestions && (
-                        <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          {!filters.area && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
-                            <>
-                              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
-                                Recent Areas
-                              </div>
-                              {recentAreas
-                                .filter(area => filteredAreaOptions.includes(area))
-                                .map((area, idx) => (
-                                  <button
-                                    key={`recent-${idx}`}
-                                    type="button"
-                                    onClick={() => {
-                                      handleFilterChange('area', area);
-                                      setShowAreaSuggestions(false);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
-                                  >
-                                    {area}
-                                  </button>
-                                ))}
-                              <div className="border-t border-gray-200 my-1" />
-                              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
-                                All Areas
-                              </div>
-                            </>
-                          )}
-                          {(filters.city && filteredAreaOptions.length > 0
-                            ? filteredAreaOptions
-                            : []).filter(area =>
-                              area.toLowerCase().includes((filters.area || '').toLowerCase())
-                            ).map((area, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  handleFilterChange('area', area);
-                                  setShowAreaSuggestions(false);
-                                }}
-                                className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
-                              >
-                                {area}
-                              </button>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Type - Multi-select */}
-                  <MultiSelect
-                    options={[...PROPERTY_TYPE_OPTIONS]}
-                    value={selectedTypes}
-                    onChange={handleTypeChange}
-                    placeholder="Select property types"
-                    label="Type"
-                  />
-
-                  {/* Price Range - Slider */}
-                  <RangeSlider
-                    min={0}
-                    max={1000}
-                    step={5}
-                    value={priceRange}
-                    onChange={handlePriceRangeChange}
-                    formatValue={(v) => {
-                      if (v === 0) return 'Min';
-                      if (v === 1000) return 'Max';
-                      return `${v} Lakhs`;
-                    }}
-                    label="Price Range (Lakhs)"
-                  />
-
-                  {/* Size Range with Inline Size Unit - Slider */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Size Range (in{' '}
-                      <span className="relative inline-block">
-                        <select
-                          value={filters.size_unit || 'Gaj'}
-                          onChange={(e) => handleFilterChange('size_unit', e.target.value)}
-                          className="text-gray-700 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                          onTouchStart={(e) => e.stopPropagation()}
-                        >
-                          {SIZE_UNIT_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-600 pointer-events-none" />
-                      </span>
-                      )
-                    </label>
-                    <RangeSlider
-                      min={0}
-                      max={1000}
-                      step={10}
-                      value={sizeRange}
-                      onChange={handleSizeRangeChange}
-                      formatValue={(v) => {
-                        if (v === 0) return 'Min';
-                        if (v === 1000) return 'Max';
-                        return `${v} ${filters.size_unit || 'Gaj'}`;
+                {(filters.city ? filteredAreaOptions : [])
+                  .filter(area =>
+                    !areaSearchQuery ||
+                    area.toLowerCase().includes(areaSearchQuery.toLowerCase())
+                  )
+                  .map((area, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAreaSelect(area);
                       }}
-                    />
-                  </div>
-                </div>
-
-                {/* Additional Section - Collapsible */}
-                <div className="space-y-3 border-t border-gray-200 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdditionalFilters(!showAdditionalFilters)}
-                    className="w-full flex items-center justify-between text-sm font-semibold text-gray-900"
-                  >
-                    <span>Additional</span>
-                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showAdditionalFilters ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showAdditionalFilters && (
-                    <div className="space-y-3 pt-2">
-                      {/* Tags - Multi-select */}
-                      <MultiSelect
-                        options={tagOptions}
-                        value={selectedTags}
-                        onChange={handleTagsChange}
-                        placeholder="Select tags"
-                        label="Tags"
-                      />
-
-                      {/* Highlights - Multi-select */}
-                      <MultiSelect
-                        options={highlightOptions}
-                        value={selectedHighlights}
-                        onChange={handleHighlightsChange}
-                        placeholder="Select highlights"
-                        label="Highlights"
-                      />
-
-                      {/* Location Filter */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-medium text-gray-700">Location</label>
-                          {filters.has_location !== undefined && (
-                            <button
-                              type="button"
-                              onClick={() => handleFilterChange('has_location', undefined)}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('has_location', filters.has_location === true ? undefined : true)}
-                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === true
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                          >
-                            Added
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('has_location', filters.has_location === false ? undefined : false)}
-                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === false
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                          >
-                            Not Added
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Landmark Filter */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-medium text-gray-700">Landmark</label>
-                          {filters.has_landmark !== undefined && (
-                            <button
-                              type="button"
-                              onClick={() => handleFilterChange('has_landmark', undefined)}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('has_landmark', filters.has_landmark === true ? undefined : true)}
-                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === true
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                          >
-                            Added
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('has_landmark', filters.has_landmark === false ? undefined : false)}
-                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === false
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                          >
-                            Not Added
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Privacy Filter */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-medium text-gray-700">Privacy</label>
-                          {filters.is_public !== undefined && (
-                            <button
-                              type="button"
-                              onClick={() => handleFilterChange('is_public', undefined)}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('is_public', filters.is_public === 1 ? undefined : 1)}
-                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 1
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                          >
-                            Public
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('is_public', filters.is_public === 0 ? undefined : 0)}
-                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 0
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                          >
-                            Private
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Filter by Size Unit */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Size Unit</label>
-                        <select
-                          value={filters.filter_size_unit || ''}
-                          onChange={(e) => handleFilterChange('filter_size_unit', e.target.value || undefined)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        >
-                          <option value="">All Units</option>
-                          {SIZE_UNIT_OPTIONS.map((unit) => (
-                            <option key={unit.value} value={unit.value}>
-                              {unit.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Sort By - Directly (not in collapsible) */}
-                <div className="space-y-3 border-t border-gray-200 pt-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
-                    <select
-                      value={filters.sortby || ''}
-                      onChange={(e) => handleFilterChange('sortby', e.target.value || undefined)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedArea === area
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                        }`}
                     >
-                      <option value="">Default (ID)</option>
-                      <option value="id">ID</option>
-                      <option value="price">Price</option>
-                      <option value="size">Size</option>
-                      <option value="created_on">Created Date</option>
-                      <option value="updated_on">Updated Date</option>
-                    </select>
-                  </div>
+                      {area}
+                    </button>
+                  ))}
 
-                  {filters.sortby && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
-                      <select
-                        value={filters.order || 'DESC'}
-                        onChange={(e) => handleFilterChange('order', e.target.value as 'ASC' | 'DESC')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      >
-                        <option value="DESC">Descending</option>
-                        <option value="ASC">Ascending</option>
-                      </select>
+                {(filters.city ? filteredAreaOptions : [])
+                  .filter(area =>
+                    !areaSearchQuery ||
+                    area.toLowerCase().includes(areaSearchQuery.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-3 py-4 text-center text-sm text-gray-500">
+                      No areas found
                     </div>
                   )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyFilters}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                  >
-                    Apply
-                  </button>
-                </div>
               </div>
             </div>
+          )}
+        </div>
+        </div>
+
+        <form onSubmit={handleSearchSubmit} className="flex gap-1.5 sm:gap-2">
+          <div className="relative flex-1 flex">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder={`Search in ${selectedColumnLabel.toLowerCase()}...`}
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  // Auto-save to localStorage
+                  localStorage.setItem(STORAGE_KEYS.SEARCH_QUERY, e.target.value);
+                }}
+                onKeyDown={handleKeyDown}
+                className="w-full h-9 sm:h-10 pl-8 sm:pl-10 pr-3 sm:pr-4 border border-r-0 border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+            <div className="relative flex-shrink-0" ref={columnDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                className="h-9 sm:h-10 px-2 sm:px-3 border border-l-0 border-gray-300 rounded-r-lg bg-gray-50 hover:bg-gray-100 transition-colors flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap"
+              >
+                <span className="truncate max-w-[100px] sm:max-w-[120px] md:max-w-none">{selectedColumnLabel}</span>
+                <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${showColumnDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              {showColumnDropdown && (
+                <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-64 overflow-y-auto">
+                  {sortedSearchColumns.map((column) => (
+                    <button
+                      key={column.value}
+                      type="button"
+                      onClick={() => {
+                        setSearchColumn(column.value);
+                        localStorage.setItem(STORAGE_KEYS.SEARCH_COLUMN, column.value);
+                        trackColumnUsage(column.value); // Track usage when column is selected
+                        setShowColumnDropdown(false);
+                      }}
+                      className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${searchColumn === column.value
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      {column.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* Desktop: Full-screen modal overlay */}
-          <div
-            className="hidden sm:flex fixed inset-0 z-[100] items-center justify-center bg-black/50 p-4"
-            onClick={() => setShowFilters(false)}
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className="relative p-2 sm:p-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
+            title="Filter"
           >
-            <div
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
-                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(false)}
-                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto min-h-0">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-blue-600 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
-                <div className="p-4 space-y-4">{/* City and Area Section - Default Open */}
+        </form>
+
+
+
+        {showFilters && createPortal(
+          <>
+            {/* Mobile: Full-screen modal */}
+            <div className="fixed inset-0 z-[100] flex items-end sm:hidden bg-black/50 p-0">
+              <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[98vh] overflow-y-auto animate-slide-up">
+                <div className="sticky top-0 z-[60] bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-2xl">
+                  <h3 className="text-base font-semibold text-gray-900">Filters</h3>
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="p-1 hover:bg-gray-100 rounded-full"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+                <div className="p-4 space-y-4">
+                  {/* City and Area Section - Default Open */}
                   <div className="space-y-3">
                     {/* Area label with City dropdown on right */}
                     <div>
@@ -1487,7 +1101,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                       </div>
                     </div>
 
-                    {/* Type - Multi-select - Full width */}
+                    {/* Type - Multi-select */}
                     <MultiSelect
                       options={[...PROPERTY_TYPE_OPTIONS]}
                       value={selectedTypes}
@@ -1496,7 +1110,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                       label="Type"
                     />
 
-                    {/* Price Range - Slider - Full width */}
+                    {/* Price Range - Slider */}
                     <RangeSlider
                       min={0}
                       max={1000}
@@ -1511,7 +1125,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                       label="Price Range (Lakhs)"
                     />
 
-                    {/* Size Range with Inline Size Unit - Slider - Full width */}
+                    {/* Size Range with Inline Size Unit - Slider */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-3">
                         Size Range (in{' '}
@@ -1519,8 +1133,9 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                           <select
                             value={filters.size_unit || 'Gaj'}
                             onChange={(e) => handleFilterChange('size_unit', e.target.value)}
-                            className=""
+                            className="text-gray-700 p-0"
                             onClick={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                           >
                             {SIZE_UNIT_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>
@@ -1559,7 +1174,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
                     </button>
 
                     {showAdditionalFilters && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                      <div className="space-y-3 pt-2">
                         {/* Tags - Multi-select */}
                         <MultiSelect
                           options={tagOptions}
@@ -1714,64 +1329,449 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
                   {/* Sort By - Directly (not in collapsible) */}
                   <div className="space-y-3 border-t border-gray-200 pt-4">
-                    <h4 className="text-sm font-semibold text-gray-900">Sort By</h4>
-                    <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
+                      <select
+                        value={filters.sortby || ''}
+                        onChange={(e) => handleFilterChange('sortby', e.target.value || undefined)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      >
+                        <option value="">Default (ID)</option>
+                        <option value="id">ID</option>
+                        <option value="price">Price</option>
+                        <option value="size">Size</option>
+                        <option value="created_on">Created Date</option>
+                        <option value="updated_on">Updated Date</option>
+                      </select>
+                    </div>
+
+                    {filters.sortby && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
                         <select
-                          value={filters.sortby || ''}
-                          onChange={(e) => handleFilterChange('sortby', e.target.value || undefined)}
+                          value={filters.order || 'DESC'}
+                          onChange={(e) => handleFilterChange('order', e.target.value as 'ASC' | 'DESC')}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                         >
-                          <option value="">Default (ID)</option>
-                          <option value="id">ID</option>
-                          <option value="price">Price</option>
-                          <option value="size">Size</option>
-                          <option value="created_on">Created Date</option>
-                          <option value="updated_on">Updated Date</option>
+                          <option value="DESC">Descending</option>
+                          <option value="ASC">Ascending</option>
                         </select>
                       </div>
+                    )}
+                  </div>
 
-                      {filters.sortby && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
-                          <select
-                            value={filters.order || 'DESC'}
-                            onChange={(e) => handleFilterChange('order', e.target.value as 'ASC' | 'DESC')}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          >
-                            <option value="DESC">Descending</option>
-                            <option value="ASC">Ascending</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={applyFilters}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      Apply
+                    </button>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons - Fixed at bottom */}
-              <div className="flex gap-2 p-4 border-t border-gray-200 bg-white">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={applyFilters}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                >
-                  Apply
-                </button>
+            {/* Desktop: Full-screen modal overlay */}
+            <div
+              className="hidden sm:flex fixed inset-0 z-[100] items-center justify-center bg-black/50 p-4"
+              onClick={() => setShowFilters(false)}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+                  <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto min-h-0">
+
+                  <div className="p-4 space-y-4">{/* City and Area Section - Default Open */}
+                    <div className="space-y-3">
+                      {/* Area label with City dropdown on right */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-gray-700">
+                            Area/Address
+                          </label>
+                          <select
+                            value={filters.city || user?.default_city || 'Panipat'}
+                            onChange={(e) => {
+                              handleCitySelect(e.target.value);
+                            }}
+                            className=""
+                          >
+                            {cityOptionsWithLabels.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Area Input */}
+                        <div className="relative">
+                          <input
+                            ref={areaInputRef}
+                            type="text"
+                            value={filters.area || ''}
+                            onChange={(e) => handleFilterChange('area', e.target.value)}
+                            onFocus={() => setShowAreaSuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 200)}
+                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-400"
+                            placeholder="Sector 18"
+                          />
+                          <MapPin className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                          {showAreaSuggestions && (
+                            <div className="absolute z-[70] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                              {!filters.area && recentAreas.filter(area => filteredAreaOptions.includes(area)).length > 0 && (
+                                <>
+                                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                                    Recent Areas
+                                  </div>
+                                  {recentAreas
+                                    .filter(area => filteredAreaOptions.includes(area))
+                                    .map((area, idx) => (
+                                      <button
+                                        key={`recent-${idx}`}
+                                        type="button"
+                                        onClick={() => {
+                                          handleFilterChange('area', area);
+                                          setShowAreaSuggestions(false);
+                                        }}
+                                        className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                                      >
+                                        {area}
+                                      </button>
+                                    ))}
+                                  <div className="border-t border-gray-200 my-1" />
+                                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
+                                    All Areas
+                                  </div>
+                                </>
+                              )}
+                              {(filters.city && filteredAreaOptions.length > 0
+                                ? filteredAreaOptions
+                                : []).filter(area =>
+                                  area.toLowerCase().includes((filters.area || '').toLowerCase())
+                                ).map((area, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => {
+                                      handleFilterChange('area', area);
+                                      setShowAreaSuggestions(false);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left hover:bg-blue-50 text-xs text-gray-700"
+                                  >
+                                    {area}
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Type - Multi-select - Full width */}
+                      <MultiSelect
+                        options={[...PROPERTY_TYPE_OPTIONS]}
+                        value={selectedTypes}
+                        onChange={handleTypeChange}
+                        placeholder="Select property types"
+                        label="Type"
+                      />
+
+                      {/* Price Range - Slider - Full width */}
+                      <RangeSlider
+                        min={0}
+                        max={1000}
+                        step={5}
+                        value={priceRange}
+                        onChange={handlePriceRangeChange}
+                        formatValue={(v) => {
+                          if (v === 0) return 'Min';
+                          if (v === 1000) return 'Max';
+                          return `${v} Lakhs`;
+                        }}
+                        label="Price Range (Lakhs)"
+                      />
+
+                      {/* Size Range with Inline Size Unit - Slider - Full width */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Size Range (in{' '}
+                          <span className="relative inline-block">
+                            <select
+                              value={filters.size_unit || 'Gaj'}
+                              onChange={(e) => handleFilterChange('size_unit', e.target.value)}
+                              className=""
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {SIZE_UNIT_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-600 pointer-events-none" />
+                          </span>
+                          )
+                        </label>
+                        <RangeSlider
+                          min={0}
+                          max={1000}
+                          step={10}
+                          value={sizeRange}
+                          onChange={handleSizeRangeChange}
+                          formatValue={(v) => {
+                            if (v === 0) return 'Min';
+                            if (v === 1000) return 'Max';
+                            return `${v} ${filters.size_unit || 'Gaj'}`;
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Additional Section - Collapsible */}
+                    <div className="space-y-3 border-t border-gray-200 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdditionalFilters(!showAdditionalFilters)}
+                        className="w-full flex items-center justify-between text-sm font-semibold text-gray-900"
+                      >
+                        <span>Additional</span>
+                        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showAdditionalFilters ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showAdditionalFilters && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                          {/* Tags - Multi-select */}
+                          <MultiSelect
+                            options={tagOptions}
+                            value={selectedTags}
+                            onChange={handleTagsChange}
+                            placeholder="Select tags"
+                            label="Tags"
+                          />
+
+                          {/* Highlights - Multi-select */}
+                          <MultiSelect
+                            options={highlightOptions}
+                            value={selectedHighlights}
+                            onChange={handleHighlightsChange}
+                            placeholder="Select highlights"
+                            label="Highlights"
+                          />
+
+                          {/* Location Filter */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="block text-xs font-medium text-gray-700">Location</label>
+                              {filters.has_location !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleFilterChange('has_location', undefined)}
+                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('has_location', filters.has_location === true ? undefined : true)}
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === true
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                Added
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('has_location', filters.has_location === false ? undefined : false)}
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_location === false
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                Not Added
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Landmark Filter */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="block text-xs font-medium text-gray-700">Landmark</label>
+                              {filters.has_landmark !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleFilterChange('has_landmark', undefined)}
+                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('has_landmark', filters.has_landmark === true ? undefined : true)}
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === true
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                Added
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('has_landmark', filters.has_landmark === false ? undefined : false)}
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.has_landmark === false
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                Not Added
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Privacy Filter */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="block text-xs font-medium text-gray-700">Privacy</label>
+                              {filters.is_public !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleFilterChange('is_public', undefined)}
+                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('is_public', filters.is_public === 1 ? undefined : 1)}
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 1
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                Public
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleFilterChange('is_public', filters.is_public === 0 ? undefined : 0)}
+                                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${filters.is_public === 0
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                              >
+                                Private
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Filter by Size Unit */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Size Unit</label>
+                            <select
+                              value={filters.filter_size_unit || ''}
+                              onChange={(e) => handleFilterChange('filter_size_unit', e.target.value || undefined)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            >
+                              <option value="">All Units</option>
+                              {SIZE_UNIT_OPTIONS.map((unit) => (
+                                <option key={unit.value} value={unit.value}>
+                                  {unit.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sort By - Directly (not in collapsible) */}
+                    <div className="space-y-3 border-t border-gray-200 pt-4">
+                      <h4 className="text-sm font-semibold text-gray-900">Sort By</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
+                          <select
+                            value={filters.sortby || ''}
+                            onChange={(e) => handleFilterChange('sortby', e.target.value || undefined)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          >
+                            <option value="">Default (ID)</option>
+                            <option value="id">ID</option>
+                            <option value="price">Price</option>
+                            <option value="size">Size</option>
+                            <option value="created_on">Created Date</option>
+                            <option value="updated_on">Updated Date</option>
+                          </select>
+                        </div>
+
+                        {filters.sortby && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
+                            <select
+                              value={filters.order || 'DESC'}
+                              onChange={(e) => handleFilterChange('order', e.target.value as 'ASC' | 'DESC')}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            >
+                              <option value="DESC">Descending</option>
+                              <option value="ASC">Ascending</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons - Fixed at bottom */}
+                <div className="flex gap-2 p-4 border-t border-gray-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyFilters}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  >
+                    Apply
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </>,
-        document.body
-      )}
-    </div >
-  );
+          </>,
+          document.body
+        )}
+      </div >
+      );
 }
