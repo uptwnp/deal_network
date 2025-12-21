@@ -801,7 +801,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
           )}
 
           {showTypeDropdown && (
-            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full min-w-[280px]">
+            <div className="absolute left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full min-w-[280px]">
               <div className="py-1">
                 {PROPERTY_TYPE_OPTIONS.map((option) => (
                   <button
@@ -849,7 +849,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
           )}
 
           {showAreaDropdown && (
-            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full min-w-[240px]">
+            <div className="absolute left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full min-w-[240px] sm:min-w-[280px]">
               <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />

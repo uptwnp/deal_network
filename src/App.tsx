@@ -2367,7 +2367,7 @@ function MainAppContent({
                   ))}
                 </div>
               ) : (
-                <div className="fixed inset-0 bottom-20 lg:relative lg:bottom-0 bg-white lg:rounded-lg lg:border lg:border-gray-200 flex items-center justify-center">
+                <div className="fixed inset-0 bottom-16 lg:relative lg:bottom-0 bg-white lg:rounded-lg lg:border lg:border-gray-200 flex items-center justify-center">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                     <p className="text-sm text-gray-600">Loading map...</p>
@@ -2375,7 +2375,7 @@ function MainAppContent({
                 </div>
               )
             ) : viewMode === 'map' ? (
-              <div className="fixed inset-0 bottom-20 lg:relative lg:inset-auto lg:bottom-0 bg-white lg:rounded-lg lg:border lg:border-gray-200 overflow-hidden flex flex-col">
+              <div className="fixed inset-0 bottom-16 lg:relative lg:inset-auto lg:bottom-0 bg-white lg:rounded-lg lg:border lg:border-gray-200 overflow-hidden flex flex-col">
                 {/* Dismissable Map Note */}
                 {showMapNote && (
                   <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex items-start gap-3">
@@ -2559,7 +2559,7 @@ function MainAppContent({
       </div>
 
       {/* Sticky Map/List View Toggle Button - Mobile Only */}
-      <div className="lg:hidden fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30">
+      <div className="lg:hidden fixed bottom-[88px] left-1/2 transform -translate-x-1/2 z-30">
         <button
           onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all shadow-lg text-sm ${viewMode === 'map'
