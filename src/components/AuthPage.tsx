@@ -18,7 +18,6 @@ interface AuthPageProps {
 export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPin, setShowPin] = useState(false);
-  const [showResetContact, setShowResetContact] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -285,33 +284,9 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      PIN
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (showResetContact) {
-                          window.location.href =
-                            "https://wa.me/919138331357?text=Hello%20Support,%20I%20need%20to%20reset%20my%20PIN";
-                        } else {
-                          setShowResetContact(true);
-                        }
-                      }}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      {showResetContact ? (
-                        <>
-                          Contact Support to Reset Pin.{" "}
-                          <span className="underline">Contact Now</span>
-                        </>
-                      ) : (
-                        "Reset Pin"
-                      )}
-                    </button>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    PIN
+                  </label>
 
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />

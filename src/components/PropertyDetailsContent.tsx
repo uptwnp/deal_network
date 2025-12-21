@@ -464,7 +464,7 @@ export function PropertyDetailsContent({
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-gray-500" />
-                                <span className="text-sm sm:text-base text-gray-600" >Created on</span>
+                                <span className="text-sm sm:text-base text-gray-600" >Listed on</span>
                             </div>
                             <div className="text-right">
                                 <span className="text-sm sm:text-base font-semibold text-gray-900">
