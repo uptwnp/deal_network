@@ -201,20 +201,20 @@ export function PropertyCard({
             </div>
             <div className="flex-1 min-w-0">
               {/* Title - More compact on desktop */}
-              <h3 className="text-xs sm:text-sm md:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-0.5 flex items-center flex-wrap gap-1">
+              <h3 className="text-sm sm:text-sm md:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1 md:mb-0.5 flex items-center flex-wrap gap-1">
                 {sizeText} | {locationText}
               </h3>
               {/* Subtitle */}
-              <p className="text-[10px] sm:text-xs md:text-xs text-gray-500">{property.type} - #{property.id}</p>
+              <p className="text-xs sm:text-xs md:text-xs text-gray-500">{property.type} - #{property.id}</p>
             </div>
           </div>
           {/* Price Section */}
           <div className="text-right">
-            <p className="text-xs sm:text-sm md:text-sm font-bold text-blue-600 mb-0.5 sm:mb-1 md:mb-0.5 whitespace-nowrap">
+            <p className="text-sm sm:text-sm md:text-sm font-bold text-blue-600 mb-0.5 sm:mb-1 md:mb-0.5 whitespace-nowrap">
               ₹ {priceText}
             </p>
             {ratePerUnitText && (
-              <p className="text-[10px] sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
+              <p className="text-xs sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
                 {ratePerUnitText} <span className="text-gray-400">/{property.size_unit}</span>
               </p>
             )}
@@ -223,7 +223,7 @@ export function PropertyCard({
 
         {/* Description - More compact on desktop */}
         {trimmedDescription && (
-          <p className="text-xs sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2">
+          <p className="text-sm sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2">
             {trimmedDescription}
           </p>
         )}
@@ -235,7 +235,7 @@ export function PropertyCard({
             {allTags.map((tag, idx) => (
               <span
                 key={idx}
-                className="inline-flex items-center gap-1 py-0.5 px-1.5 sm:py-1 sm:px-2 md:py-0.5 md:px-2 rounded-full text-[10px] sm:text-xs md:text-xs font-normal bg-gray-50 text-gray-700 border border-gray-200 whitespace-nowrap transition-all duration-200 hover:bg-gray-100"
+                className="inline-flex items-center gap-1 py-0.5 px-1.5 sm:py-1 sm:px-2 md:py-0.5 md:px-2 rounded-full text-xs sm:text-xs md:text-xs font-normal bg-gray-50 text-gray-700 border border-gray-200 whitespace-nowrap transition-all duration-200 hover:bg-gray-100"
               >
                 {tag.Icon && <tag.Icon className="text-gray-500 text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" />}
                 {tag.text}
@@ -245,7 +245,7 @@ export function PropertyCard({
 
           {/* Timestamp with Public/Private icon and Favorite icon */}
           <div className="text-right flex items-center justify-end gap-1">
-            <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 text-xs sm:text-xs md:text-xs text-gray-500 whitespace-nowrap">
               <Clock className="text-[8px] sm:text-[9px] md:text-[9px] w-3 h-3" /> {createdDateText}
             </span>
             {/* Favorite/Saved Icon */}
