@@ -406,5 +406,73 @@ export const authApi = {
       return { status: false, message: 'Failed to reset password' };
     }
   },
+
+  async sendResetOtp(phone: string): Promise<{ status: boolean; message: string; verification_id?: string }> {
+    try {
+      const response = await axios.post<{ status: boolean; message: string; verification_id?: string }>(
+        'https://prop.digiheadway.in/api/dealer_network/reset.php?action=send_otp',
+        { phone },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return { status: false, message: 'Failed to send OTP' };
+    }
+  },
+
+  async verifyResetOtp(phone: string, otp: string, verificationId: string): Promise<{
+    status: boolean;
+    message: string;
+    user?: {
+      id: number;
+      name: string;
+      phone: string;
+      token: string;
+      status: string;
+    };
+  }> {
+    try {
+      const response = await axios.post<{
+        status: boolean;
+        message: string;
+        user?: {
+          id: number;
+          name: string;
+          phone: string;
+          token: string;
+          status: string;
+        };
+      }>(
+        'https://prop.digiheadway.in/api/dealer_network/reset.php?action=verify_otp',
+        { phone, otp, verification_id: verificationId },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+
+      // If successful, store the token and user ID
+      if (response.data.status && response.data.user) {
+        setStoredToken(response.data.user.token);
+        setStoredUserId(response.data.user.id);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return { status: false, message: 'Failed to verify OTP' };
+    }
+  },
 };
 

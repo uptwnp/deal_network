@@ -27,6 +27,7 @@ const PublicPropertyPage = lazy(() => import('./components/PublicPropertyPage').
 const PropertyMap = lazy(() => import('./components/PropertyMap').then(m => ({ default: m.PropertyMap })));
 import { MapFocusPoint } from './components/PropertyMap';
 const ResetPinPage = lazy(() => import('./components/ResetPinPage').then(m => ({ default: m.ResetPinPage })));
+const ResetPage = lazy(() => import('./components/ResetPage').then(m => ({ default: m.ResetPage })));
 
 type FilterType = 'all' | 'my' | 'public' | 'saved';
 
@@ -1530,6 +1531,19 @@ function App() {
           </div>
         }>
           <ResetPinPage />
+        </Suspense>
+      } />
+
+      <Route path="/reset" element={
+        <Suspense fallback={
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Loading...</p>
+            </div>
+          </div>
+        }>
+          <ResetPage />
         </Suspense>
       } />
 

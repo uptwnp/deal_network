@@ -359,6 +359,14 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
                       Sign Up
                     </button>
                   </p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    <a
+                      href="/reset"
+                      className="text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Forgot Password?
+                    </a>
+                  </p>
                 </div>
               </form>
             ) : (
