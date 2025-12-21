@@ -5,6 +5,8 @@ import { Property } from '../types/property';
 import { propertyApi } from '../services/api';
 import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
+import { formatTextForReadability } from '../utils/textFormatter';
+import { ClickableText } from './ClickableText';
 
 export function PublicPropertyPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,11 +38,11 @@ export function PublicPropertyPage() {
           setLoading(false);
           return;
         }
-        
+
         // Get property using the public endpoint (single API request)
         // The API function now has built-in request deduplication
         const foundProperty = await propertyApi.getPropertyById(propertyId);
-        
+
         if (foundProperty) {
           // If property is returned from public endpoint, assume it's public (is_public may not be in response)
           // Only reject if explicitly marked as private (is_public === 0)
@@ -65,7 +67,7 @@ export function PublicPropertyPage() {
     };
 
     fetchProperty();
-    
+
     // Cleanup: abort request if component unmounts or id changes
     return () => {
       if (abortControllerRef.current) {
@@ -84,7 +86,7 @@ export function PublicPropertyPage() {
         title: `${property.type} - ${property.area}`,
         text,
         url: window.location.href,
-      }).catch(() => {});
+      }).catch(() => { });
     } else if (property) {
       navigator.clipboard.writeText(window.location.href);
       alert('Link copied to clipboard!');
@@ -224,7 +226,9 @@ export function PublicPropertyPage() {
             {/* Description */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-              <p className="text-gray-700 leading-relaxed">{property.description}</p>
+              <div className="text-gray-700 leading-relaxed">
+                <ClickableText text={formatTextForReadability(property.description)} />
+              </div>
             </div>
 
             {/* Key Details Grid */}

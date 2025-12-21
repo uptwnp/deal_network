@@ -9,12 +9,11 @@ export function lockBodyScroll() {
   if (scrollLockCount === 1) {
     // Save current scroll position
     scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-    
-    // Apply scroll lock
+
+    // Apply scroll lock - only use overflow hidden to preserve modal scrolling
     document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollPosition}px`;
-    document.body.style.width = '100%';
+    // Store the scroll position in a data attribute for reference
+    document.body.setAttribute('data-scroll-lock-position', String(scrollPosition));
     document.body.classList.add('modal-open');
   }
 }
@@ -22,15 +21,17 @@ export function lockBodyScroll() {
 export function unlockBodyScroll() {
   scrollLockCount = Math.max(0, scrollLockCount - 1);
   if (scrollLockCount === 0) {
+    // Get stored scroll position
+    const storedPosition = document.body.getAttribute('data-scroll-lock-position');
+    const targetScroll = storedPosition ? parseInt(storedPosition, 10) : scrollPosition;
+
     // Remove scroll lock
     document.body.style.overflow = '';
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.width = '';
+    document.body.removeAttribute('data-scroll-lock-position');
     document.body.classList.remove('modal-open');
-    
+
     // Restore scroll position
-    window.scrollTo(0, scrollPosition);
+    window.scrollTo(0, targetScroll);
   }
 }
 

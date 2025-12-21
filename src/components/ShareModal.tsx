@@ -204,7 +204,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
       <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md mobile-modal-content sm:max-h-[80vh] overflow-y-auto animate-slide-up">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
             Share Property
           </h3>
           <button
@@ -231,8 +231,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                 />
                 <div
                   className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.id
-                      ? "bg-blue-600 border-blue-600"
-                      : "border-gray-300"
+                    ? "bg-blue-600 border-blue-600"
+                    : "border-gray-300"
                     }`}
                 >
                   {selectedFields.id && (
@@ -253,8 +253,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                 />
                 <div
                   className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.heading
-                      ? "bg-blue-600 border-blue-600"
-                      : "border-gray-300"
+                    ? "bg-blue-600 border-blue-600"
+                    : "border-gray-300"
                     }`}
                 >
                   {selectedFields.heading && (
@@ -275,8 +275,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                 />
                 <div
                   className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.price
-                      ? "bg-blue-600 border-blue-600"
-                      : "border-gray-300"
+                    ? "bg-blue-600 border-blue-600"
+                    : "border-gray-300"
                     }`}
                 >
                   {selectedFields.price && (
@@ -297,8 +297,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                 />
                 <div
                   className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.description
-                      ? "bg-blue-600 border-blue-600"
-                      : "border-gray-300"
+                    ? "bg-blue-600 border-blue-600"
+                    : "border-gray-300"
                     }`}
                 >
                   {selectedFields.description && (
@@ -322,8 +322,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                   />
                   <div
                     className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.note
-                        ? "bg-blue-600 border-blue-600"
-                        : "border-gray-300"
+                      ? "bg-blue-600 border-blue-600"
+                      : "border-gray-300"
                       }`}
                   >
                     {selectedFields.note && (
@@ -346,8 +346,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                   />
                   <div
                     className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.locationLink
-                        ? "bg-blue-600 border-blue-600"
-                        : "border-gray-300"
+                      ? "bg-blue-600 border-blue-600"
+                      : "border-gray-300"
                       }`}
                   >
                     {selectedFields.locationLink && (
@@ -372,8 +372,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                   />
                   <div
                     className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.landmarkLink
-                        ? "bg-blue-600 border-blue-600"
-                        : "border-gray-300"
+                      ? "bg-blue-600 border-blue-600"
+                      : "border-gray-300"
                       }`}
                   >
                     {selectedFields.landmarkLink && (
@@ -398,8 +398,8 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
                   />
                   <div
                     className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${selectedFields.link
-                        ? "bg-blue-600 border-blue-600"
-                        : "border-gray-300"
+                      ? "bg-blue-600 border-blue-600"
+                      : "border-gray-300"
                       }`}
                   >
                     {selectedFields.link && (

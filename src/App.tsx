@@ -2127,16 +2127,16 @@ function MainAppContent({
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-3">
               <Home className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Dealer Network</h1>
+              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Dealer Network</h1>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setShowModal(true)}
-                className="hidden md:flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-lg font-medium transition-all bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm shadow-sm"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-lg font-medium transition-all bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm shadow-sm"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Property</span>
+                <span className="hidden sm:inline">Add Property</span>
               </button>
 
               <button
@@ -2145,18 +2145,6 @@ function MainAppContent({
                 title="Profile"
               >
                 <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-              </button>
-              <button
-                onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
-                className={`lg:hidden p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors ${viewMode === 'map' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
-                  }`}
-                title={viewMode === 'list' ? 'Switch to Map View' : 'Switch to List View'}
-              >
-                {viewMode === 'list' ? (
-                  <Map className="w-4 h-4 sm:w-5 sm:h-5" />
-                ) : (
-                  <List className="w-4 h-4 sm:w-5 sm:h-5" />
-                )}
               </button>
               {/* Desktop filter menu - hidden on mobile, visible on desktop header */}
               <div className="relative hidden md:block" ref={filterMenuRef}>
@@ -2541,6 +2529,30 @@ function MainAppContent({
         </div>
       </div>
 
+      {/* Sticky Map/List View Toggle Button - Mobile Only */}
+      <div className="lg:hidden fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30">
+        <button
+          onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all shadow-lg text-sm ${viewMode === 'map'
+            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+            : 'bg-white border-2 border-blue-600 hover:bg-blue-50 text-blue-600'
+            }`}
+          title={viewMode === 'list' ? 'Switch to Map View' : 'Switch to List View'}
+        >
+          {viewMode === 'list' ? (
+            <>
+              <Map className="w-5 h-5" />
+              <span>Map View</span>
+            </>
+          ) : (
+            <>
+              <List className="w-5 h-5" />
+              <span>List View</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {showModal && (
         <Suspense fallback={
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2665,18 +2677,7 @@ function MainAppContent({
         </div>
       </div>
 
-      <div className="md:hidden">
-        <button
-          onClick={() => {
-            setEditingProperty(null);
-            setShowModal(true);
-          }}
-          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center z-40 hover:scale-110 duration-200"
-          title="Add Property"
-        >
-          <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-      </div>
+
 
     </div>
   );

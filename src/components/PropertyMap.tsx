@@ -468,12 +468,12 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
           <span className="hidden sm:inline">{isSatelliteView ? 'Satellite' : 'Map'}</span>
         </button>
 
-        {/* Current Location Button - Bottom Right */}
+        {/* Current Location Button - Top Right */}
         <button
           type="button"
           onClick={handleGetCurrentLocation}
           disabled={isGettingLocation}
-          className="absolute bottom-2 right-2 pointer-events-auto flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:bg-gray-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+          className="absolute top-2 right-2 pointer-events-auto flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:bg-gray-50 rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
           title="Get Current Location"
         >
           <LocateFixed

@@ -5,11 +5,13 @@ import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
 import { formatRatePerUnit } from '../utils/rateFormatter';
 import { getHighlightOptions, getTagOptions } from '../utils/filterOptions';
+import { formatTextForReadability } from '../utils/textFormatter';
 import { LocationModal } from './LocationModal';
 import { LocationViewModal } from './LocationViewModal';
 import { LandmarkViewModal } from './LandmarkViewModal';
 import { OwnerDetailsModal } from './OwnerDetailsModal';
 import { ShareModal } from './ShareModal';
+import { ClickableText } from './ClickableText';
 
 export interface PropertyDetailsContentProps {
     property: Property;
@@ -266,7 +268,7 @@ export function PropertyDetailsContent({
         <div className={`bg-white h-full flex flex-col ${className}`}>
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">{property.type} #{property.id}</h2>
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{property.type} #{property.id}</h2>
                     <button
                         onClick={() => setShowShareModal(true)}
                         className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -503,9 +505,9 @@ export function PropertyDetailsContent({
                             <FileText className="w-3.5 h-3.5 text-gray-500" />
                             Description
                         </h3>
-                        <p className="text-sm sm:text-base font-semibold text-gray-900 leading-relaxed">
-                            {property.description}
-                        </p>
+                        <div className="text-sm sm:text-base font-normal text-gray-900 leading-relaxed">
+                            <ClickableText text={formatTextForReadability(property.description)} />
+                        </div>
                     </div>
                 )}
 
@@ -632,9 +634,9 @@ export function PropertyDetailsContent({
                                 )}
                             </span>
                         </h3>
-                        <p className="text-sm sm:text-base font-semibold text-gray-900 leading-relaxed">
-                            {property.note_private}
-                        </p>
+                        <div className="text-sm sm:text-base font-normal text-gray-900 leading-relaxed">
+                            <ClickableText text={property.note_private} />
+                        </div>
                     </div>
                 )}
 
@@ -729,9 +731,9 @@ export function PropertyDetailsContent({
                                             <FileText className="w-4 h-4" />
                                             My Note (Private)
                                         </div>
-                                        <p className="text-sm sm:text-base text-gray-800 leading-relaxed">
-                                            {property.user_note}
-                                        </p>
+                                        <div className="text-sm sm:text-base text-gray-800 leading-relaxed">
+                                            <ClickableText text={property.user_note} />
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -769,7 +771,7 @@ export function PropertyDetailsContent({
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
                     <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md mobile-modal-content sm:max-h-[80vh] overflow-y-auto animate-slide-up">
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Select Highlights</h3>
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Select Highlights</h3>
                             <button
                                 onClick={() => setShowHighlightModal(false)}
                                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -935,7 +937,7 @@ export function PropertyDetailsContent({
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
                     <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md mobile-modal-content sm:max-h-[80vh] overflow-y-auto animate-slide-up">
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Select Tags</h3>
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Select Tags</h3>
                             <button
                                 onClick={() => setShowTagModal(false)}
                                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"

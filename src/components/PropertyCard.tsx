@@ -8,6 +8,8 @@ import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
 import { formatRatePerUnit } from '../utils/rateFormatter';
 import { propertyTypeDefinitions } from '../utils/leafletIcons';
+import { formatTextForReadability } from '../utils/textFormatter';
+import { ClickableText } from './ClickableText';
 
 interface PropertyCardProps {
   property: Property;
@@ -42,10 +44,11 @@ export function PropertyCard({
   const userSettings = getUserSettings();
   const userCity = userSettings.city || '';
 
-  // Trim description to 150 characters
-  const trimmedDescription = property.description && property.description.length > 150
-    ? property.description.substring(0, 150) + '...'
-    : property.description || '';
+  // Trim description to 150 characters (after formatting for readability)
+  const formattedDescription = formatTextForReadability(property.description || '');
+  const trimmedDescription = formattedDescription && formattedDescription.length > 150
+    ? formattedDescription.substring(0, 150) + '...'
+    : formattedDescription;
 
   // Format price
   const priceText = formatPrice(property.price_min, property.price_max);
@@ -221,11 +224,10 @@ export function PropertyCard({
           </div>
         </header>
 
-        {/* Description - More compact on desktop */}
         {trimmedDescription && (
-          <p className="text-sm sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2">
-            {trimmedDescription}
-          </p>
+          <div className="text-sm sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2 line-clamp-2">
+            <ClickableText text={trimmedDescription} />
+          </div>
         )}
 
         {/* Card Footer with Tags & Timestamp */}
