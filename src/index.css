@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Custom Properties */
+:root {
+  --header-height: 56px;
+  /* Mobile header height - 14 (h-14) */
+}
+
+@media (min-width: 640px) {
+  :root {
+    --header-height: 64px;
+    /* Desktop header height - 16 (h-16) */
+  }
+}
+
 /* Global Font Settings - Consistent across all devices */
 * {
   /* Force consistent font rendering */

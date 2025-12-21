@@ -1861,6 +1861,7 @@ function MainAppContent({
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [mapProperties, setMapProperties] = useState<Property[]>([]);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [showMapNote, setShowMapNote] = useState(true);
 
   // Update isDesktop on resize
   useEffect(() => {
@@ -2122,7 +2123,8 @@ function MainAppContent({
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-20">
-      <header className="bg-white border-b border-gray-200 sticky top-0 shadow-sm z-40">
+      {/* Header - hidden in map view on mobile, always visible on desktop */}
+      <header className={`bg-white border-b border-gray-200 sticky top-0 shadow-sm z-40 ${viewMode === 'map' ? 'hidden lg:block' : ''}`}>
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 lg:max-w-full">
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -2344,13 +2346,16 @@ function MainAppContent({
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:hidden">
-        <SearchFilter
-          key={searchFilterKey}
-          onSearch={handleSearch}
-          onFilter={handleFilter}
-          totalCount={paginationMeta?.total}
-          listName={getFilterLabel()}
-        />
+        {/* Only show search/filter in list view on mobile */}
+        {viewMode === 'list' && (
+          <SearchFilter
+            key={searchFilterKey}
+            onSearch={handleSearch}
+            onFilter={handleFilter}
+            totalCount={paginationMeta?.total}
+            listName={getFilterLabel()}
+          />
+        )}
 
         <div className="mt-4 sm:mt-6 flex flex-col lg:flex-row gap-6 items-start">
           <div className="flex-1 w-full min-w-0">
@@ -2362,7 +2367,7 @@ function MainAppContent({
                   ))}
                 </div>
               ) : (
-                <div className="bg-white rounded-lg border border-gray-200 h-[600px] flex items-center justify-center">
+                <div className="fixed inset-0 bottom-20 lg:relative lg:bottom-0 bg-white lg:rounded-lg lg:border lg:border-gray-200 flex items-center justify-center">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                     <p className="text-sm text-gray-600">Loading map...</p>
@@ -2370,9 +2375,31 @@ function MainAppContent({
                 </div>
               )
             ) : viewMode === 'map' ? (
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
+              <div className="fixed inset-0 bottom-20 lg:relative lg:inset-auto lg:bottom-0 bg-white lg:rounded-lg lg:border lg:border-gray-200 overflow-hidden flex flex-col">
+                {/* Dismissable Map Note */}
+                {showMapNote && (
+                  <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 text-sm text-blue-800">
+                      <p className="font-medium">Map View Information</p>
+                      <p className="text-blue-700 mt-0.5">Only properties with location data are displayed on the map.</p>
+                    </div>
+                    <button
+                      onClick={() => setShowMapNote(false)}
+                      className="flex-shrink-0 text-blue-600 hover:text-blue-800 transition-colors"
+                      aria-label="Dismiss"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+
                 {currentProperties.length === 0 ? (
-                  <div className="h-full flex items-center justify-center">
+                  <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
                       <p className="text-sm sm:text-base text-gray-500 mb-3">
                         {hasActiveSearchOrFilter
@@ -2393,21 +2420,23 @@ function MainAppContent({
                     </div>
                   </div>
                 ) : (
-                  <Suspense fallback={
-                    <div className="h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                        <p className="text-sm text-gray-600">Loading map...</p>
+                  <div className="flex-1 relative">
+                    <Suspense fallback={
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-600">Loading map...</p>
+                        </div>
                       </div>
-                    </div>
-                  }>
-                    <PropertyMap
-                      properties={currentProperties}
-                      center={getMapCenter()}
-                      onMarkerClick={handleViewProperty}
-                      focusOn={mapFocus}
-                    />
-                  </Suspense>
+                    }>
+                      <PropertyMap
+                        properties={currentProperties}
+                        center={getMapCenter()}
+                        onMarkerClick={handleViewProperty}
+                        focusOn={mapFocus}
+                      />
+                    </Suspense>
+                  </div>
                 )}
               </div>
             ) : (
