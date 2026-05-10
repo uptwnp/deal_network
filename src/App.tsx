@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate, NavigateFunction } from 'react-router-dom';
 import { Plus, Home, Globe, ChevronDown, User, Map, List, X, Users, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyCardSkeleton } from './components/PropertyCardSkeleton';
@@ -14,6 +14,7 @@ import { authApi } from './services/authApi';
 import { STORAGE_KEYS } from './utils/filterOptions';
 import { formatPriceWithLabel } from './utils/priceFormatter';
 import { formatSize } from './utils/sizeFormatter';
+import { trackPageView, trackEvent } from './utils/analytics';
 
 // Lazy load heavy components
 const PropertyModal = lazy(() => import('./components/PropertyModal').then(m => ({ default: m.PropertyModal })));
@@ -26,7 +27,7 @@ const AuthPage = lazy(() => import('./components/AuthPage').then(m => ({ default
 const PublicPropertyPage = lazy(() => import('./components/PublicPropertyPage').then(m => ({ default: m.PublicPropertyPage })));
 const PropertyMap = lazy(() => import('./components/PropertyMap').then(m => ({ default: m.PropertyMap })));
 import { MapFocusPoint } from './components/PropertyMap';
-const ResetPinPage = lazy(() => import('./components/ResetPinPage').then(m => ({ default: m.ResetPinPage })));
+const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const ResetPage = lazy(() => import('./components/ResetPage').then(m => ({ default: m.ResetPage })));
 
 type FilterType = 'all' | 'my' | 'public' | 'saved';
@@ -58,7 +59,7 @@ function App() {
       if (saved && (saved === 'all' || saved === 'my' || saved === 'public' || saved === 'saved')) {
         return saved as FilterType;
       }
-    } catch { }
+    } catch { /* ignore error */ }
     return 'all';
   };
 
@@ -67,7 +68,7 @@ function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SEARCH_COLUMN);
       return saved || 'general';
-    } catch { }
+    } catch { /* ignore error */ }
     return 'general';
   };
 
@@ -79,10 +80,10 @@ function App() {
         const filters = JSON.parse(saved);
         // Clean empty values
         return Object.fromEntries(
-          Object.entries(filters).filter(([_, v]) => v !== '' && v !== undefined)
+          Object.entries(filters).filter(([, v]) => v !== '' && v !== undefined)
         ) as FilterOptions;
       }
-    } catch { }
+    } catch { /* ignore error */ }
     return {};
   };
 
@@ -90,7 +91,7 @@ function App() {
   const loadPersistedSearchQuery = (): string => {
     try {
       return localStorage.getItem(STORAGE_KEYS.SEARCH_QUERY) || '';
-    } catch { }
+    } catch { /* ignore error */ }
     return '';
   };
 
@@ -134,6 +135,7 @@ function App() {
         // Don't persist public property routes or login/reset-pin routes
         if (!location.pathname.startsWith('/property/') &&
           location.pathname !== '/login' &&
+          location.pathname !== '/reset-password' &&
           location.pathname !== '/reset-pin') {
           localStorage.setItem('last_route', location.pathname);
         }
@@ -163,6 +165,11 @@ function App() {
       }
     }
   }, [authLoading, isAuthenticated, location.pathname, navigate]);
+
+  // Track page views
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
 
   const loadMyProperties = useCallback(async (paginationOptions?: PaginationOptions) => {
     if (!ownerId || ownerId <= 0) return;
@@ -368,7 +375,7 @@ function App() {
                 loadedDataRef.current.page = currentPage;
                 loadedDataRef.current.per_page = currentPerPage;
               }
-            } catch (error) {
+            } catch {
               if (requestIdRef.current === currentRequestId) {
                 // Error already handled in loadMyProperties
               }
@@ -388,7 +395,7 @@ function App() {
                 loadedDataRef.current.page = currentPage;
                 loadedDataRef.current.per_page = currentPerPage;
               }
-            } catch (error) {
+            } catch {
               if (requestIdRef.current === currentRequestId) {
                 // Error already handled in loadPublicProperties
               }
@@ -408,7 +415,7 @@ function App() {
                 loadedDataRef.current.page = currentPage;
                 loadedDataRef.current.per_page = currentPerPage;
               }
-            } catch (error) {
+            } catch {
               if (requestIdRef.current === currentRequestId) {
                 // Error already handled in loadSavedProperties
               }
@@ -439,7 +446,7 @@ function App() {
         setLoading(false);
       }
     });
-  }, [ownerId, location.pathname, isAuthenticated, activeFilter, activeFilters, searchQuery, pagination.page, pagination.per_page]);
+  }, [ownerId, location.pathname, isAuthenticated, activeFilter, activeFilters, searchQuery, pagination.page, pagination.per_page, loadMyProperties, loadPublicProperties, loadSavedProperties]);
 
   useEffect(() => {
     // Only set default properties if there's no active search or filters
@@ -511,7 +518,7 @@ function App() {
 
       // Sort filter keys to ensure consistent stringification
       const sortedFilters = Object.keys(activeFilters).sort().reduce((acc, key) => {
-        (acc as any)[key] = activeFilters[key as keyof FilterOptions];
+        (acc as Record<string, unknown>)[key] = activeFilters[key as keyof FilterOptions];
         return acc;
       }, {} as FilterOptions);
 
@@ -599,9 +606,9 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const showToast = (message: string, type: 'success' | 'error') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type });
-  };
+  }, []);
 
   // Helper function to apply filters client-side (for combining search + filters)
   const applyClientSideFilters = useCallback((properties: Property[], filters: FilterOptions): Property[] => {
@@ -687,7 +694,7 @@ function App() {
             }
           }
         }
-      } catch (error) {
+      } catch {
         showToast('Failed to refresh properties', 'error');
         setFilteredProperties([]);
         setPaginationMeta(null);
@@ -765,7 +772,7 @@ function App() {
     setTimeout(() => {
       isRefreshingRef.current = false;
     }, 100);
-  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty, showToast, pagination, setPaginationMeta]);
+  }, [ownerId, searchQuery, searchColumn, activeFilter, activeFilters, applyClientSideFilters, selectedProperty, showToast, pagination, setPaginationMeta, savedProperties]);
 
   const handleAddProperty = async (data: PropertyFormData) => {
     try {
@@ -778,6 +785,7 @@ function App() {
         updateCacheWithCityArea(data.city.trim(), data.area.trim());
       }
 
+      trackEvent('add_property_success', { property_id: newPropertyId, type: data.type });
       showToast('Property added successfully', 'success');
       setShowModal(false);
 
@@ -819,7 +827,7 @@ function App() {
         // Fallback: just refresh properties normally
         await refreshPropertiesAndFilters();
       }
-    } catch (error) {
+    } catch {
       showToast('Failed to add property', 'error');
     }
   };
@@ -835,25 +843,33 @@ function App() {
         updateCacheWithCityArea(data.city.trim(), data.area.trim());
       }
 
+      trackEvent('update_property_success', { property_id: editingProperty.id, type: data.type });
       showToast('Property updated successfully', 'success');
       setShowModal(false);
       setEditingProperty(null);
       setShowDetailsModal(false);
       await refreshPropertiesAndFilters();
-    } catch (error) {
+    } catch {
       showToast('Failed to update property', 'error');
     }
   };
 
   const handleDeleteProperty = async (id: number) => {
+    if (!confirm('Are you sure you want to permanently delete this property? This action cannot be undone.')) {
+      return;
+    }
+
     try {
       await propertyApi.deleteProperty(id, ownerId);
+      trackEvent('delete_property_success', { property_id: id });
       showToast('Property deleted successfully', 'success');
       setShowDetailsModal(false);
       setSelectedProperty(null);
+      // Wait for cache refresh
       await refreshPropertiesAndFilters();
-    } catch (error) {
-      showToast('Failed to delete property', 'error');
+    } catch (error: unknown) {
+      console.error('Delete failed:', error);
+      showToast((error as Error).message || 'Failed to delete property', 'error');
     }
   };
 
@@ -862,18 +878,51 @@ function App() {
       await propertyApi.updateProperty(id, ownerId, { is_public: isPublic ? 1 : 0 });
       showToast(`Property made ${isPublic ? 'public' : 'private'}`, 'success');
       await refreshPropertiesAndFilters(true);
-    } catch (error) {
+    } catch {
       showToast('Failed to update property', 'error');
     }
   };
 
   const handleUpdateHighlightsAndTags = async (id: number, highlights: string, tags: string) => {
+    if (!ownerId || ownerId <= 0) return;
     try {
       await propertyApi.updateProperty(id, ownerId, { highlights, tags });
-      showToast('Highlights and tags updated successfully', 'success');
-      await refreshPropertiesAndFilters(true);
-    } catch (error) {
-      showToast('Failed to update highlights and tags', 'error');
+      // Update local state - both in myProperties and filteredProperties
+      const updateList = (prev: Property[]) => prev.map(p => p.id === id ? { ...p, highlights, tags } : p);
+      setMyProperties(updateList);
+      setPublicProperties(updateList);
+      setSavedProperties(updateList);
+      setFilteredProperties(updateList);
+      // Update selected property if it's the one we're viewing
+      if (selectedProperty?.id === id) {
+        setSelectedProperty({ ...selectedProperty, highlights, tags });
+      }
+      showToast('Highlights and tags updated', 'success');
+    } catch {
+      showToast('Failed to update details', 'error');
+    }
+  };
+
+  const handleUpdateImageUrls = async (id: number, image_urls: string) => {
+    if (!ownerId || ownerId <= 0) return;
+    try {
+      await propertyApi.updateProperty(id, ownerId, { image_urls });
+      
+      const updateList = (prev: Property[]) => prev.map(p => p.id === id ? { ...p, image_urls } : p);
+      
+      setMyProperties(updateList);
+      setPublicProperties(updateList);
+      setSavedProperties(updateList);
+      setFilteredProperties(updateList);
+      
+      if (selectedProperty?.id === id) {
+        setSelectedProperty(prev => prev ? ({ ...prev, image_urls } as Property) : null);
+      }
+      
+      showToast('Photos updated successfully', 'success');
+    } catch (error: unknown) {
+      console.error('Update photos failed:', error);
+      showToast((error as Error).message || 'Failed to update photos', 'error');
     }
   };
 
@@ -882,7 +931,7 @@ function App() {
       await propertyApi.updateProperty(id, ownerId, { location, location_accuracy: locationAccuracy });
       showToast('Location updated successfully', 'success');
       await refreshPropertiesAndFilters(true);
-    } catch (error) {
+    } catch {
       showToast('Failed to update location', 'error');
     }
   };
@@ -892,7 +941,7 @@ function App() {
       await propertyApi.updateProperty(id, ownerId, { landmark_location: landmarkLocation, landmark_location_distance: landmarkLocationDistance });
       showToast('Landmark location updated successfully', 'success');
       await refreshPropertiesAndFilters(true);
-    } catch (error) {
+    } catch {
       showToast('Failed to update landmark location', 'error');
     }
   };
@@ -922,7 +971,7 @@ function App() {
 
       // Refresh in background to ensure sync, but minimal impact due to optimistic update
       // await refreshPropertiesAndFilters(true);
-    } catch (error) {
+    } catch {
       showToast('Failed to update favorite', 'error');
       // Revert via refresh
       await refreshPropertiesAndFilters(true);
@@ -964,6 +1013,7 @@ function App() {
       if (column !== undefined) {
         setSearchColumn(column);
       }
+      trackEvent('search_triggered', { query: query.trim(), column: column || searchColumn });
 
       // Reset pagination to page 1 when search changes
       setPagination({ page: 1, per_page: 40 });
@@ -1005,7 +1055,7 @@ function App() {
       // Create a unique key for this request to prevent duplicates
       // Sort filter keys to ensure consistent stringification
       const sortedFilters = Object.keys(activeFilters).sort().reduce((acc, key) => {
-        (acc as any)[key] = activeFilters[key as keyof FilterOptions];
+        (acc as Record<string, unknown>)[key] = activeFilters[key as keyof FilterOptions];
         return acc;
       }, {} as FilterOptions);
       const requestKey = `search:${ownerId}:${listParam}:${query.trim()}:${currentColumn}:${JSON.stringify(sortedFilters)}:${normalizedPage}:${normalizedPerPage}`;
@@ -1072,7 +1122,7 @@ function App() {
           setFilteredProperties(filterResponse.data);
           setPaginationMeta(filterResponse.meta);
         }
-      } catch (error) {
+      } catch {
         // Only show error if this is still the current request
         if (filterRequestIdRef.current === currentFilterRequestId) {
           showToast('Search failed', 'error');
@@ -1093,13 +1143,14 @@ function App() {
         }
       }
     },
-    [activeFilter, myProperties, publicProperties, savedProperties, ownerId, activeFilters, applyClientSideFilters, searchColumn, showToast, setPagination, pagination]
+    [activeFilter, myProperties, publicProperties, savedProperties, ownerId, activeFilters, searchColumn, showToast, setPagination]
   );
 
   const handleFilter = useCallback(
     async (filters: FilterOptions, filterOverride?: FilterType) => {
       // Update activeFilters immediately
       setActiveFilters(filters);
+      trackEvent('filter_applied', { filters });
 
       // Reset pagination to page 1 when filters change
       setPagination({ page: 1, per_page: 40 });
@@ -1139,7 +1190,7 @@ function App() {
       // Create a unique key for this request to prevent duplicates
       // Sort filter keys to ensure consistent stringification
       const sortedFilters = Object.keys(filters).sort().reduce((acc, key) => {
-        (acc as any)[key] = filters[key as keyof FilterOptions];
+        (acc as Record<string, unknown>)[key] = filters[key as keyof FilterOptions];
         return acc;
       }, {} as FilterOptions);
       const requestKey = `filter:${ownerId}:${listParam}:${JSON.stringify(sortedFilters)}:${searchQuery.trim()}:${searchColumn}:${normalizedPage}:${normalizedPerPage}`;
@@ -1204,7 +1255,7 @@ function App() {
           setFilteredProperties(filterResponse.data);
           setPaginationMeta(filterResponse.meta);
         }
-      } catch (error) {
+      } catch {
         // Only show error if this is still the current request
         if (filterRequestIdRef.current === currentFilterRequestId) {
           showToast('Filter failed', 'error');
@@ -1225,7 +1276,7 @@ function App() {
         }
       }
     },
-    [activeFilter, myProperties, publicProperties, savedProperties, ownerId, searchQuery, searchColumn, applyClientSideFilters, showToast, setPagination, pagination]
+    [activeFilter, myProperties, publicProperties, savedProperties, ownerId, searchQuery, searchColumn, showToast, setPagination]
   );
 
   const handleFilterChange = (filter: FilterType) => {
@@ -1237,6 +1288,7 @@ function App() {
     // Save to localStorage
     localStorage.setItem(STORAGE_KEYS.ACTIVE_FILTER, filter);
     setShowFilterMenu(false);
+    trackEvent('tab_switched', { tab: filter });
 
     // Clear filtered properties to show loading state
     setFilteredProperties([]);
@@ -1278,13 +1330,6 @@ function App() {
     }
   }, [activeFilter, myProperties, publicProperties, setPagination]);
 
-  const handleUserIdChange = () => {
-    const newId = prompt('Enter Owner ID:', ownerId.toString());
-    if (newId && !isNaN(parseInt(newId))) {
-      setOwnerId(parseInt(newId));
-      showToast(`Switched to user ${newId}`, 'success');
-    }
-  };
 
   const handleAskQuestion = (property: Property) => {
     if (!property.owner_phone) {
@@ -1293,10 +1338,12 @@ function App() {
     }
     setSelectedProperty(property);
     setShowContactModal(true);
+    trackEvent('ask_question_triggered', { property_id: property.id });
   };
 
-  const handleContactSubmit = async (_message: string, _phone: string) => {
+  const handleContactSubmit = async () => {
     showToast('Question sent via WhatsApp!', 'success');
+    trackEvent('ask_question_success');
   };
 
   const handleLogin = (userId: number) => {
@@ -1308,6 +1355,7 @@ function App() {
     setOwnerId(userId);
     // Show login success message
     showToast('Login successful!', 'success');
+    trackEvent('login_success', { user_id: userId });
     // After login, check if user has visited before
     try {
       const hasVisited = localStorage.getItem('has_visited_app');
@@ -1340,17 +1388,19 @@ function App() {
     authApi.logout(); // Clear token from storage
     logoutUser(); // Clear user from local storage
     setUser(null);
+    trackEvent('logout');
     setShowLandingPage(true);
     try {
       localStorage.removeItem('has_visited_app');
       localStorage.removeItem('last_route'); // Clear persisted route
-    } catch (error) {
-      console.error('Failed to clear localStorage:', error);
+    } catch (err) {
+      console.error('Failed to clear localStorage:', err);
     }
   };
 
   // Handle property view - always open modal in main app
   const handleViewProperty = (property: Property) => {
+    trackEvent('property_viewed', { property_id: property.id, type: property.type });
     // If property has location, focus map on it
     let coords: [number, number] | null = null;
 
@@ -1434,7 +1484,7 @@ function App() {
               onGoToApp={() => {
                 try {
                   localStorage.setItem('has_visited_app', 'true');
-                } catch { }
+                } catch { /* ignore error */ }
                 setShowLandingPage(false);
                 if (isAuthenticated) {
                   navigate('/home');
@@ -1502,6 +1552,7 @@ function App() {
             mapFocus={mapFocus}
             setMapFocus={setMapFocus}
             handleFavProperty={handleFavProperty}
+            handleUpdateImageUrls={handleUpdateImageUrls}
           />
         ) : (
           <Suspense fallback={
@@ -1530,7 +1581,20 @@ function App() {
             </div>
           </div>
         }>
-          <ResetPinPage />
+          <ResetPasswordPage />
+        </Suspense>
+      } />
+
+      <Route path="/reset-password" element={
+        <Suspense fallback={
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Loading...</p>
+            </div>
+          </div>
+        }>
+          <ResetPasswordPage />
         </Suspense>
       } />
 
@@ -1606,6 +1670,7 @@ function App() {
             mapFocus={mapFocus}
             setMapFocus={setMapFocus}
             handleFavProperty={handleFavProperty}
+            handleUpdateImageUrls={handleUpdateImageUrls}
           />
         ) : (
           <Suspense fallback={
@@ -1623,6 +1688,10 @@ function App() {
           </Suspense>
         )
       } />
+
+      {/* Common aliased routes to prevent blank pages */}
+      <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+      <Route path="/properties" element={<Navigate to="/home" replace />} />
 
       {/* Authenticated Routes */}
       <Route path="/home" element={
@@ -1684,6 +1753,7 @@ function App() {
             mapFocus={mapFocus}
             setMapFocus={setMapFocus}
             handleFavProperty={handleFavProperty}
+            handleUpdateImageUrls={handleUpdateImageUrls}
           />
         ) : (
           <Suspense fallback={
@@ -1743,7 +1813,7 @@ function App() {
 // Main App Content Component
 interface MainAppContentProps {
   ownerId: number;
-  navigate: any;
+  navigate: NavigateFunction;
   activeFilter: FilterType;
   setActiveFilter: (filter: FilterType) => void;
   myProperties: Property[];
@@ -1798,13 +1868,13 @@ interface MainAppContentProps {
   mapFocus: MapFocusPoint | null;
   setMapFocus: (focus: MapFocusPoint | null) => void;
   handleFavProperty: (id: number, isFavourite: boolean, userNote: string) => void;
+  handleUpdateImageUrls: (id: number, image_urls: string) => Promise<void>;
 }
 
 function MainAppContent({
   ownerId,
   navigate,
   activeFilter,
-  setActiveFilter,
   myProperties,
   publicProperties,
   savedProperties,
@@ -1819,11 +1889,8 @@ function MainAppContent({
   toast,
   setToast,
   searchQuery,
-  setSearchQuery,
   searchColumn,
-  setSearchColumn,
   activeFilters,
-  setActiveFilters,
   selectedProperty,
   setSelectedProperty,
   showDetailsModal,
@@ -1855,8 +1922,8 @@ function MainAppContent({
   setFilteredProperties,
   setPaginationMeta,
   mapFocus,
-  setMapFocus,
   handleFavProperty,
+  handleUpdateImageUrls,
 }: MainAppContentProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [mapProperties, setMapProperties] = useState<Property[]>([]);
@@ -1952,8 +2019,8 @@ function MainAppContent({
           }
 
           setMapProperties(mapProps);
-        } catch (error) {
-          console.error('Failed to fetch map properties:', error);
+        } catch (err) {
+          console.error('Failed to fetch map properties:', err);
           setMapProperties([]);
         } finally {
           setLoading(false);
@@ -2030,7 +2097,7 @@ function MainAppContent({
             setFilteredProperties(filterResponse.data);
             setPaginationMeta(filterResponse.meta);
           }
-        } catch (error) {
+        } catch {
           showToast('Failed to load page', 'error');
         } finally {
           setLoading(false);
@@ -2071,7 +2138,7 @@ function MainAppContent({
             setFilteredProperties(filterResponse.data);
             setPaginationMeta(filterResponse.meta);
           }
-        } catch (error) {
+        } catch {
           showToast('Failed to load page', 'error');
         } finally {
           setLoading(false);
@@ -2115,7 +2182,11 @@ function MainAppContent({
     });
 
     if (count > 0) {
-      return [totalLat / count, totalLng / count];
+      const avgLat = totalLat / count;
+      const avgLng = totalLng / count;
+      if (!isNaN(avgLat) && !isNaN(avgLng)) {
+        return [avgLat, avgLng];
+      }
     }
 
     return [29.3909, 76.9635]; // Default: Panipat
@@ -2338,6 +2409,7 @@ function MainAppContent({
                 onUpdateLocation={handleUpdateLocation}
                 onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
                 onFav={handleFavProperty}
+                onUpdateImageUrls={handleUpdateImageUrls}
                 className="h-full overflow-hidden" // Use h-full to fill the column
               />
             </Suspense>
@@ -2550,6 +2622,7 @@ function MainAppContent({
                     onUpdateLocation={handleUpdateLocation}
                     onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
                     onFav={handleFavProperty}
+                    onUpdateImageUrls={handleUpdateImageUrls}
                   />
                 </div>
               </Suspense>
@@ -2632,6 +2705,7 @@ function MainAppContent({
               onUpdateLocation={handleUpdateLocation}
               onUpdateLandmarkLocation={handleUpdateLandmarkLocation}
               onFav={handleFavProperty}
+              onUpdateImageUrls={handleUpdateImageUrls}
             />
           </Suspense>
         </div>

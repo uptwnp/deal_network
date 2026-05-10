@@ -25,6 +25,11 @@ export interface Property {
   owner_name?: string;
   owner_phone?: string;
   owner_firm_name?: string;
+  image_urls?: string;
+  is_photos_public?: boolean;
+  is_location_exact?: boolean;
+  public_location?: string;
+  public_location_radius?: string;
   is_favourite?: number;
   user_note?: string;
 }
@@ -47,6 +52,11 @@ export interface PropertyFormData {
   is_public: number;
   tags?: string;
   highlights?: string;
+  image_urls?: string;
+  is_photos_public?: boolean;
+  is_location_exact?: boolean;
+  public_location?: string;
+  public_location_radius?: string;
   public_rating?: number;
   my_rating?: number;
 }

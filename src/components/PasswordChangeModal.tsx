@@ -64,8 +64,8 @@ export function PasswordChangeModal({ onClose, onSuccess }: PasswordChangeModalP
       } else {
         setError(response.message || 'Failed to change password');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to change password. Please try again.');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to change password. Please try again.');
     } finally {
       setLoading(false);
     }

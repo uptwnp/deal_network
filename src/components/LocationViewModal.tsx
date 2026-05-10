@@ -215,12 +215,12 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
     const timer = setTimeout(() => {
       const mapElements = document.querySelectorAll('.leaflet-container');
       mapElements.forEach((element) => {
-        const leafletElement = element as any;
+        const leafletElement = element as HTMLElement & { _leaflet_id?: string };
         if (leafletElement._leaflet_id) {
-          const allMaps = (L as any).map._instances || {};
-          const mapInstance = Object.values(allMaps).find((map: any) =>
-            map.getContainer() === element
-          ) as any;
+          const allMaps = (L as unknown as { Map: { _instances: Record<string, L.Map> } }).Map._instances || {};
+          const mapInstance = Object.values(allMaps).find((m) =>
+            m.getContainer() === element
+          );
           if (mapInstance) {
             mapInstance.invalidateSize();
           }
@@ -283,9 +283,9 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
       console.log('User location state updated:', userLocation);
       // Force map to update when marker is added
       setTimeout(() => {
-        const mapElement = document.querySelector('.leaflet-container') as any;
+        const mapElement = document.querySelector('.leaflet-container') as HTMLElement & { _leaflet_id?: string };
         if (mapElement && mapElement._leaflet_id) {
-          const mapInstance = (window as any).L?.maps?.[mapElement._leaflet_id];
+          const mapInstance = (window as unknown as { L: { maps: Record<string, L.Map> } }).L?.maps?.[mapElement._leaflet_id];
           if (mapInstance) {
             mapInstance.invalidateSize();
           }
@@ -463,9 +463,9 @@ export function LocationViewModal({ propertyLocation, property, onClose, onOpenI
                   setIsSatelliteView(newView);
                   localStorage.setItem('mapViewPreference', newView ? 'satellite' : 'map');
                   setTimeout(() => {
-                    const mapElement = document.querySelector('.leaflet-container') as any;
+                    const mapElement = document.querySelector('.leaflet-container') as HTMLElement & { _leaflet_id?: string };
                     if (mapElement && mapElement._leaflet_id) {
-                      const mapInstance = (window as any).L?.maps?.[mapElement._leaflet_id];
+                      const mapInstance = (window as unknown as { L: { maps: Record<string, L.Map> } }).L?.maps?.[mapElement._leaflet_id];
                       if (mapInstance) {
                         mapInstance.invalidateSize();
                       }

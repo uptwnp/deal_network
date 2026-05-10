@@ -36,9 +36,11 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       if (draft) {
         return JSON.parse(draft);
       }
-    } catch { }
+    } catch {
+      // Ignore errors when reading from localStorage
+    }
     return null;
-  }, [property, user?.default_area]); // Re-compute when user defaults change
+  }, [property]); // Re-compute when property changes (null -> new, !null -> edit)
 
   // Load last selected area, city, and unit from localStorage
   const getLastSelections = useMemo(() => {
@@ -109,6 +111,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       highlights: property.highlights || '',
       public_rating: property.public_rating || 0,
       my_rating: property.my_rating || 0,
+      image_urls: property.image_urls || '',
     } : (() => {
       // For new properties: use draft if exists, but prioritize user defaults for area/city/type
       const userDefaultArea = getDefaultArea();
@@ -147,6 +150,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         highlights: '',
         public_rating: 0,
         my_rating: 0,
+        image_urls: '',
       };
     })()
   );
@@ -245,7 +249,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
             showSizeRange,
             showPriceRange,
           }));
-        } catch { }
+        } catch {
+          // Ignore errors when saving to localStorage
+        }
       }, 300); // Debounce by 300ms
 
       return () => clearTimeout(timeoutId);
@@ -257,7 +263,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     if (!property && formData.area) {
       try {
         localStorage.setItem(LAST_AREA_KEY, formData.area);
-      } catch { }
+      } catch {
+        // Ignore errors
+      }
     }
   }, [formData.area, property]);
 
@@ -265,7 +273,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     if (!property && formData.city) {
       try {
         localStorage.setItem(LAST_CITY_KEY, formData.city);
-      } catch { }
+      } catch {
+        // Ignore errors
+      }
     }
   }, [formData.city, property]);
 
@@ -273,7 +283,9 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
     if (!property && formData.size_unit) {
       try {
         localStorage.setItem(LAST_UNIT_KEY, formData.size_unit);
-      } catch { }
+      } catch {
+        // Ignore errors
+      }
     }
   }, [formData.size_unit, property]);
 
@@ -389,7 +401,8 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
         return hasUpdates ? { ...prev, ...updates } : prev;
       });
     }
-  }, [property, draftData, user?.default_area, user?.default_city, user?.default_type, user?.default_unit, user?.default_privacy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [property, draftData, user]);
 
   // Track the last known user defaults to detect changes
   const lastUserDefaultsRef = useRef<{
@@ -475,6 +488,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
       // Update the ref to track current defaults
       lastUserDefaultsRef.current = currentUserDefaults;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.default_city, user?.default_area, user?.default_type, user?.default_unit, user?.default_privacy, property, draftData, userSettings.city, userSettings.defaultSizeUnit]);
 
   // Reset tracking when modal opens for new property
@@ -809,7 +823,7 @@ export function PropertyModal({ property, onClose, onSubmit }: PropertyModalProp
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setFormData(prev => ({ ...prev, size_unit: option.value as any }));
+                            setFormData(prev => ({ ...prev, size_unit: option.value }));
                             setShowSizeUnitDropdown(false);
                           }}
                           className={`w-full px-2.5 sm:px-3 py-1.5 text-left text-xs hover:bg-gray-50 transition-colors ${formData.size_unit === option.value

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info, Phone, User, Heart } from 'lucide-react';
+import { X, Share2, Trash2, MessageCircle, Edit2, Plus, Ruler, IndianRupee, MapPin, FileText, Sparkles, Tag, Lock, Globe, ChevronDown, Star, Building, CornerDownRight, Navigation, Shield, Wifi, Calendar, AlertCircle, TreePine, Home, TrendingUp, DollarSign, Info, Phone, User, Heart, Image as ImageIcon, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react';
 import { Property } from '../types/property';
 import { formatPrice } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
@@ -26,12 +26,13 @@ export interface PropertyDetailsContentProps {
     onUpdateLocation?: (id: number, location: string, locationAccuracy: string) => void;
     onUpdateLandmarkLocation?: (id: number, landmarkLocation: string, landmarkLocationDistance: string) => void;
     onFav?: (id: number, isFavourite: boolean, userNote: string) => void;
+    onUpdateImageUrls?: (id: number, image_urls: string) => void;
     className?: string; // Allow custom styling for the container
 }
 
 // Map highlight text to icons
 const getHighlightIcon = (highlight: string) => {
-    const iconMap: Record<string, any> = {
+    const iconMap: Record<string, LucideIcon> = {
         'Corner': CornerDownRight,
         'Urgent Sale': AlertCircle,
         'On 12 Meter': Navigation,
@@ -105,6 +106,7 @@ export function PropertyDetailsContent({
     onUpdateLocation,
     onUpdateLandmarkLocation,
     onFav,
+    onUpdateImageUrls,
     className = "",
 }: PropertyDetailsContentProps) {
     const highlightStyles = getHighlightStyles(property.type);
@@ -131,6 +133,14 @@ export function PropertyDetailsContent({
     const [tagSearchQuery, setTagSearchQuery] = useState('');
     const [highlightOptions, setHighlightOptions] = useState<string[]>([]);
     const [tagOptions, setTagOptions] = useState<string[]>([]);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const imageUrls = Array.isArray(property.image_urls) 
+        ? property.image_urls 
+        : (typeof property.image_urls === 'string' 
+            ? property.image_urls.split(',').map(url => url.trim()).filter(Boolean) 
+            : []);
 
     // Fetch dynamic options on mount
     useEffect(() => {
@@ -209,7 +219,7 @@ export function PropertyDetailsContent({
                 });
             }
         }
-    }, [showHighlightModal]);
+    }, [showHighlightModal, highlightOptions.length]);
 
     useEffect(() => {
         if (!showTagModal) {
@@ -224,7 +234,7 @@ export function PropertyDetailsContent({
                 });
             }
         }
-    }, [showTagModal]);
+    }, [showTagModal, tagOptions.length]);
 
     const toggleHighlight = (highlight: string) => {
         setSelectedHighlights(prev =>
@@ -285,7 +295,152 @@ export function PropertyDetailsContent({
                 </button>
             </div>
 
-            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 md:space-y-6 overflow-y-auto flex-1">
+            <div className="p-0 sm:p-0 overflow-y-auto flex-1">
+                {/* Image Gallery */}
+                <div className="relative bg-gray-100 aspect-[16/12] sm:aspect-[21/9] w-full overflow-hidden group">
+                    {imageUrls.length > 0 ? (
+                        <>
+                            <div className="flex h-full transition-transform duration-300 ease-in-out" style={{ transform: `translateX(-${activeImageIndex * 100}%)` }}>
+                                {imageUrls.map((url, idx) => (
+                                    <div key={idx} className="min-w-full h-full flex items-center justify-center bg-black cursor-zoom-in">
+                                        <a 
+                                            href={url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="w-full h-full flex items-center justify-center"
+                                            title="View full image in new tab"
+                                        >
+                                            <img 
+                                                src={url} 
+                                                alt={`Property ${idx + 1}`}
+                                                className="max-w-full max-h-full object-contain"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1073';
+                                                }}
+                                            />
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {imageUrls.length > 1 && (
+                                <>
+                                    <button 
+                                        onClick={() => setActiveImageIndex(prev => (prev > 0 ? prev - 1 : imageUrls.length - 1))}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveImageIndex(prev => (prev < imageUrls.length - 1 ? prev + 1 : 0))}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                        {imageUrls.map((_, idx) => (
+                                            <div 
+                                                key={idx} 
+                                                className={`w-1.5 h-1.5 rounded-full transition-all ${idx === activeImageIndex ? 'bg-white w-3' : 'bg-white/50'}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                            
+                            {/* Add Photo button for owners (overlaid on gallery) */}
+                            {isOwned && (
+                                <label className="absolute top-4 right-14 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors cursor-pointer z-20">
+                                    {isUploading ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Plus className="w-5 h-5" />
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        disabled={isUploading}
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            try {
+                                                setIsUploading(true);
+                                                const { propertyApi } = await import('../services/api');
+                                                const url = await propertyApi.uploadImage(file);
+                                                const newUrls = [...imageUrls, url].join(', ');
+                                                onUpdateImageUrls?.(property.id, newUrls);
+                                            } catch (error: unknown) {
+                                                alert(`Upload failed: ${(error as Error).message}`);
+                                            } finally {
+                                                setIsUploading(false);
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            )}
+                            
+                            {/* Remove photo button for owners */}
+                            {isOwned && imageUrls.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        if (confirm('Remove this photo?')) {
+                                            const newImageUrls = imageUrls.filter((_, i) => i !== activeImageIndex).join(', ');
+                                            onUpdateImageUrls?.(property.id, newImageUrls);
+                                            if (activeImageIndex >= imageUrls.length - 1 && activeImageIndex > 0) {
+                                                setActiveImageIndex(activeImageIndex - 1);
+                                            }
+                                        }
+                                    }}
+                                    className="absolute top-4 right-24 p-2 bg-red-500/50 hover:bg-red-500/70 text-white rounded-full transition-colors z-20"
+                                    title="Remove current photo"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
+                            <div className="flex flex-col items-center gap-2">
+                                <ImageIcon className="w-12 h-12 opacity-20" />
+                                <span className="text-sm font-medium">No photos available</span>
+                            </div>
+                            
+                            {isOwned && (
+                                <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer text-sm font-semibold">
+                                    {isUploading ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Plus className="w-4 h-4" />
+                                    )}
+                                    {isUploading ? 'Uploading...' : 'Add Photo'}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        disabled={isUploading}
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            try {
+                                                setIsUploading(true);
+                                                const { propertyApi } = await import('../services/api');
+                                                const url = await propertyApi.uploadImage(file);
+                                                onUpdateImageUrls?.(property.id, url);
+                                            } catch (error: unknown) {
+                                                alert(`Upload failed: ${(error as Error).message}`);
+                                            } finally {
+                                                setIsUploading(false);
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 md:space-y-6">
                 <div className="space-y-3 sm:space-y-4">
                     {(property.size_min > 0 || property.size_max > 0) && (
                         <div className="flex items-center justify-between">
@@ -505,7 +660,7 @@ export function PropertyDetailsContent({
                             <FileText className="w-3.5 h-3.5 text-gray-500" />
                             Description
                         </h3>
-                        <div className="text-sm sm:text-base font-normal text-gray-900 leading-relaxed">
+                        <div className="text-sm sm:text-base font-normal text-gray-900 leading-relaxed break-words">
                             <ClickableText text={formatTextForReadability(property.description)} />
                         </div>
                     </div>
@@ -766,8 +921,9 @@ export function PropertyDetailsContent({
                     )}
                 </div>
             </div>
+        </div>
 
-            {showHighlightModal && (
+        {showHighlightModal && (
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 mobile-modal-container">
                     <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md mobile-modal-content sm:max-h-[80vh] overflow-y-auto animate-slide-up">
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between rounded-t-2xl">

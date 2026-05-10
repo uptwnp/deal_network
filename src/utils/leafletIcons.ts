@@ -8,8 +8,8 @@ const iconUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
 const shadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
 
 // Remove the problematic _getIconUrl method if it exists
-if ((L.Icon.Default.prototype as any)._getIconUrl) {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
+if ((L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl) {
+  delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 }
 
 // Configure default icon options
@@ -116,48 +116,97 @@ const createPropertyIcon = (color: string, iconPath: string) => L.divIcon({
   popupAnchor: [0, -20]
 });
 
-// Property type definitions with distinct colors and SVG paths
-export const propertyTypeDefinitions: Record<string, { color: string; path: string }> = {
-  // Agricultural properties - Green
-  'Agriculture Land': { color: '#22c55e', path: '<path d="M2 22 16 8"/><path d="M3.47 12.53 5 11l1.53 1.53a3.5 3.5 0 0 1 0 4.94L2 22l4.53-4.53a3.5 3.5 0 0 1 4.94 0L13 19l1.53-1.53"/><path d="M7.47 8.53 9 7l1.53 1.53a3.5 3.5 0 0 1 0 4.94L6 18l4.53-4.53a3.5 3.5 0 0 1 4.94 0L17 15l1.53-1.53"/><path d="M11.47 4.53 13 3l1.53 1.53a3.5 3.5 0 0 1 0 4.94L10 14l4.53-4.53a3.5 3.5 0 0 1 4.94 0L21 11l1.53-1.53"/>' },
+const R2_ICONS_BASE = 'https://pub-9e00030e294c40efa96642db5ba7f437.r2.dev/assets/icons';
 
-  // Residential properties - Orange
-  'Residential Plot': { color: '#f97316', path: '<path d="m12 8 6-3-6-3v10"/><path d="m8 11.99-5.5 3.14a1 1 0 0 0 0 1.74l8.5 4.86a2 2 0 0 0 2 0l8.5-4.86a1 1 0 0 0 0-1.74L16 12"/><path d="m6.49 12.85 11.02 6.3"/><path d="M17.51 12.85 6.5 19.15"/>' },
-  'House': { color: '#f97316', path: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>' },
-  'Floor': { color: '#f97316', path: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2 6.6a1 1 0 0 0 0 1.8l9.17 4.42a2 2 0 0 0 1.66 0l9.17-4.42a1 1 0 0 0 0-1.8Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>' },
-  'Flat': { color: '#f97316', path: '<rect x="6" y="2" width="12" height="20" rx="1"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="6" y1="10" x2="18" y2="10"/><line x1="6" y1="14" x2="18" y2="14"/><line x1="6" y1="18" x2="18" y2="18"/><rect x="9" y="3.5" width="1.5" height="1.5"/><rect x="13.5" y="3.5" width="1.5" height="1.5"/><rect x="9" y="7.5" width="1.5" height="1.5"/><rect x="13.5" y="7.5" width="1.5" height="1.5"/><rect x="9" y="11.5" width="1.5" height="1.5"/><rect x="13.5" y="11.5" width="1.5" height="1.5"/><rect x="9" y="15.5" width="1.5" height="1.5"/><rect x="13.5" y="15.5" width="1.5" height="1.5"/>' },
-  'Farm House': { color: '#f97316', path: '<path d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 8.5 11 4l2 4.5 3 3.8a1 1 0 0 1-.7 1.7H15"/><path d="M12 22v-3"/>' },
-  'Labour Quarter': { color: '#f97316', path: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>' },
+// Mapping of property types to their standardized R2 icon filenames
+const propertyTypeToFileMap: Record<string, string> = {
+  'House': 'house.svg',
+  'Villa': 'house.svg',
+  'House / Villa': 'house.svg',
+  'Farm House': 'house.svg',
+  'Residential Plot': 'plot.svg',
+  'Plot': 'plot.svg',
+  'Farm Land': 'plot.svg',
+  'Commercial Plot': 'plot.svg',
+  'Industrial Plot': 'plot.svg',
+  'Indus. Plot': 'plot.svg',
+  'Flat': 'flat.svg',
+  'Floor': 'flat.svg',
+  'Penthouse': 'flat.svg',
+  'Flat / Apt': 'flat.svg',
+  'Labour Quarter': 'flat.svg',
+  'Agriculture Land': 'agriculture.svg',
+  'Commercial': 'commercial.svg',
+  'Shop': 'commercial.svg',
+  'Showroom': 'commercial.svg',
+  'Shop / Showroom': 'commercial.svg',
+  'Office': 'commercial.svg',
+  'Commercial Built-up': 'commercial.svg',
+  'Hotel': 'commercial.svg',
+  'PG': 'commercial.svg',
+  'Hotel / PG / Qtr': 'commercial.svg',
+  'Warehouse': 'industrial.svg',
+  'Factory': 'industrial.svg',
+  'Whouse / Factory': 'industrial.svg',
+  'Industrial Built-up': 'industrial.svg',
+  'Other': 'other.svg'
+};
 
-  // Commercial properties - Blue
-  'Commercial Plot': { color: '#3b82f6', path: '<path d="m12 8 6-3-6-3v10"/><path d="m8 11.99-5.5 3.14a1 1 0 0 0 0 1.74l8.5 4.86a2 2 0 0 0 2 0l8.5-4.86a1 1 0 0 0 0-1.74L16 12"/><path d="m6.49 12.85 11.02 6.3"/><path d="M17.51 12.85 6.5 19.15"/>' },
-  'Commercial Built-up': { color: '#3b82f6', path: '<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>' },
-
-  // Industrial properties - Dark Grey
-  'Industrial Plot': { color: '#4b5563', path: '<path d="m12 8 6-3-6-3v10"/><path d="m8 11.99-5.5 3.14a1 1 0 0 0 0 1.74l8.5 4.86a2 2 0 0 0 2 0l8.5-4.86a1 1 0 0 0 0-1.74L16 12"/><path d="m6.49 12.85 11.02 6.3"/><path d="M17.51 12.85 6.5 19.15"/>' },
-  'Industrial Built-up': { color: '#4b5563', path: '<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/>' },
-
-  // Other - Grey
-  'Other': { color: '#9ca3af', path: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>' },
+// Helper function to get the R2 icon URL for a property type
+export const getPropertyIconUrl = (type: string): string => {
+  const filename = propertyTypeToFileMap[type] || 'other.svg';
+  return `${R2_ICONS_BASE}/${filename}`;
 };
 
 // Create the exportable icons object from definitions
-export const propertyTypeIcons: Record<string, L.DivIcon> = Object.entries(propertyTypeDefinitions).reduce((acc, [type, def]) => {
-  acc[type] = createPropertyIcon(def.color, def.path);
+export const propertyTypeIcons: Record<string, L.Icon> = Object.keys(propertyTypeToFileMap).reduce((acc, type) => {
+  acc[type] = L.icon({
+    iconUrl: getPropertyIconUrl(type),
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -20],
+    className: 'custom-property-marker'
+  });
   return acc;
-}, {} as Record<string, L.DivIcon>);
+}, {} as Record<string, L.Icon>);
 
 // Function to get icon for a property type
-export const getPropertyTypeIcon = (propertyType: string, isLandmark: boolean = false): L.DivIcon => {
-  // Check if we have a specific icon for this property type
+export const getPropertyTypeIcon = (propertyType: string, isLandmark: boolean = false): L.Icon | L.DivIcon => {
   const icon = propertyTypeIcons[propertyType];
-
-  if (icon) {
-    // Return the property-specific icon for both exact and landmark locations
-    // This satisfies the request to have icons "similar to my property"
-    return icon;
-  }
-
-  // Fallback if type not found
+  if (icon) return icon;
   return isLandmark ? landmarkIcon : defaultIcon;
 };
+
+// Also export definitions for components that need colors (like the PropertyCard)
+export const propertyTypeDefinitions: Record<string, { color: string; url: string }> = {
+  'Agriculture Land': { color: '#2E7D32', url: getPropertyIconUrl('Agriculture Land') },
+  'Farm Land': { color: '#2E7D32', url: getPropertyIconUrl('Farm Land') },
+  'Residential Plot': { color: '#2E7D32', url: getPropertyIconUrl('Residential Plot') },
+  'Plot': { color: '#2E7D32', url: getPropertyIconUrl('Plot') },
+  'House': { color: '#F57C00', url: getPropertyIconUrl('House') },
+  'Villa': { color: '#F57C00', url: getPropertyIconUrl('Villa') },
+  'House / Villa': { color: '#F57C00', url: getPropertyIconUrl('House / Villa') },
+  'Floor': { color: '#7B1FA2', url: getPropertyIconUrl('Floor') },
+  'Flat': { color: '#7B1FA2', url: getPropertyIconUrl('Flat') },
+  'Penthouse': { color: '#7B1FA2', url: getPropertyIconUrl('Penthouse') },
+  'Flat / Apt': { color: '#7B1FA2', url: getPropertyIconUrl('Flat / Apt') },
+  'Farm House': { color: '#F57C00', url: getPropertyIconUrl('Farm House') },
+  'Labour Quarter': { color: '#7B1FA2', url: getPropertyIconUrl('Labour Quarter') },
+  'Hotel': { color: '#1976D2', url: getPropertyIconUrl('Hotel') },
+  'PG': { color: '#7B1FA2', url: getPropertyIconUrl('PG') },
+  'Hotel / PG / Qtr': { color: '#1976D2', url: getPropertyIconUrl('Hotel / PG / Qtr') },
+  'Commercial Plot': { color: '#1976D2', url: getPropertyIconUrl('Commercial Plot') },
+  'Shop': { color: '#1976D2', url: getPropertyIconUrl('Shop') },
+  'Showroom': { color: '#1976D2', url: getPropertyIconUrl('Showroom') },
+  'Shop / Showroom': { color: '#1976D2', url: getPropertyIconUrl('Shop / Showroom') },
+  'Office': { color: '#1976D2', url: getPropertyIconUrl('Office') },
+  'Commercial Built-up': { color: '#1976D2', url: getPropertyIconUrl('Commercial Built-up') },
+  'Industrial Plot': { color: '#424242', url: getPropertyIconUrl('Industrial Plot') },
+  'Indus. Plot': { color: '#424242', url: getPropertyIconUrl('Indus. Plot') },
+  'Warehouse': { color: '#424242', url: getPropertyIconUrl('Warehouse') },
+  'Factory': { color: '#424242', url: getPropertyIconUrl('Factory') },
+  'Whouse / Factory': { color: '#424242', url: getPropertyIconUrl('Whouse / Factory') },
+  'Industrial Built-up': { color: '#424242', url: getPropertyIconUrl('Industrial Built-up') },
+  'Other': { color: '#9ca3af', url: getPropertyIconUrl('Other') },
+};
+

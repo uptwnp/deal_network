@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, Ruler, IndianRupee, Home, Share2, MessageCircle, Building, Navigation, Calendar, Tag, Globe, Star, TrendingUp, TreePine, CornerDownRight, Shield, Wifi, CheckCircle, AlertCircle } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft, MapPin, Ruler, IndianRupee, Home, Share2, MessageCircle, Building, Navigation, Globe, Star, AlertCircle } from 'lucide-react';
 import { Property } from '../types/property';
 import { propertyApi } from '../services/api';
-import { formatPrice, formatPriceWithLabel } from '../utils/priceFormatter';
+import { formatPriceWithLabel } from '../utils/priceFormatter';
 import { formatSize } from '../utils/sizeFormatter';
 import { formatTextForReadability } from '../utils/textFormatter';
 import { ClickableText } from './ClickableText';
 
 export function PublicPropertyPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,9 +53,9 @@ export function PublicPropertyPage() {
         } else {
           setError('Property not found or not publicly available. The property may be private or the link may be invalid.');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Ignore abort errors
-        if (err.name === 'AbortError' || err.message === 'canceled') {
+        if ((err as Error).name === 'AbortError' || (err as Error).message === 'canceled') {
           return;
         }
         console.error('Failed to fetch property:', err);
@@ -69,9 +68,10 @@ export function PublicPropertyPage() {
     fetchProperty();
 
     // Cleanup: abort request if component unmounts or id changes
+    const currentAbortController = abortControllerRef.current;
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (currentAbortController) {
+        currentAbortController.abort();
       }
     };
   }, [id]);
@@ -102,24 +102,9 @@ export function PublicPropertyPage() {
     }
   };
 
-  const parseLocation = (location: string | undefined): { lat: number; lng: number } | null => {
-    if (!location) return null;
-    const parts = location.split(',');
-    if (parts.length !== 2) return null;
-    const lat = parseFloat(parts[0].trim());
-    const lng = parseFloat(parts[1].trim());
-    if (isNaN(lat) || isNaN(lng)) return null;
-    return { lat, lng };
-  };
 
-  const locationCoords = property ? parseLocation(property.location) : null;
 
-  const handleOpenInMap = () => {
-    if (!locationCoords) return;
-    const { lat, lng } = locationCoords;
-    const url = `https://www.google.com/maps?q=${lat},${lng}`;
-    window.open(url, '_blank');
-  };
+  // const locationCoords = property ? parseLocation(property.location) : null;
 
   const highlights = property?.highlights ? property.highlights.split(',').map(h => h.trim()).filter(Boolean) : [];
   const tags = property?.tags ? property.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
@@ -226,7 +211,7 @@ export function PublicPropertyPage() {
             {/* Description */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-              <div className="text-gray-700 leading-relaxed">
+              <div className="text-gray-700 leading-relaxed break-words">
                 <ClickableText text={formatTextForReadability(property.description)} />
               </div>
             </div>

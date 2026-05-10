@@ -23,12 +23,12 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
 
   // Login form state
   const [loginPhone, setLoginPhone] = useState("");
-  const [loginPin, setLoginPin] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
   // Signup form state
   const [signupName, setSignupName] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
-  const [signupPin, setSignupPin] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
   const [signupCity, setSignupCity] = useState("");
   const [customCity, setCustomCity] = useState("");
   const [showCustomCityInput, setShowCustomCityInput] = useState(false);
@@ -59,7 +59,7 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
       return;
     }
 
-    if (!loginPin) {
+    if (!loginPassword) {
       setError("Please enter your password");
       setLoading(false);
       return;
@@ -69,72 +69,35 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
       const { authApi } = await import("../services/authApi");
       const { setCurrentUser } = await import("../types/user");
 
-      const response = await authApi.login(loginPhone.trim(), loginPin);
+      const response = await authApi.login(loginPhone.trim(), loginPassword);
 
-      // Check if login was successful
-      if (response && response.status === true && response.user) {
-        // Fetch full profile to get all user data
-        try {
-          const profileResponse = await authApi.getProfile();
-          if (
-            profileResponse &&
-            profileResponse.status &&
-            profileResponse.user
-          ) {
-            const user = {
-              id: profileResponse.user.id,
-              name: profileResponse.user.name,
-              phone: profileResponse.user.phone,
-              token: profileResponse.user.token,
-              firmName: profileResponse.user.firm_name,
-              firm_name: profileResponse.user.firm_name,
-              area_covers: profileResponse.user.area_covers,
-              city_covers: profileResponse.user.city_covers,
-              type: profileResponse.user.type,
-              default_area: profileResponse.user.default_area,
-              default_city: profileResponse.user.default_city,
-              default_type: profileResponse.user.default_type,
-              created_on: profileResponse.user.created_on,
-            };
-            setCurrentUser(user);
-            onLogin(user.id);
-            return; // Success, exit early
-          }
-        } catch (profileError: any) {
-          console.warn(
-            "Failed to fetch profile, using login response:",
-            profileError
-          );
-          // Continue with basic user data from login response
-        }
-
-        // Fallback to basic user data from login response
-        if (response.user) {
-          const user = {
-            id: response.user.id,
-            name: response.user.name,
-            phone: response.user.phone,
-            token: response.user.token,
-          };
-          setCurrentUser(user);
-          onLogin(user.id);
-          return; // Success, exit early
-        }
+      if (response && response.status && response.user) {
+        // Use user data directly from login response
+        const user = {
+          id: response.user.id,
+          name: response.user.name,
+          phone: response.user.phone,
+          token: response.token || response.user.token,
+          firmName: response.user.firm_name,
+          firm_name: response.user.firm_name,
+          area_covers: response.user.area_covers,
+          city_covers: response.user.city_covers,
+          type: response.user.type,
+          default_area: response.user.default_area,
+          default_city: response.user.default_city,
+          default_type: response.user.default_type,
+          created_on: response.user.created_on,
+        };
+        
+        setCurrentUser(user);
+        onLogin(user.id);
+        if (onGoToHome) onGoToHome();
+      } else {
+        setError(response?.message || "Invalid phone number or password");
       }
-
-      // If we get here, login failed
-      const errorMessage =
-        response?.message || "Invalid phone number or password";
-      setError(errorMessage);
-      console.error("Login failed:", response);
-    } catch (err: any) {
-      // This should rarely happen now since authApi.login handles errors
-      const errorMessage =
-        err?.message ||
-        err?.response?.data?.message ||
-        "Login failed. Please try again.";
-      setError(errorMessage);
-      console.error("Login error:", err);
+    } catch (err: unknown) {
+      console.error("Login component error:", err);
+      setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -146,7 +109,7 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
     setLoading(true);
 
     // Validate required fields (only name, phone, and password are required by API)
-    if (!signupName.trim() || !signupPhone.trim() || !signupPin.trim()) {
+    if (!signupName.trim() || !signupPhone.trim() || !signupPassword.trim()) {
       setError(
         "Please fill in all required fields (Name, Phone, and Password)"
       );
@@ -155,7 +118,7 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
     }
 
     // Validate password (should be at least 4 characters)
-    if (signupPin.length < 4) {
+    if (signupPassword.length < 4) {
       setError("Password must be at least 4 characters");
       setLoading(false);
       return;
@@ -175,7 +138,7 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
       const response = await authApi.signup(
         signupName.trim(),
         signupPhone.trim(),
-        signupPin
+        signupPassword
       );
 
       if (response.status && response.token && response.user_id) {
@@ -211,7 +174,8 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
             setCurrentUser(user);
             onLogin(user.id);
           }
-        } catch (profileError) {
+        } catch (profileError: unknown) {
+          console.error("Profile fetch error after signup:", profileError);
           // Fallback to basic user data
           const user = {
             id: response.user_id,
@@ -225,8 +189,8 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
       } else {
         setError(response.message || "Signup failed. Please try again.");
       }
-    } catch (err: any) {
-      setError(err.message || "Signup failed. Please try again.");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Signup failed. Please try again.");
       console.error("Signup error:", err);
     } finally {
       setLoading(false);
@@ -285,16 +249,16 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    PIN
+                    Password
                   </label>
 
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type={showPin ? "text" : "password"}
-                      value={loginPin}
-                      onChange={(e) => setLoginPin(e.target.value)}
-                      placeholder="Enter your PIN"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="Enter your password"
                       className="w-full pl-10 pr-12 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -388,17 +352,15 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    PIN <span className="text-red-500">*</span>
+                    Password <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type={showPin ? "text" : "password"}
-                      value={signupPin}
-                      onChange={(e) =>
-                        setSignupPin(e.target.value.replace(/\D/g, ""))
-                      }
-                      placeholder="Create a 4+ digit PIN"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
+                      placeholder="Create a password"
                       className="w-full pl-10 pr-12 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                       minLength={4}
@@ -415,7 +377,7 @@ export function AuthPage({ onLogin, onGoToHome }: AuthPageProps) {
                       )}
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">Minimum 4 digits</p>
+                  <p className="mt-1 text-xs text-gray-500">Minimum 4 characters</p>
                 </div>
 
 

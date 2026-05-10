@@ -53,11 +53,7 @@ export function MultiSelect({
     onChange(value.filter(v => v !== optionValue));
   };
 
-  const displayText = value.length === 0 
-    ? placeholder 
-    : value.length === 1 
-    ? optionObjects.find(opt => opt.value === value[0])?.label || value[0]
-    : `${value.length} selected`;
+
 
   return (
     <div className="w-full">

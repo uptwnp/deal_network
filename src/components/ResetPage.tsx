@@ -139,7 +139,7 @@ export const ResetPage: React.FC = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Successful</h2>
                     <p className="text-gray-600 mb-8">
-                        Your PIN has been updated successfully. You can now log in with your new PIN.
+                        Your password has been updated successfully. You can now log in with your new password.
                     </p>
                     <button
                         onClick={() => navigate('/login')}
@@ -167,7 +167,7 @@ export const ResetPage: React.FC = () => {
                             ? 'Enter your phone number to receive OTP'
                             : step === 'otp'
                                 ? 'Enter the OTP sent to your phone'
-                                : 'Create a new PIN for your account'}
+                                : 'Create a new password for your account'}
                     </p>
                 </div>
 
@@ -319,7 +319,7 @@ export const ResetPage: React.FC = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    New PIN
+                                    New Password
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -330,18 +330,16 @@ export const ResetPage: React.FC = () => {
                                         value={newPin}
                                         onChange={(e) => setNewPin(e.target.value)}
                                         className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-gray-50 focus:bg-white"
-                                        placeholder="Enter new PIN"
+                                        placeholder="Enter new password"
                                         required
                                         minLength={4}
-                                        pattern="[0-9]*"
-                                        inputMode="numeric"
                                     />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Confirm New PIN
+                                    Confirm New Password
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -352,11 +350,9 @@ export const ResetPage: React.FC = () => {
                                         value={confirmPin}
                                         onChange={(e) => setConfirmPin(e.target.value)}
                                         className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-gray-50 focus:bg-white"
-                                        placeholder="Confirm new PIN"
+                                        placeholder="Confirm new password"
                                         required
                                         minLength={4}
-                                        pattern="[0-9]*"
-                                        inputMode="numeric"
                                     />
                                 </div>
                             </div>

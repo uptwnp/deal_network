@@ -39,27 +39,47 @@ function MapController({
 
   // Handle focus changes (programmatic moves)
   useEffect(() => {
-    if (focusOn && focusOn.coords) {
-      try {
-        const [lat, lng] = focusOn.coords;
-        if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
-          // Use a timeout to allow for layout changes (sidebar opening) to settle
-          // and invalidate map size to ensure correct centering. 
-          // 400ms covers standard CSS transitions (usually 150-300ms).
-          setTimeout(() => {
+    if (!focusOn || !focusOn.coords) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    try {
+      const [lat, lng] = focusOn.coords;
+      
+      // Robust coordinate validation
+      const isValid = 
+        typeof lat === 'number' && 
+        typeof lng === 'number' && 
+        !isNaN(lat) && 
+        !isNaN(lng) &&
+        lat >= -90 && lat <= 90 &&
+        lng >= -180 && lng <= 180;
+
+      if (isValid) {
+        // Clear any pending moves to avoid race conditions
+        timeoutId = setTimeout(() => {
+          try {
             map.invalidateSize();
-            map.flyTo([lat, lng], focusOn.zoom || 18, {
+            // Final check of coordinates before animation
+            const targetZoom = typeof focusOn.zoom === 'number' && !isNaN(focusOn.zoom) ? focusOn.zoom : 18;
+            map.flyTo([lat, lng], targetZoom, {
               animate: true,
               duration: 1.0
             });
-          }, 400);
-        } else {
-          console.warn("Invalid coordinates for map focus:", focusOn.coords);
-        }
-      } catch (error) {
-        console.error("Error animating map:", error);
+          } catch (e) {
+            console.error("Map flyTo failed:", e);
+          }
+        }, 400);
+      } else {
+        console.warn("Invalid coordinates for map focus:", focusOn.coords);
       }
+    } catch (error) {
+      console.error("Error animating map:", error);
     }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [focusOn, map]);
 
   // Handle map events (user saves)
@@ -125,11 +145,14 @@ function UserLocationFocuser({ userLocation, shouldFocus }: { userLocation: [num
 
   useEffect(() => {
     if (userLocation && shouldFocus) {
-      // Fly to user location with a nice animation
-      map.flyTo(userLocation, 16, {
-        animate: true,
-        duration: 1.2
-      });
+      const [lat, lng] = userLocation;
+      if (!isNaN(lat) && !isNaN(lng)) {
+        // Fly to user location with a nice animation
+        map.flyTo(userLocation, 16, {
+          animate: true,
+          duration: 1.2
+        });
+      }
     }
   }, [userLocation, shouldFocus, map]);
 
@@ -184,7 +207,7 @@ function MapSizeInvalidator() {
   return null;
 }
 
-export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick, ...props }: PropertyMapProps) {
+export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerClick, focusOn }: PropertyMapProps) {
   // Load saved map view preference from localStorage, default to map view
   const [isSatelliteView, setIsSatelliteView] = useState(() => {
     const saved = localStorage.getItem('mapViewPreference');
@@ -291,7 +314,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
         scrollWheelZoom={true}
         style={{ position: 'relative', zIndex: 1 }}
       >
-        <MapController focusOn={props.focusOn || null} defaultCenter={center} />
+        <MapController focusOn={focusOn || null} defaultCenter={center} />
         <UserLocationFocuser userLocation={userLocation} shouldFocus={shouldFocusUserLocation} />
         <MapSizeInvalidator />
         <TileLayerSwitcher isSatelliteView={isSatelliteView} />
@@ -326,7 +349,7 @@ export function PropertyMap({ properties, center = [29.3909, 76.9635], onMarkerC
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
           zoomToBoundsOnClick={true}
-          iconCreateFunction={(cluster: any) => {
+          iconCreateFunction={(cluster: { getChildCount: () => number }) => {
 
             const count = cluster.getChildCount();
             let sizeClass = 'w-10 h-10 text-sm';

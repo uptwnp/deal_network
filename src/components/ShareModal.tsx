@@ -51,12 +51,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
     };
   }, []);
 
-  const locationCoords = parseLocation(property.location);
   const hasLocation = hasLocationCoordinates(property.location);
-  const landmarkCoords = parseLocation(property.landmark_location);
-  const hasLandmarkLocation = hasLocationCoordinates(
-    property.landmark_location
-  );
   const shareUrl =
     property.is_public === 1
       ? `${window.location.origin}/property/${property.id}`
@@ -81,12 +76,6 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
       }
 
       if (selectedFields.heading) {
-        const sizeText =
-          formatSize(
-            property.size_min,
-            property.size_max,
-            property.size_unit
-          ) || "";
         const areaText =
           property.area && property.city
             ? `${property.area}, ${property.city}`
@@ -135,7 +124,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
     if (selectedFields.locationLink) {
       const loc = parseLocation(property.location);
       if (loc) {
-        let distTxt = property.location_accuracy
+        const distTxt = property.location_accuracy
           ? ` (${property.location_accuracy})`
           : "";
         parts.push(
@@ -148,7 +137,7 @@ export function ShareModal({ property, isOwned, onClose }: ShareModalProps) {
     if (selectedFields.landmarkLink && property.landmark_location) {
       const landmark = parseLocation(property.landmark_location);
 
-      let distTxt = property.landmark_location_distance
+      const distTxt = property.landmark_location_distance
         ? ` (${property.landmark_location_distance})`
         : "";
 

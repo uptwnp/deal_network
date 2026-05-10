@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.git_backup/
 
 # Build outputs
 dist/
@@ -19,6 +20,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log
 
 # Editor directories and files
 .vscode/*

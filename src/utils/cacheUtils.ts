@@ -24,7 +24,7 @@ const PRESERVED_KEYS = [
 function clearLocalStorage(): void {
   try {
     const keysToRemove: string[] = [];
-    const preservedSet = new Set(PRESERVED_KEYS);
+    const preservedSet = new Set<string>(PRESERVED_KEYS);
     
     // Get all localStorage keys
     for (let i = 0; i < localStorage.length; i++) {
@@ -99,7 +99,7 @@ async function clearIndexedDB(): Promise<void> {
               resolve(); // Resolve anyway to continue
             };
           });
-        } catch (error) {
+        } catch {
           // Ignore errors for databases that don't exist
           console.debug(`Database ${dbName} does not exist or could not be deleted`);
         }
@@ -108,7 +108,7 @@ async function clearIndexedDB(): Promise<void> {
       // Also try to get all databases (if supported)
       if ('databases' in indexedDB) {
         try {
-          const allDatabases = await (indexedDB as any).databases();
+          const allDatabases = await (indexedDB as unknown as { databases: () => Promise<IDBDatabaseInfo[]> }).databases();
           await Promise.all(
             allDatabases.map((db: IDBDatabaseInfo) => 
               new Promise<void>((resolve) => {
@@ -136,7 +136,7 @@ async function clearIndexedDB(): Promise<void> {
 function clearApplicationCache(): void {
   try {
     if ('applicationCache' in window) {
-      const appCache = (window as any).applicationCache;
+      const appCache = (window as unknown as { applicationCache: { update: () => void, status: number, UPDATEREADY: number, swapCache: () => void } }).applicationCache;
       if (appCache) {
         appCache.update();
         if (appCache.status === appCache.UPDATEREADY) {

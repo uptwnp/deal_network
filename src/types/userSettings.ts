@@ -22,7 +22,9 @@ export function getUserSettings(): UserSettings {
     if (stored) {
       return JSON.parse(stored);
     }
-  } catch {}
+  } catch {
+    // Return default settings if parsing fails
+  }
   return { ...DEFAULT_USER_SETTINGS };
 }
 

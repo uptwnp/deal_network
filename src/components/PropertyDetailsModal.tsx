@@ -16,6 +16,7 @@ interface PropertyDetailsModalProps {
   onUpdateLocation?: (id: number, location: string, locationAccuracy: string) => void;
   onUpdateLandmarkLocation?: (id: number, landmarkLocation: string, landmarkLocationDistance: string) => void;
   onFav?: (id: number, isFavourite: boolean, userNote: string) => void;
+  onUpdateImageUrls?: (id: number, image_urls: string) => void;
 }
 
 export function PropertyDetailsModal(props: PropertyDetailsModalProps) {

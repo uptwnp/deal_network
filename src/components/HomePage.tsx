@@ -8,7 +8,7 @@ interface HomePageProps {
   onGoToApp?: () => void;
 }
 
-export function HomePage({ onGetStarted, isAuthenticated = false, onGoToLogin, onGoToApp }: HomePageProps) {
+export function HomePage({ onGetStarted }: HomePageProps) {
   const features = [
     {
       icon: Home,

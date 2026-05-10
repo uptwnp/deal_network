@@ -96,40 +96,55 @@ export function getSearchColumnsSortedByUsage(): Array<{
 }
 
 /**
- * Available property type options
+ * Available property type options (Exhaustive list for data entry)
  */
 export const PROPERTY_TYPES = [
   "Residential Plot",
   "House",
+  "Villa",
   "Floor",
   "Flat",
-  "Commercial Plot",
-  "Commercial Built-up",
-  "Labour Quarter",
+  "Penthouse",
+  "Shop",
+  "Showroom",
+  "Office",
+  "Warehouse",
+  "Factory",
   "Industrial Plot",
   "Industrial Built-up",
   "Agriculture Land",
   "Farm House",
+  "Hotel",
+  "PG",
+  "Labour Quarter",
   "Other",
 ] as const;
 
 /**
- * Property type options with labels (for dropdowns)
+ * Grouped property types for UI search filters (Mass Adoption labels)
  */
-export const PROPERTY_TYPE_OPTIONS = [
-  { value: "Residential Plot", label: "Residential Plot" },
-  { value: "House", label: "House" },
-  { value: "Floor", label: "Floor" },
-  { value: "Flat", label: "Flat" },
-  { value: "Commercial Plot", label: "Commercial Plot" },
-  { value: "Commercial Built-up", label: "Commercial Built-up" },
-  { value: "Labour Quarter", label: "Labour Quarter" },
-  { value: "Industrial Plot", label: "Industrial Plot" },
-  { value: "Industrial Built-up", label: "Industrial Built-up" },
-  { value: "Agriculture Land", label: "Agriculture Land" },
-  { value: "Farm House", label: "Farm House" },
-  { value: "Other", label: "Other" },
+export const SEARCH_PROPERTY_TYPES = [
+  { label: "Plot", values: ["Residential Plot"] },
+  { label: "House / Villa", values: ["House", "Villa"] },
+  { label: "Flat / Apt", values: ["Flat", "Penthouse"] },
+  { label: "Floor", values: ["Floor"] },
+  { label: "Shop / Showroom", values: ["Shop", "Showroom"] },
+  { label: "Office", values: ["Office"] },
+  { label: "Whouse / Factory", values: ["Warehouse", "Factory", "Industrial Built-up"] },
+  { label: "Industrial Plot", values: ["Industrial Plot"] },
+  { label: "Farm Land", values: ["Agriculture Land"] },
+  { label: "Farm House", values: ["Farm House"] },
+  { label: "Hotel / PG / Qtr", values: ["Hotel", "PG", "Labour Quarter"] },
+  { label: "Other", values: ["Other"] },
 ] as const;
+
+/**
+ * Property type options with labels (for dropdowns/forms)
+ */
+export const PROPERTY_TYPE_OPTIONS = PROPERTY_TYPES.map((type) => ({
+  value: type,
+  label: type,
+}));
 
 /**
  * Available size unit options

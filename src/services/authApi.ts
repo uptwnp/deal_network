@@ -1,7 +1,4 @@
-import axios from 'axios';
-
-// Auth API URL - matches the actual PHP file name
-const AUTH_API_BASE_URL = 'https://prop.digiheadway.in/api/dealer_network/auth.php';
+import { supabase } from './supabase';
 
 export interface AuthUser {
   id: number;
@@ -23,12 +20,7 @@ export interface AuthUser {
 export interface LoginResponse {
   status: boolean;
   message: string;
-  user?: {
-    id: number;
-    name: string;
-    phone: string;
-    token: string;
-  };
+  user?: AuthUser;
   token?: string;
   user_id?: number;
 }
@@ -46,31 +38,24 @@ export interface ProfileResponse {
   user?: AuthUser;
 }
 
-// Store token in localStorage with 30-day expiration
 const TOKEN_KEY = 'propnetwork_auth_token';
 const TOKEN_EXPIRY_KEY = 'propnetwork_auth_token_expiry';
 const USER_ID_KEY = 'propnetwork_user_id';
 const USER_ID_EXPIRY_KEY = 'propnetwork_user_id_expiry';
 const REMEMBER_DAYS = 30;
-const REMEMBER_MS = REMEMBER_DAYS * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+const REMEMBER_MS = REMEMBER_DAYS * 24 * 60 * 60 * 1000;
 
 export function getStoredToken(): string | null {
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
 
-    if (!token || !expiry) {
-      return null;
-    }
+    if (!token || !expiry) return null;
 
-    // Check if token has expired
-    const expiryTime = parseInt(expiry, 10);
-    if (Date.now() > expiryTime) {
-      // Token expired, clear it
+    if (Date.now() > parseInt(expiry, 10)) {
       clearStoredToken();
       return null;
     }
-
     return token;
   } catch {
     return null;
@@ -79,11 +64,10 @@ export function getStoredToken(): string | null {
 
 export function setStoredToken(token: string): void {
   try {
-    const expiryTime = Date.now() + REMEMBER_MS;
     localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
-  } catch (error) {
-    console.error('Failed to store token:', error);
+    localStorage.setItem(TOKEN_EXPIRY_KEY, (Date.now() + REMEMBER_MS).toString());
+  } catch (err) {
+    console.error('Failed to store token:', err);
   }
 }
 
@@ -93,8 +77,8 @@ export function clearStoredToken(): void {
     localStorage.removeItem(TOKEN_EXPIRY_KEY);
     localStorage.removeItem(USER_ID_KEY);
     localStorage.removeItem(USER_ID_EXPIRY_KEY);
-  } catch (error) {
-    console.error('Failed to clear token:', error);
+  } catch (err) {
+    console.error('Failed to clear token:', err);
   }
 }
 
@@ -103,18 +87,12 @@ export function getStoredUserId(): number | null {
     const stored = localStorage.getItem(USER_ID_KEY);
     const expiry = localStorage.getItem(USER_ID_EXPIRY_KEY);
 
-    if (!stored || !expiry) {
-      return null;
-    }
+    if (!stored || !expiry) return null;
 
-    // Check if user ID has expired
-    const expiryTime = parseInt(expiry, 10);
-    if (Date.now() > expiryTime) {
-      // Expired, clear it
+    if (Date.now() > parseInt(expiry, 10)) {
       clearStoredToken();
       return null;
     }
-
     return parseInt(stored, 10);
   } catch {
     return null;
@@ -123,249 +101,169 @@ export function getStoredUserId(): number | null {
 
 export function setStoredUserId(userId: number): void {
   try {
-    const expiryTime = Date.now() + REMEMBER_MS;
     localStorage.setItem(USER_ID_KEY, userId.toString());
-    localStorage.setItem(USER_ID_EXPIRY_KEY, expiryTime.toString());
-  } catch (error) {
-    console.error('Failed to store user ID:', error);
+    localStorage.setItem(USER_ID_EXPIRY_KEY, (Date.now() + REMEMBER_MS).toString());
+  } catch (err) {
+    console.error('Failed to store user ID:', err);
   }
 }
 
-// Configure axios to include credentials for cookies
-axios.defaults.withCredentials = true;
+// Generates a simple random token for pseudo-authentication
+function generateToken() {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
 
 export const authApi = {
   async signup(name: string, phone: string, password: string): Promise<SignupResponse> {
     try {
-      const response = await axios.post<SignupResponse>(
-        `${AUTH_API_BASE_URL}?action=signup`,
-        { name, phone, password },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (response.data.status && response.data.token && response.data.user_id) {
-        setStoredToken(response.data.token);
-        setStoredUserId(response.data.user_id);
+      // Check if user already exists
+      const { data: existingUser } = await supabase.from('network_users').select('id').eq('phone', phone).single();
+      if (existingUser) {
+        return { status: false, message: 'Phone number already registered' };
       }
 
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
+      const token = generateToken();
+      const { data, error } = await supabase.from('network_users').insert([{
+        name,
+        phone,
+        password, // Changed from pin to password. Note: hashing should be handled via a trigger or RPC
+        token
+      }]).select('id, token').single();
+
+      if (error) throw error;
+      if (data) {
+        setStoredToken(data.token);
+        setStoredUserId(data.id);
+        return { status: true, message: 'Signup successful', token: data.token, user_id: data.id };
       }
-      throw new Error(error.message || 'Signup failed');
+      return { status: false, message: 'Failed to create user' };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Signup failed';
+      console.error('Signup error:', message);
+      return { status: false, message };
     }
   },
 
   async login(phone: string, password: string): Promise<LoginResponse> {
     try {
-      console.log('Attempting login to:', `${AUTH_API_BASE_URL}?action=login`);
-      const response = await axios.post<LoginResponse>(
-        `${AUTH_API_BASE_URL}?action=login`,
-        { phone, password },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true,
-        }
-      );
+      // Use RPC to verify password securely on the server (handles BCrypt)
+      const { data: users, error } = await supabase.rpc('verify_user_password', {
+        p_phone: phone,
+        p_password: password
+      });
 
-      console.log('Login response:', response.data);
-
-      // Check if response has data
-      if (!response.data) {
-        console.error('No response data received');
-        return { status: false, message: 'No response from server' };
+      if (error || !users || users.length === 0) {
+        return { status: false, message: 'Invalid phone number or password' };
       }
 
-      // Handle successful login
-      if (response.data.status && response.data.user?.token) {
-        setStoredToken(response.data.user.token);
-        setStoredUserId(response.data.user.id);
-        console.log('Login successful, token stored');
-      } else if (response.data.status && response.data.token && response.data.user_id) {
-        setStoredToken(response.data.token);
-        setStoredUserId(response.data.user_id);
-        console.log('Login successful (alternative format), token stored');
-      } else {
-        console.warn('Login response indicates failure:', response.data);
-      }
+      const user = users[0];
 
-      return response.data;
-    } catch (error: any) {
-      console.error('Login API error:', error);
+      // Generate a new token on each login
+      const newToken = generateToken();
+      const { error: updateError } = await supabase.from('network_users').update({ token: newToken }).eq('id', user.id);
+      if (updateError) throw updateError;
 
-      // Handle axios errors
-      if (error.response) {
-        // Server responded with error status
-        console.error('Server responded with error:', error.response.status, error.response.data);
-        const errorData = error.response.data;
-        if (errorData && typeof errorData === 'object') {
-          const errorMessage = errorData.message || errorData.error || 'Login failed';
-          console.error('Error message:', errorMessage);
-          return {
-            status: false,
-            message: errorMessage,
-          };
-        }
-        return {
-          status: false,
-          message: `Server error: ${error.response.status} ${error.response.statusText}`,
-        };
-      } else if (error.request) {
-        // Request was made but no response received
-        console.error('No response received from server:', error.request);
-        return {
-          status: false,
-          message: 'Network error: Unable to connect to server. Please check your internet connection and ensure the API is accessible.',
-        };
-      } else {
-        // Something else happened
-        console.error('Unexpected error:', error.message);
-        return {
-          status: false,
-          message: error.message || 'Login failed. Please try again.',
-        };
-      }
+      setStoredToken(newToken);
+      setStoredUserId(user.id);
+
+      return {
+        status: true,
+        message: 'Login successful',
+        user: { id: user.id, name: user.name, phone: user.phone, token: newToken },
+        token: newToken,
+        user_id: user.id
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed';
+      console.error('Login error:', message);
+      return { status: false, message: 'Login failed. Please try again.' };
     }
   },
 
   async getProfile(): Promise<ProfileResponse> {
+    const userId = getStoredUserId();
     const token = getStoredToken();
-    if (!token) {
-      console.warn('No token found for getProfile');
-      return { status: false, message: 'No token found' };
-    }
+    if (!userId || !token) return { status: false, message: 'No token or user id found' };
 
     try {
-      // According to PHP file: action=me or action=profile with GET
-      const response = await axios.get<ProfileResponse>(
-        `${AUTH_API_BASE_URL}?action=me`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          withCredentials: true,
-          timeout: 10000, // 10 second timeout
+      const { data: user, error, status } = await supabase.from('network_users').select('*').eq('id', userId).eq('token', token).single();
+      
+      if (error) {
+        // Only treat as "Session expired" if the record definitely wasn't found (PGRST116)
+        // or it's a 406 (Not Acceptable) which sometimes happens with .single() on empty results
+        if (error.code === 'PGRST116' || status === 406 || status === 404) {
+          return { status: false, message: 'Session expired or invalid user' };
         }
-      );
-
-      console.log('getProfile API response:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('getProfile API error:', error);
-
-      // Check if this is a network error
-      if (!error.response) {
-        // No response from server - likely offline, network error, or timeout
-        if (error.code === 'ECONNABORTED') {
-          console.warn('Request timeout - user may be offline or server is slow');
-          return { status: false, message: 'Request timeout. Please check your connection.' };
-        } else if (error.code === 'ERR_NETWORK') {
-          console.warn('Network error - user is likely offline');
-          return { status: false, message: 'Network error. Please check your internet connection.' };
-        } else {
-          console.warn('No response from server - user may be offline');
-          return { status: false, message: 'Unable to connect. Please check your internet connection.' };
-        }
+        
+        // For other errors (network, 500, etc.), we don't want to log the user out.
+        // Return a special status or just throw to be caught by the block below
+        throw error;
       }
 
-      // Server responded with an error
-      if (error.response?.data) {
-        console.error('Error response data:', error.response.data);
-        return error.response.data;
+      if (!user) {
+        return { status: false, message: 'User data not found' };
       }
 
-      // Unknown error
-      throw new Error(error.message || 'Failed to get profile');
+      return { status: true, message: 'Success', user };
+    } catch (error) {
+      const err = error as { code?: string; message?: string; status?: number };
+      console.warn('Profile fetch handled as background error:', err.message || err);
+      // Return a status that indicates "don't know", so AuthContext doesn't log out
+      return { status: false, message: 'network_error' };
     }
   },
 
-  async updateProfile(updates: {
-    name?: string;
-    firm_name?: string;
-    area_covers?: string;
-    city_covers?: string;
-    type?: string;
-    default_area?: string;
-    default_city?: string;
-    default_type?: string;
-    default_unit?: string;
-    default_privacy?: string;
-  }): Promise<{ status: boolean; message: string }> {
+  async updateProfile(updates: Partial<AuthUser>): Promise<{ status: boolean; message: string }> {
+    const userId = getStoredUserId();
     const token = getStoredToken();
-    if (!token) {
-      return { status: false, message: 'No token found' };
-    }
+    if (!userId || !token) return { status: false, message: 'No session' };
 
     try {
-      // According to PHP file: action=update_profile
-      // Only send fields that are actually set (not undefined)
-      const updateData: Record<string, string> = {};
-      if (updates.name !== undefined) updateData.name = updates.name;
-      if (updates.firm_name !== undefined) updateData.firm_name = updates.firm_name;
-      if (updates.area_covers !== undefined) updateData.area_covers = updates.area_covers;
-      if (updates.city_covers !== undefined) updateData.city_covers = updates.city_covers;
-      if (updates.type !== undefined) updateData.type = updates.type;
-      if (updates.default_area !== undefined) updateData.default_area = updates.default_area;
-      if (updates.default_city !== undefined) updateData.default_city = updates.default_city;
-      if (updates.default_type !== undefined) updateData.default_type = updates.default_type;
-      if (updates.default_unit !== undefined) updateData.default_unit = updates.default_unit;
-      if (updates.default_privacy !== undefined) updateData.default_privacy = updates.default_privacy;
+      // First verify the user matches the token
+      const { data: user, error: userError } = await supabase.from('network_users').select('id').eq('id', userId).eq('token', token).single();
+      if (userError || !user) return { status: false, message: 'Invalid session' };
 
-      const response = await axios.post<{ status: boolean; message: string }>(
-        `${AUTH_API_BASE_URL}?action=update_profile`,
-        updateData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true,
-        }
-      );
-
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      throw new Error(error.message || 'Failed to update profile');
+      const { error } = await supabase.from('network_users').update(updates).eq('id', userId);
+      if (error) throw error;
+      
+      return { status: true, message: 'Profile updated successfully' };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      return { status: false, message };
     }
   },
 
   async changePassword(oldPassword: string, newPassword: string): Promise<{ status: boolean; message: string }> {
+    const userId = getStoredUserId();
     const token = getStoredToken();
-    if (!token) {
-      return { status: false, message: 'No token found' };
-    }
+    if (!userId || !token) return { status: false, message: 'No session' };
 
     try {
-      // Note: This endpoint doesn't exist in the PHP file yet
-      // You'll need to add it to network-auth.php
-      const response = await axios.post<{ status: boolean; message: string }>(
-        `${AUTH_API_BASE_URL}?action=change_password`,
-        { old_password: oldPassword, new_password: newPassword },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true,
-        }
-      );
+      const { data: user, error: userError } = await supabase.from('network_users').select('id, phone').eq('id', userId).eq('token', token).single();
+      if (userError || !user) return { status: false, message: 'Invalid session' };
+      
+      // Use RPC to verify and update password securely on the server
+      const { data: matches, error: verifyError } = await supabase.rpc('verify_user_password', {
+        p_phone: user.phone,
+        p_password: oldPassword
+      });
 
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
+      if (verifyError || !matches || matches.length === 0) {
+        return { status: false, message: 'Incorrect old password' };
       }
-      throw new Error(error.message || 'Failed to change password. This feature may not be implemented yet.');
+
+      // Use RPC to update and hash new password
+      const { data: success, error: updateError } = await supabase.rpc('update_user_password', {
+        p_user_id: userId,
+        p_new_password: newPassword
+      });
+
+      if (updateError || !success) throw updateError;
+
+      return { status: true, message: 'Password changed successfully' };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to change password';
+      return { status: false, message };
     }
   },
 
@@ -375,55 +273,58 @@ export const authApi = {
 
   async verifyToken(token: string): Promise<{ status: boolean; message: string; user?: { phone: string } }> {
     try {
-      const response = await axios.get<{ status: boolean; message: string; user?: { phone: string } }>(
-        `${AUTH_API_BASE_URL}?action=me&token=${token}`
-      );
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
+      const { data: user, error } = await supabase.from('network_users').select('phone').eq('token', token).single();
+      if (error || !user) return { status: false, message: 'Invalid or expired token' };
+      return { status: true, message: 'Token Valid', user: { phone: user.phone } };
+    } catch {
       return { status: false, message: 'Invalid or expired token' };
     }
   },
 
   async resetPassword(token: string, newPin: string): Promise<{ status: boolean; message: string }> {
     try {
-      const response = await axios.post<{ status: boolean; message: string }>(
-        `${AUTH_API_BASE_URL}?action=reset_password`,
-        { token, new_pin: newPin },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
+      // Find the user by token
+      const { data: user, error: findError } = await supabase.from('network_users').select('id').eq('token', token).single();
+      if (findError || !user) return { status: false, message: 'Invalid reset token' };
+
+      // Generate a new token alongside so the old reset token doesn't work again
+      const newToken = generateToken();
+      
+      // Use RPC to update and hash new password
+      const { data: success, error: updateError } = await supabase.rpc('update_user_password', {
+        p_user_id: user.id,
+        p_new_password: newPin
+      });
+      
+      if (updateError || !success) throw updateError;
+      
+      // Also update the token to invalidate the reset session
+      await supabase.from('network_users').update({ token: newToken }).eq('id', user.id);
+
+      return { status: true, message: 'Password reset successfully' };
+    } catch {
       return { status: false, message: 'Failed to reset password' };
     }
   },
 
   async sendResetOtp(phone: string): Promise<{ status: boolean; message: string; verification_id?: string }> {
     try {
-      const response = await axios.post<{ status: boolean; message: string; verification_id?: string }>(
-        'https://prop.digiheadway.in/api/dealer_network/reset.php?action=send_otp',
-        { phone },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { phone }
+      });
+
+      if (error || !data.status) {
+        throw new Error(data.message || 'Failed to send OTP');
       }
-      return { status: false, message: 'Failed to send OTP' };
+
+      return { 
+        status: true, 
+        message: data.message, 
+        verification_id: data.verification_id 
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send OTP';
+      return { status: false, message };
     }
   },
 
@@ -439,40 +340,27 @@ export const authApi = {
     };
   }> {
     try {
-      const response = await axios.post<{
-        status: boolean;
-        message: string;
-        user?: {
-          id: number;
-          name: string;
-          phone: string;
-          token: string;
-          status: string;
-        };
-      }>(
-        'https://prop.digiheadway.in/api/dealer_network/reset.php?action=verify_otp',
-        { phone, otp, verification_id: verificationId },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true,
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('verify-otp', {
+        body: { phone, otp, verificationId }
+      });
 
-      // If successful, store the token and user ID
-      if (response.data.status && response.data.user) {
-        setStoredToken(response.data.user.token);
-        setStoredUserId(response.data.user.id);
+      if (error || !data.status) {
+        throw new Error(data.message || 'Failed to verify OTP');
       }
 
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
+      if (data.user) {
+        setStoredToken(data.user.token);
+        setStoredUserId(data.user.id);
       }
-      return { status: false, message: 'Failed to verify OTP' };
+
+      return {
+        status: true,
+        message: data.message,
+        user: data.user
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to verify OTP';
+      return { status: false, message };
     }
   },
 };
-

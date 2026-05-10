@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Filter, X, ChevronDown, MapPin } from 'lucide-react';
 import { FilterOptions } from '../types/property';
@@ -6,8 +6,7 @@ import { getUserSettings } from '../types/userSettings';
 import { useAuth } from '../contexts/AuthContext';
 import {
   STORAGE_KEYS,
-  SEARCH_COLUMNS,
-  PROPERTY_TYPE_OPTIONS,
+  SEARCH_PROPERTY_TYPES,
   SIZE_UNIT_OPTIONS,
   getSearchColumnsSortedByUsage,
   trackColumnUsage,
@@ -16,7 +15,7 @@ import {
   getCityOptions,
   getCityOptionsWithLabels,
 } from '../utils/filterOptions';
-import { getAreaCityData, getCities, getAllAreas, getAreasForCity, fetchAreaCityDataInBackground, updateCacheWithCityArea } from '../utils/areaCityApi';
+import { getAreaCityData, getAllAreas, getAreasForCity, fetchAreaCityDataInBackground } from '../utils/areaCityApi';
 import { RangeSlider } from './RangeSlider';
 import { MultiSelect } from './MultiSelect';
 
@@ -126,9 +125,9 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
   }, []);
 
   // Dynamic city and area options from API
-  const [cityOptions, setCityOptions] = useState<string[]>([]);
+  const [, setCityOptions] = useState<string[]>([]);
   const [cityOptionsWithLabels, setCityOptionsWithLabels] = useState<Array<{ value: string; label: string }>>([]);
-  const [areaOptions, setAreaOptions] = useState<string[]>([]);
+  const [, setAreaOptions] = useState<string[]>([]);
   const [filteredAreaOptions, setFilteredAreaOptions] = useState<string[]>([]);
   const [areaSearchQuery, setAreaSearchQuery] = useState('');
   const [recentAreas, setRecentAreas] = useState<string[]>(() => {
@@ -382,7 +381,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
   };
 
   // Helper function to clean and apply filters
-  const applyFiltersDebounced = (newFilters: FilterOptions) => {
+  const applyFiltersDebounced = useCallback((newFilters: FilterOptions) => {
     // Clear existing timer
     if (filterDebounceTimerRef.current) {
       clearTimeout(filterDebounceTimerRef.current);
@@ -428,7 +427,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       // Handle arrays - only include if not empty
       if (Array.isArray(value)) {
         if (value.length > 0) {
-          cleanFilters[key as keyof FilterOptions] = value as any;
+          (cleanFilters as Record<string, unknown>)[key] = value;
         }
         continue;
       }
@@ -446,11 +445,10 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       cleanFilters.filter_size_unit = newFilters.filter_size_unit;
     }
 
-    // Debounce filter application
     filterDebounceTimerRef.current = setTimeout(() => {
       onFilter(cleanFilters);
     }, 300);
-  };
+  }, [onFilter, user?.default_city]);
 
   // Ensure city is always set - update when user context loads (after applyFiltersDebounced is defined)
   useEffect(() => {
@@ -500,7 +498,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
         return newFilters;
       });
     }
-  }, [user?.default_city, filters.city]); // Run when user's default_city changes or filters.city changes
+  }, [user?.default_city, filters.city, applyFiltersDebounced]); // Run when user's default_city changes or filters.city changes
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | number | string[] | boolean | undefined) => {
     // If clearing city, set it back to default (city should always be selected)
@@ -549,7 +547,7 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
       localStorage.setItem(STORAGE_KEYS.RECENT_AREAS, JSON.stringify(newRecent));
     }
 
-    const newFilters: FilterOptions = { ...filters, [key]: value as any };
+    const newFilters: FilterOptions = { ...filters, [key]: value as unknown as FilterOptions[keyof FilterOptions] };
     setFilters(newFilters);
     // Auto-save to localStorage
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(newFilters));
@@ -773,11 +771,18 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
             className="flex items-center gap-1.5 text-gray-700 hover:text-gray-900 font-semibold transition-colors"
           >
             <span>
-              {selectedTypes.length === 1
-                ? selectedTypes[0]
-                : selectedTypes.length > 1
-                  ? `${selectedTypes.length} Types`
-                  : 'Properties'}
+              {(() => {
+                if (selectedTypes.length === 0) return 'Properties';
+                // Try to find a matching label from SEARCH_PROPERTY_TYPES
+                const matchedGroup = SEARCH_PROPERTY_TYPES.find(group =>
+                  group.values.length === selectedTypes.length &&
+                  group.values.every(v => selectedTypes.includes(v))
+                );
+                if (matchedGroup) return matchedGroup.label;
+
+                if (selectedTypes.length === 1) return selectedTypes[0];
+                return `${selectedTypes.length} Types`;
+              })()}
             </span>
             <ChevronDown className={`w-4 h-4 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`} />
           </button>
@@ -803,20 +808,29 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
           {showTypeDropdown && (
             <div className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-[200] w-full min-w-[280px]">
               <div className="py-1">
-                {PROPERTY_TYPE_OPTIONS.map((option) => (
+                {SEARCH_PROPERTY_TYPES.map((group) => (
                   <button
-                    key={option.value}
+                    key={group.label}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleTypeSelect(option.value);
+                      // Set types to this group's values
+                      const isCurrentlySelected = selectedTypes.length === group.values.length &&
+                        group.values.every(v => selectedTypes.includes(v));
+
+                      if (isCurrentlySelected) {
+                        handleTypeChange([]);
+                      } else {
+                        handleTypeChange([...group.values]);
+                      }
+                      setShowTypeDropdown(false);
                     }}
-                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${selectedTypes.includes(option.value)
+                    className={`w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm transition-colors ${(selectedTypes.length === group.values.length && group.values.every(v => selectedTypes.includes(v)))
                       ? 'bg-blue-50 text-blue-700 font-medium'
                       : 'text-gray-700 hover:bg-gray-50'
                       }`}
                   >
-                    {option.label}
+                    {group.label}
                   </button>
                 ))}
               </div>
@@ -1103,9 +1117,28 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
                   {/* Type - Multi-select */}
                   <MultiSelect
-                    options={[...PROPERTY_TYPE_OPTIONS]}
-                    value={selectedTypes}
-                    onChange={handleTypeChange}
+                    options={SEARCH_PROPERTY_TYPES.map(g => ({ value: g.label, label: g.label, actualValues: g.values }))}
+                    value={(() => {
+                      // Map our selectedTypes (actual list) back to group labels
+                      const selectedGroups: string[] = [];
+                      SEARCH_PROPERTY_TYPES.forEach(group => {
+                        if (group.values.every(v => selectedTypes.includes(v))) {
+                          selectedGroups.push(group.label);
+                        }
+                      });
+                      return selectedGroups;
+                    })()}
+                    onChange={(selectedLabels) => {
+                      // Flatten the selected labels back to actual values
+                      const allActualValues: string[] = [];
+                      selectedLabels.forEach(label => {
+                        const group = SEARCH_PROPERTY_TYPES.find(g => g.label === label);
+                        if (group) {
+                          allActualValues.push(...group.values);
+                        }
+                      });
+                      handleTypeChange(allActualValues);
+                    }}
                     placeholder="Select property types"
                     label="Type"
                   />
@@ -1489,9 +1522,28 @@ export function SearchFilter({ onSearch, onFilter, totalCount, listName }: Searc
 
                     {/* Type - Multi-select - Full width */}
                     <MultiSelect
-                      options={[...PROPERTY_TYPE_OPTIONS]}
-                      value={selectedTypes}
-                      onChange={handleTypeChange}
+                      options={SEARCH_PROPERTY_TYPES.map(g => ({ value: g.label, label: g.label, actualValues: g.values }))}
+                      value={(() => {
+                        // Map our selectedTypes (actual list) back to group labels
+                        const selectedGroups: string[] = [];
+                        SEARCH_PROPERTY_TYPES.forEach(group => {
+                          if (group.values.every(v => selectedTypes.includes(v))) {
+                            selectedGroups.push(group.label);
+                          }
+                        });
+                        return selectedGroups;
+                      })()}
+                      onChange={(selectedLabels) => {
+                        // Flatten the selected labels back to actual values
+                        const allActualValues: string[] = [];
+                        selectedLabels.forEach(label => {
+                          const group = SEARCH_PROPERTY_TYPES.find(g => g.label === label);
+                          if (group) {
+                            allActualValues.push(...group.values);
+                          }
+                        });
+                        handleTypeChange(allActualValues);
+                      }}
                       placeholder="Select property types"
                       label="Type"
                     />

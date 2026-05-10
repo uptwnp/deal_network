@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, LogOut, User, CheckCircle2, Lock, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { PROPERTY_TYPES, SIZE_UNITS, getCityOptions, getCityOptionsWithLabels } from '../utils/filterOptions';
+import { PROPERTY_TYPES, SIZE_UNITS, getCityOptions } from '../utils/filterOptions';
 import { authApi } from '../services/authApi';
 import { setCurrentUser } from '../types/user';
 import { PasswordChangeModal } from './PasswordChangeModal';
@@ -171,6 +171,8 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
               default_area: user.default_area || '',
               default_city: user.default_city || '',
               default_type: user.default_type || '',
+              default_unit: user.default_unit || '',
+              default_privacy: user.default_privacy || '',
               created_on: user.created_on || '',
             });
             setError(response.message || 'Using cached profile data');
@@ -178,7 +180,7 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             setError(response.message || 'Failed to load profile');
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch profile:', err);
         // If API fails, try to use existing user data from context
         if (user) {
@@ -197,7 +199,7 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
             default_privacy: user.default_privacy || '',
             created_on: user.created_on || '',
           });
-          setError('Using cached profile data. API error: ' + (err.message || 'Unknown error'));
+          setError('Using cached profile data. API error: ' + ((err as Error).message || 'Unknown error'));
         } else {
           setError('Failed to load profile. Please try again.');
         }
@@ -324,9 +326,9 @@ export function ProfilePage({ onBack, onLogout }: ProfilePageProps) {
       } else {
         setError(response.message || 'Failed to save profile. Please try again.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to save profile:', err);
-      setError(err.message || 'Failed to save profile. Please try again.');
+      setError((err as Error).message || 'Failed to save profile. Please try again.');
     }
   };
 

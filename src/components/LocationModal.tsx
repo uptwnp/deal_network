@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Lock, Globe, Navigation, Satellite, Search, MapPin } from 'lucide-react';
 import { Property } from '../types/property';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Circle, Polyline } from 'react-leaflet';
-import L from 'leaflet';
+
 import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../contexts/AuthContext';
 import type { LeafletMouseEvent } from 'leaflet';
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock';
-import { privateLocationIcon, landmarkIcon, getUserLocationIcon } from '../utils/leafletIcons';
+import { privateLocationIcon, landmarkIcon } from '../utils/leafletIcons';
 
 interface LocationModalProps {
   property: Property;
@@ -94,7 +94,7 @@ async function geocodeCity(cityName: string): Promise<[number, number] | null> {
             return [parseFloat(jsonData[0].lat), parseFloat(jsonData[0].lon)];
           }
         }
-      } catch (error) {
+      } catch {
         continue;
       }
     }
@@ -143,11 +143,11 @@ async function searchPlaces(query: string): Promise<Array<{ display_name: string
           const jsonData = typeof data === 'string' ? JSON.parse(data) : data;
           
           if (Array.isArray(jsonData)) {
-            const results = jsonData.map((item: any) => ({
+            const results = jsonData.map((item: { display_name?: string; name?: string; lat?: string | number; lon?: string | number }) => ({
               display_name: item.display_name || item.name || `${item.lat}, ${item.lon}`,
               lat: item.lat?.toString() || '',
               lon: item.lon?.toString() || '',
-            })).filter((item: any) => item.lat && item.lon && item.display_name);
+            })).filter((item: { lat: string; lon: string; display_name: string }) => item.lat && item.lon && item.display_name);
             
             if (results.length > 0) {
               console.log('Search successful with proxy, found', results.length, 'results');
@@ -157,11 +157,11 @@ async function searchPlaces(query: string): Promise<Array<{ display_name: string
         } else {
           console.log('Proxy returned error:', response.status, response.statusText);
         }
-      } catch (proxyError: any) {
-        if (proxyError.name === 'AbortError') {
+      } catch (proxyError: unknown) {
+        if ((proxyError as Error).name === 'AbortError') {
           console.log('Request timed out, trying next proxy...');
         } else {
-          console.log('Proxy failed:', proxyError.message);
+          console.log('Proxy failed:', (proxyError as Error).message);
         }
         continue;
       }
@@ -295,11 +295,11 @@ async function resolveGoogleMapsUrl(shortUrl: string): Promise<{ coords: [number
         if (htmlCoords) {
           return { coords: htmlCoords, finalUrl };
         }
-      } catch (htmlError) {
+      } catch {
         console.log('Could not read HTML response due to CORS');
       }
-    } catch (fetchError: any) {
-      if (fetchError.name === 'AbortError') {
+    } catch (fetchError: unknown) {
+      if ((fetchError as Error).name === 'AbortError') {
         console.log('Request timed out');
       } else {
         console.log('Could not resolve short URL. Please use the full Google Maps URL with coordinates, or paste coordinates directly.');
@@ -342,7 +342,7 @@ async function parseLocationInput(input: string): Promise<{ coords: [number, num
         return { coords: result.coords, displayText };
       }
     }
-  } catch (e) {
+  } catch {
     // Not a valid URL format
   }
 

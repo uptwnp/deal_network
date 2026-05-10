@@ -1,149 +1,5 @@
-import axios from 'axios';
+import { supabase } from './supabase';
 import { Property, PropertyFormData, FilterOptions } from '../types/property';
-import { getStoredToken, clearStoredToken } from './authApi';
-import { logoutUser } from '../types/user';
-
-// API endpoints based on read_me.md structure
-const FETCH_API_URL = 'https://prop.digiheadway.in/api/dealer_network/fetch.php';
-const ACTION_API_URL = 'https://prop.digiheadway.in/api/dealer_network/action.php';
-
-// Function to handle authentication errors
-function handleAuthError() {
-  // Clear all auth data
-  clearStoredToken();
-  logoutUser();
-
-  // Redirect to login page
-  // Use window.location to ensure full page reload and clear any state
-  if (window.location.pathname !== '/login' && !window.location.pathname.startsWith('/property/')) {
-    window.location.href = '/login';
-  }
-}
-
-// Add axios response interceptor to handle authentication errors globally
-axios.interceptors.response.use(
-  (response) => {
-    // Check if response data contains an authentication error
-    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
-      const errorMessage = response.data.error || '';
-      if (errorMessage.toLowerCase().includes('authentication required') ||
-        errorMessage.toLowerCase().includes('invalid token')) {
-        handleAuthError();
-        return Promise.reject(new Error(errorMessage));
-      }
-    }
-    return response;
-  },
-  (error) => {
-    // IMPORTANT: Only handle authentication errors, NOT network errors
-    // Network errors (offline, timeout, etc.) should NOT trigger logout
-
-    if (error.response) {
-      // Server responded with an error status - check if it's an auth error
-      const errorData = error.response.data;
-      const statusCode = error.response.status;
-
-      // Only logout for explicit authentication/authorization errors
-      if (statusCode === 401 || statusCode === 403) {
-        handleAuthError();
-      } else if (errorData && typeof errorData === 'object' && 'error' in errorData) {
-        const errorMessage = errorData.error || '';
-        if (errorMessage.toLowerCase().includes('authentication required') ||
-          errorMessage.toLowerCase().includes('invalid token')) {
-          handleAuthError();
-        }
-      }
-    } else if (error.request) {
-      // Request was made but no response received (network error, timeout, offline, etc.)
-      // DO NOT logout - this is a connectivity issue, not an auth issue
-      console.warn('Network error detected (offline or timeout):', error.message);
-      // Just pass the error through without triggering logout
-    } else {
-      // Something else happened during request setup
-      console.warn('Request setup error:', error.message);
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-// Request cache to prevent duplicate calls
-const requestCache = new Map<number, Promise<Property | null>>();
-
-// Validate ownerId before making API calls
-function validateOwnerId(ownerId: number): void {
-  if (!ownerId || ownerId <= 0 || isNaN(ownerId)) {
-    throw new Error('Invalid owner_id: owner_id must be a positive number');
-  }
-}
-
-// Get authorization headers with Bearer token
-function getAuthHeaders(): { Authorization?: string } {
-  const token = getStoredToken();
-  if (token) {
-    return { Authorization: `Bearer ${token}` };
-  }
-  return {};
-}
-
-function normalizeProperty(data: any): Property {
-  return {
-    ...data,
-    id: Number(data.id),
-    owner_id: Number(data.owner_id || 0),
-    size_min: Number(data.size_min),
-    size_max: Number(data.size_max),
-    price_min: Number(data.price_min),
-    price_max: Number(data.price_max),
-    is_public: data.is_public !== undefined ? Number(data.is_public) : 1, // Default to 1 (public) if not provided
-    public_rating: data.public_rating ? Number(data.public_rating) : undefined,
-    my_rating: data.my_rating ? Number(data.my_rating) : undefined,
-    // Handle is_favourite which might be boolean or number
-    is_favourite: data.is_favourite === true ? 1 : (data.is_favourite === false ? 0 : (data.is_favourite !== undefined ? Number(data.is_favourite) : 0)),
-    // Map my_note (backend) to user_note (frontend)
-    user_note: data.my_note || data.user_note || '',
-  };
-}
-
-function normalizeProperties(data: any): Property[] {
-  // Check if response is an error object
-  if (data && typeof data === 'object' && 'error' in data) {
-    const errorMessage = data.error || 'API error occurred';
-    // Authentication errors are handled by the interceptor, but we still throw here
-    // to prevent processing invalid data
-    throw new Error(errorMessage);
-  }
-
-  // Handle new fetch.php response format: {success, message, data, meta}
-  if (data && typeof data === 'object' && 'success' in data && 'data' in data && Array.isArray(data.data)) {
-    return data.data.map(normalizeProperty);
-  }
-
-  // Handle old format (direct array) for backward compatibility
-  if (Array.isArray(data)) {
-    return data.map(normalizeProperty);
-  }
-
-  return [];
-}
-
-function extractPaginationMeta(data: any): PaginationMeta | null {
-  // Check if response has meta field with pagination info (fetch.php format)
-  if (data && typeof data === 'object' && 'meta' in data && data.meta) {
-    const meta = data.meta;
-    if (typeof meta === 'object') {
-      // Map fetch.php meta format to our PaginationMeta format
-      return {
-        page: meta.current_page !== undefined ? Number(meta.current_page) : (meta.page !== undefined ? Number(meta.page) : 1),
-        per_page: meta.per_page !== undefined ? Number(meta.per_page) : 40,
-        total: meta.total_records !== undefined ? Number(meta.total_records) : (meta.total !== undefined ? Number(meta.total) : 0),
-        total_pages: meta.total_pages !== undefined ? Number(meta.total_pages) : 0,
-        page_results: meta.page_results !== undefined ? Number(meta.page_results) : 0,
-      };
-    }
-  }
-  return null;
-}
 
 export interface PaginationOptions {
   page?: number;
@@ -163,483 +19,541 @@ export interface PaginatedResponse<T> {
   meta: PaginationMeta;
 }
 
-// Helper function to add filters to query params, only including non-default values
-function addFiltersToParams(queryParams: URLSearchParams, filters: FilterOptions) {
-  // Default values that should not be sent
-  const DEFAULT_MIN_PRICE = 0;
-  const DEFAULT_MAX_PRICE = 500;
-  const DEFAULT_MIN_SIZE = 0;
-  const DEFAULT_MAX_SIZE = 10000;
 
-  if (filters.city) queryParams.append('city', filters.city);
-  if (filters.area) queryParams.append('area', filters.area);
+interface SupabaseProperty {
+  id: number | string;
+  owner_id: number | string;
+  city: string;
+  area: string;
+  type: string;
+  description: string;
+  note_private?: string;
+  size_min?: number;
+  size_max?: number;
+  size_unit?: string;
+  price_min?: number;
+  price_max?: number;
+  location?: string;
+  is_public?: boolean;
+  public_rating?: number;
+  my_rating?: number;
+  tags?: string;
+  highlights?: string;
+  image_urls?: string;
+  is_photos_public?: boolean;
+  created_on: string;
+  updated_on: string;
+  location_accuracy?: string;
+  landmark_location?: string;
+  landmark_location_distance?: number;
+  owner?: {
+    name: string;
+    phone: string;
+    firm_name?: string;
+  };
+  owner_name?: string;
+  owner_phone?: string;
+  owner_firm_name?: string;
+  favorites?: {
+    user_id: number;
+    is_favourite: boolean;
+    user_note?: string;
+  }[];
+}
 
-  // Handle type as string or array (for multi-select)
-  if (filters.type) {
-    if (Array.isArray(filters.type)) {
-      if (filters.type.length > 0) {
-        queryParams.append('type', filters.type.join(','));
-      }
-    } else {
-      queryParams.append('type', filters.type);
-    }
-  }
-
-  // Handle tags as string or array (for multi-select)
-  if (filters.tags) {
-    if (Array.isArray(filters.tags)) {
-      if (filters.tags.length > 0) {
-        queryParams.append('tags', filters.tags.join(','));
-      }
-    } else {
-      queryParams.append('tags', filters.tags);
-    }
-  }
-
-  // Handle highlights as string or array (for multi-select)
-  if (filters.highlights) {
-    if (Array.isArray(filters.highlights)) {
-      if (filters.highlights.length > 0) {
-        queryParams.append('highlights', filters.highlights.join(','));
-      }
-    } else {
-      queryParams.append('highlights', filters.highlights);
-    }
-  }
-
-  // Only send price filters if they're not at default values
-  const minPrice = filters.min_price ?? DEFAULT_MIN_PRICE;
-  const maxPrice = filters.max_price ?? DEFAULT_MAX_PRICE;
-  const isPriceRangeApplied = !(minPrice === DEFAULT_MIN_PRICE && maxPrice === DEFAULT_MAX_PRICE);
-
-  if (isPriceRangeApplied) {
-    if (minPrice !== DEFAULT_MIN_PRICE) {
-      queryParams.append('min_price', minPrice.toString());
-    }
-    if (maxPrice !== DEFAULT_MAX_PRICE) {
-      queryParams.append('max_price', maxPrice.toString());
-    }
-  }
-
-  // Only send size filters if they're not at default values
-  const minSize = filters.size_min ?? DEFAULT_MIN_SIZE;
-  const maxSize = filters.max_size ?? DEFAULT_MAX_SIZE;
-  const isSizeRangeApplied = !(minSize === DEFAULT_MIN_SIZE && maxSize === DEFAULT_MAX_SIZE);
-
-  if (isSizeRangeApplied) {
-    if (minSize !== DEFAULT_MIN_SIZE) {
-      queryParams.append('min_size', minSize.toString());
-    }
-    if (maxSize !== DEFAULT_MAX_SIZE) {
-      queryParams.append('max_size', maxSize.toString());
-    }
-    // Only send size_unit if size range is actually applied
-    if (filters.size_unit) {
-      queryParams.append('size_unit', filters.size_unit);
-    }
-  }
-
-  // Filter by specific size unit (separate from size_unit used for size range)
-  if (filters.filter_size_unit) {
-    queryParams.append('filter_size_unit', filters.filter_size_unit);
-  }
-
-  // Map location filters
-  if (filters.has_location !== undefined) {
-    queryParams.append('has_location', filters.has_location.toString());
-  }
-  if (filters.has_landmark !== undefined) {
-    queryParams.append('has_landmark', filters.has_landmark.toString());
-  }
-
-  // Map privacy filter
-  if (filters.is_public !== undefined) {
-    queryParams.append('is_public', filters.is_public.toString());
-  }
-
-  // Add sorting parameters
-  if (filters.sortby) {
-    queryParams.append('sortby', filters.sortby);
-  }
-  if (filters.order) {
-    queryParams.append('order', filters.order);
+function validateOwnerId(ownerId: number): void {
+  if (!ownerId || ownerId <= 0 || isNaN(ownerId)) {
+    throw new Error('Invalid owner_id: owner_id must be a positive number');
   }
 }
+
+// Convert Supabase joined data to frontend Property object
+function normalizeProperty(data: SupabaseProperty, viewerId: number): Property {
+  const ownerIdNum = Number(data.owner_id);
+  const isOwned = ownerIdNum === viewerId;
+
+  // Extract owner details from the joined table
+  const ownerName = data.owner?.name || data.owner_name || '';
+  const ownerPhone = data.owner?.phone || data.owner_phone || '';
+  const ownerFirmName = data.owner?.firm_name || data.owner_firm_name || '';
+
+  // Extract favorites details if present (only for the current logged-in user / viewer)
+  let isFavourite = 0;
+  let userNote = '';
+  
+  if (data.favorites && data.favorites.length > 0) {
+    // Search strictly for the current viewer's favorite record
+    const fav = data.favorites.find((f) => f.user_id === viewerId);
+    if (fav) {
+      isFavourite = fav.is_favourite ? 1 : 0;
+      if (fav.user_note) {
+        userNote = fav.user_note;
+      }
+    }
+  }
+
+  return {
+    id: Number(data.id),
+    owner_id: ownerIdNum,
+    city: data.city,
+    area: data.area,
+    type: data.type,
+    description: data.description || '',
+    // Only expose private notes to the actual owner
+    note_private: isOwned ? data.note_private : undefined,
+    size_min: Number(data.size_min || 0),
+    size_max: Number(data.size_max || 0),
+    size_unit: data.size_unit || 'Gaj',
+    price_min: Number(data.price_min || 0),
+    price_max: Number(data.price_max || 0),
+    location: data.location || '',
+    location_accuracy: data.location_accuracy,
+    is_public: data.is_public ? 1 : 0,
+    public_rating: data.public_rating ? Number(data.public_rating) : undefined,
+    my_rating: data.my_rating ? Number(data.my_rating) : undefined,
+    tags: data.tags,
+    highlights: data.highlights,
+    created_on: data.created_on,
+    updated_on: data.updated_on,
+    landmark_location: data.landmark_location,
+    landmark_location_distance: data.landmark_location_distance,
+    owner_name: ownerName,
+    owner_phone: ownerPhone,
+    owner_firm_name: ownerFirmName,
+    is_favourite: isFavourite,
+    user_note: userNote,
+    image_urls: data.image_urls,
+    is_photos_public: data.is_photos_public,
+  };
+}
+
+// Map the pagination params correctly
+function createPaginationMeta(count: number | null, limit: number, page: number, actualResults: number): PaginationMeta {
+  const total = count || 0;
+  return {
+    page,
+    per_page: limit,
+    total,
+    total_pages: Math.ceil(total / limit) || 1,
+    page_results: actualResults
+  };
+}
+
+// Append filters to a Supabase query builder
+function applyFilters<T>(query: T, filters: FilterOptions): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = query as any;
+  if (filters.city) q = q.eq('city', filters.city);
+  if (filters.area) q = q.eq('area', filters.area);
+
+  if (filters.type) {
+    if (Array.isArray(filters.type)) {
+      if (filters.type.length > 0) q = q.in('type', filters.type);
+    } else {
+      q = q.eq('type', filters.type);
+    }
+  }
+
+  if (filters.tags) {
+    const tagsArray = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
+    if (tagsArray.length > 0) {
+      q = q.or(tagsArray.map(t => `tags.ilike.%${t}%`).join(','));
+    }
+  }
+
+  if (filters.highlights) {
+    const hlArray = Array.isArray(filters.highlights) ? filters.highlights : [filters.highlights];
+    if (hlArray.length > 0) {
+      q = q.or(hlArray.map(h => `highlights.ilike.%${h}%`).join(','));
+    }
+  }
+
+  const DEFAULT_MIN_PRICE = 0;
+  const DEFAULT_MAX_PRICE = 500;
+  if (filters.min_price !== undefined && filters.min_price !== DEFAULT_MIN_PRICE) q = q.gte('price_min', filters.min_price);
+  if (filters.max_price !== undefined && filters.max_price !== DEFAULT_MAX_PRICE) q = q.lte('price_max', filters.max_price);
+
+  const DEFAULT_MIN_SIZE = 0;
+  const DEFAULT_MAX_SIZE = 10000;
+  if (filters.size_min !== undefined && filters.size_min !== DEFAULT_MIN_SIZE) q = q.gte('size_min', filters.size_min);
+  if (filters.max_size !== undefined && filters.max_size !== DEFAULT_MAX_SIZE) q = q.lte('size_max', filters.max_size);
+
+  if (filters.size_unit) q = q.eq('size_unit', filters.size_unit);
+  if (filters.filter_size_unit) q = q.eq('size_unit', filters.filter_size_unit);
+
+  if (filters.has_location !== undefined) {
+    if (filters.has_location) q = q.not('location', 'is', null);
+    else q = q.is('location', null);
+  }
+
+  if (filters.has_landmark !== undefined) {
+    if (filters.has_landmark) q = q.not('landmark_location', 'is', null);
+    else q = q.is('landmark_location', null);
+  }
+
+  if (filters.is_public !== undefined) {
+    q = q.eq('is_public', filters.is_public ? true : false);
+  }
+
+  // Sorting
+  if (filters.sortby) {
+    const isAsc = filters.order === 'ASC';
+    if (filters.sortby === 'price') {
+      q = q.order('price_min', { ascending: isAsc });
+    } else if (filters.sortby === 'size') {
+      q = q.order('size_min', { ascending: isAsc });
+    } else {
+      q = q.order('created_on', { ascending: isAsc });
+    }
+  } else {
+      q = q.order('created_on', { ascending: false });
+  }
+
+  return q as T;
+}
+
+const selectColumns = `
+  *,
+  owner:network_users!inner(name, phone, firm_name)
+`;
 
 export const propertyApi = {
   async getUserProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const queryParams = new URLSearchParams();
-    queryParams.append('list', 'mine'); // fetch.php uses 'list' parameter
+    const page = pagination?.page || 1;
+    const limit = pagination?.per_page || 40;
+    
+    let query = supabase.from('network_properties').select(`${selectColumns}, favorites:network_favorites(user_id, is_favourite, user_note)`, { count: 'exact' });
+    query = query.eq('owner_id', ownerId);
 
-    // Add for=map parameter if requesting map data (only properties with location/landmark)
-    if (forMap) {
-      queryParams.append('for', 'map');
-    }
+    if (forMap) query = query.not('location', 'is', null);
 
-    if (pagination?.page !== undefined) {
-      queryParams.append('page', pagination.page.toString());
-    }
-    if (pagination?.per_page !== undefined) {
-      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
-    }
+    query = query.order('created_on', { ascending: false });
+    query = query.range((page - 1) * limit, page * limit - 1);
 
-    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true, // Include cookies for token
-    });
-    const properties = normalizeProperties(response.data);
-    const meta = extractPaginationMeta(response.data) || {
-      page: pagination?.page || 1,
-      per_page: pagination?.per_page || 40,
-      total: properties.length,
-      total_pages: 1,
-      page_results: properties.length,
-    };
-    return { data: properties, meta };
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const properties = (data || []).map((p: SupabaseProperty) => normalizeProperty(p, ownerId));
+    return { data: properties, meta: createPaginationMeta(count, limit, page, properties.length) };
   },
 
   async getPublicProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const queryParams = new URLSearchParams();
-    queryParams.append('list', 'others'); // fetch.php uses 'list' parameter
+    const page = pagination?.page || 1;
+    const limit = pagination?.per_page || 40;
+    
+    let query = supabase.from('network_properties').select(`${selectColumns}, favorites:network_favorites(user_id, is_favourite, user_note)`, { count: 'exact' });
+    query = query.eq('is_public', true).neq('owner_id', ownerId);
 
-    // Add for=map parameter if requesting map data (only properties with location/landmark)
-    if (forMap) {
-      queryParams.append('for', 'map');
-    }
+    if (forMap) query = query.not('location', 'is', null);
 
-    if (pagination?.page !== undefined) {
-      queryParams.append('page', pagination.page.toString());
-    }
-    if (pagination?.per_page !== undefined) {
-      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
-    }
+    query = query.order('created_on', { ascending: false });
+    query = query.range((page - 1) * limit, page * limit - 1);
 
-    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true,
-    });
-    const properties = normalizeProperties(response.data);
-    const meta = extractPaginationMeta(response.data) || {
-      page: pagination?.page || 1,
-      per_page: pagination?.per_page || 40,
-      total: properties.length,
-      total_pages: 1,
-      page_results: properties.length,
-    };
-    return { data: properties, meta };
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const properties = (data || []).map((p: SupabaseProperty) => normalizeProperty(p, ownerId));
+    return { data: properties, meta: createPaginationMeta(count, limit, page, properties.length) };
   },
 
   async getAllProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const queryParams = new URLSearchParams();
-    queryParams.append('list', 'both'); // fetch.php uses 'list' parameter
+    const page = pagination?.page || 1;
+    const limit = pagination?.per_page || 40;
+    
+    let query = supabase.from('network_properties').select(`${selectColumns}, favorites:network_favorites(user_id, is_favourite, user_note)`, { count: 'exact' });
+    query = query.or(`owner_id.eq.${ownerId},is_public.eq.true`);
 
-    // Add for=map parameter if requesting map data (only properties with location/landmark)
-    if (forMap) {
-      queryParams.append('for', 'map');
-    }
+    if (forMap) query = query.not('location', 'is', null);
 
-    if (pagination?.page !== undefined) {
-      queryParams.append('page', pagination.page.toString());
-    }
-    if (pagination?.per_page !== undefined) {
-      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
-    }
+    query = query.order('created_on', { ascending: false });
+    query = query.range((page - 1) * limit, page * limit - 1);
 
-    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true,
-    });
-    const properties = normalizeProperties(response.data);
-    const meta = extractPaginationMeta(response.data) || {
-      page: pagination?.page || 1,
-      per_page: pagination?.per_page || 40,
-      total: properties.length,
-      total_pages: 1,
-      page_results: properties.length,
-    };
-    return { data: properties, meta };
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const properties = (data || []).map((p: SupabaseProperty) => normalizeProperty(p, ownerId));
+    return { data: properties, meta: createPaginationMeta(count, limit, page, properties.length) };
   },
 
   async getSavedProperties(ownerId: number, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const queryParams = new URLSearchParams();
-    queryParams.append('list', 'saved');
+    const page = pagination?.page || 1;
+    const limit = pagination?.per_page || 40;
+    
+    let query = supabase.from('network_properties').select(`*, owner:network_users!inner(name, phone, firm_name), favorites:network_favorites!inner(user_id, is_favourite, user_note)`, { count: 'exact' });
+    query = query.eq('favorites.user_id', ownerId).eq('favorites.is_favourite', true);
 
-    // Add for=map parameter if requesting map data (only properties with location/landmark)
-    if (forMap) {
-      queryParams.append('for', 'map');
-    }
+    if (forMap) query = query.not('location', 'is', null);
 
-    if (pagination?.page !== undefined) {
-      queryParams.append('page', pagination.page.toString());
-    }
-    if (pagination?.per_page !== undefined) {
-      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
-    }
+    query = query.order('created_on', { ascending: false });
+    query = query.range((page - 1) * limit, page * limit - 1);
 
-    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true,
-    });
-    const properties = normalizeProperties(response.data);
-    const meta = extractPaginationMeta(response.data) || {
-      page: pagination?.page || 1,
-      per_page: pagination?.per_page || 40,
-      total: properties.length,
-      total_pages: 1,
-      page_results: properties.length,
-    };
-    return { data: properties, meta };
-  },
+    const { data, count, error } = await query;
+    if (error) throw error;
 
-  async addProperty(ownerId: number, data: PropertyFormData): Promise<{ success: boolean; id: number }> {
-    validateOwnerId(ownerId);
-    const url = `${ACTION_API_URL}?action=add_property`;
-    const response = await axios.post(
-      url,
-      {
-        owner_id: ownerId,
-        ...data,
-      },
-      {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
-      }
-    );
-    // Check for error in response (action.php uses 'error' key)
-    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
-      throw new Error(response.data.error || 'Failed to add property');
-    }
-    return response.data;
-  },
-
-  async updateProperty(id: number, ownerId: number, data: Partial<PropertyFormData>): Promise<{ success: boolean }> {
-    validateOwnerId(ownerId);
-    const url = `${ACTION_API_URL}?action=update_property`;
-    const response = await axios.post(
-      url,
-      {
-        id,
-        owner_id: ownerId,
-        ...data,
-      },
-      {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
-      }
-    );
-    // Check for error in response (action.php uses 'error' key)
-    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
-      throw new Error(response.data.error || 'Failed to update property');
-    }
-    return response.data;
-  },
-
-  async deleteProperty(id: number, ownerId: number): Promise<{ success: boolean }> {
-    validateOwnerId(ownerId);
-    const url = `${ACTION_API_URL}?action=delete_property&id=${id}&owner_id=${ownerId}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true,
-    });
-    // Check for error in response (action.php uses 'error' key)
-    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
-      throw new Error(response.data.error || 'Failed to delete property');
-    }
-    return response.data;
-  },
-
-  async favProperty(ownerId: number, propertyId: number, isFavourite: number, userNote: string): Promise<{ success: boolean; message: string }> {
-    validateOwnerId(ownerId);
-    const url = `${ACTION_API_URL}?action=fav_property`;
-    const response = await axios.post(
-      url,
-      {
-        owner_id: ownerId,
-        property_id: propertyId,
-        is_favourite: isFavourite,
-        user_note: userNote
-      },
-      {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
-      }
-    );
-    // Check for error in response (action.php uses 'error' key)
-    if (response.data && typeof response.data === 'object' && 'error' in response.data) {
-      throw new Error(response.data.error || 'Failed to update favorite');
-    }
-    return response.data;
+    const properties = (data || []).map((p: SupabaseProperty) => normalizeProperty(p, ownerId));
+    return { data: properties, meta: createPaginationMeta(count, limit, page, properties.length) };
   },
 
   async filterProperties(ownerId: number, list: 'mine' | 'others' | 'both' | 'saved', filters: FilterOptions, pagination?: PaginationOptions, forMap?: boolean): Promise<PaginatedResponse<Property>> {
     validateOwnerId(ownerId);
-    const queryParams = new URLSearchParams();
-    queryParams.append('list', list); // fetch.php uses 'list' parameter
-
-    // Add for=map parameter if requesting map data (only properties with location/landmark)
-    if (forMap) {
-      queryParams.append('for', 'map');
-    }
-
-    // Add filters (only non-default values)
-    addFiltersToParams(queryParams, filters);
-
-    // Add pagination parameters
-    if (pagination?.page !== undefined) {
-      queryParams.append('page', pagination.page.toString());
-    }
-    if (pagination?.per_page !== undefined) {
-      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
-    }
-
-    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true,
-    });
-    const properties = normalizeProperties(response.data);
-    const meta = extractPaginationMeta(response.data) || {
-      page: pagination?.page || 1,
-      per_page: pagination?.per_page || 40,
-      total: properties.length,
-      total_pages: 1,
-      page_results: properties.length,
-    };
-    return { data: properties, meta };
-  },
-
-  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both' | 'saved', query: string, column?: string, pagination?: PaginationOptions, forMap?: boolean, filters?: FilterOptions): Promise<PaginatedResponse<Property>> {
-    validateOwnerId(ownerId);
-    const queryParams = new URLSearchParams();
-    queryParams.append('list', list); // fetch.php uses 'list' parameter
-
-    // Only send search parameter if query is not empty (matches backend's !empty($search) check)
-    if (query && query.trim()) {
-      queryParams.append('search', query.trim()); // fetch.php uses 'search' parameter
-    }
-
-    // Send column parameter (even though backend searches all fields, send it for API consistency)
-    if (column && column.trim()) {
-      queryParams.append('column', column.trim());
-    }
-
-    // Add for=map parameter if requesting map data (only properties with location/landmark)
-    if (forMap) {
-      queryParams.append('for', 'map');
-    }
-
-    // Note: fetch.php searches across all fields regardless of column parameter
-    // (city, area, type, description, highlights, heading)
-
-    // Apply filters if provided (for search with filters) - only non-default values
-    if (filters) {
-      addFiltersToParams(queryParams, filters);
-    }
-
-    // Add pagination parameters
-    if (pagination?.page !== undefined) {
-      queryParams.append('page', pagination.page.toString());
-    }
-    if (pagination?.per_page !== undefined) {
-      queryParams.append('limit', pagination.per_page.toString()); // fetch.php uses 'limit' instead of 'per_page'
-    }
-
-    const url = `${FETCH_API_URL}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: getAuthHeaders(),
-      withCredentials: true,
-    });
-    const properties = normalizeProperties(response.data);
-    const meta = extractPaginationMeta(response.data) || {
-      page: pagination?.page || 1,
-      per_page: pagination?.per_page || 40,
-      total: properties.length,
-      total_pages: 1,
-      page_results: properties.length,
-    };
-    return { data: properties, meta };
-  },
-
-  async getPropertyById(propertyId: number, _ownerId?: number): Promise<Property | null> {
-    // Check if there's already a pending request for this property
-    if (requestCache.has(propertyId)) {
-      console.log('Reusing existing request for property:', propertyId);
-      return requestCache.get(propertyId)!;
-    }
-
-    // Create the request promise
-    const requestPromise = (async () => {
-      try {
-        // Use fetch.php with action=get_property (doesn't require authentication for public properties)
-        const publicUrl = `${FETCH_API_URL}?action=get_property&id=${propertyId}`;
-        console.log('Making single API request to:', publicUrl);
-        const publicResponse = await axios.get(publicUrl, {
-          withCredentials: true,
-          // No auth headers needed for this endpoint
-        });
-
-        console.log('API response received:', publicResponse.status);
-        console.log('API response data:', JSON.stringify(publicResponse.data, null, 2));
-
-        // Handle fetch.php response format: {success, message, data}
-        let property: any = null;
-        if (publicResponse.data && typeof publicResponse.data === 'object') {
-          if (publicResponse.data.success && publicResponse.data.data) {
-            // fetch.php returns single property object in data field
-            property = publicResponse.data.data;
-            console.log('Property extracted from response.data.data:', property);
-          } else if (Array.isArray(publicResponse.data.data)) {
-            // Handle array format if returned
-            property = publicResponse.data.data[0] || null;
-            console.log('Property extracted from array:', property);
-          } else if (Array.isArray(publicResponse.data)) {
-            // Handle old format (direct array) for backward compatibility
-            property = publicResponse.data[0] || null;
-            console.log('Property extracted from direct array:', property);
-          } else {
-            console.log('Unexpected response format:', publicResponse.data);
-          }
-        }
-
-        if (property) {
-          const normalized = normalizeProperty(property);
-          console.log('Normalized property:', normalized);
-          return normalized;
-        }
-
-        console.log('No property found in response');
-        return null;
-      } catch (error: any) {
-        console.error('Error fetching property by ID:', error.response?.data || error.message);
-        return null;
-      } finally {
-        // Remove from cache after request completes (after a short delay to allow concurrent calls to reuse)
-        setTimeout(() => {
-          requestCache.delete(propertyId);
-        }, 1000);
+    const page = pagination?.page || 1;
+    const limit = pagination?.per_page || 40;
+    
+    let query;
+    if (list === 'saved') {
+      query = supabase.from('network_properties').select(`*, owner:network_users!inner(name, phone, firm_name), favorites:network_favorites!inner(user_id, is_favourite, user_note)`, { count: 'exact' });
+      query = query.eq('favorites.user_id', ownerId).eq('favorites.is_favourite', true);
+    } else {
+      query = supabase.from('network_properties').select(`${selectColumns}, favorites:network_favorites(user_id, is_favourite, user_note)`, { count: 'exact' });
+      
+      if (list === 'mine') {
+        query = query.eq('owner_id', ownerId);
+      } else if (list === 'others') {
+        query = query.eq('is_public', true).neq('owner_id', ownerId);
+      } else if (list === 'both') {
+        query = query.or(`owner_id.eq.${ownerId},is_public.eq.true`);
       }
-    })();
+    }
 
-    // Cache the request promise
-    requestCache.set(propertyId, requestPromise);
+    if (forMap) query = query.not('location', 'is', null);
 
-    return requestPromise;
+    query = applyFilters(query, filters);
+    query = query.range((page - 1) * limit, page * limit - 1);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const properties = (data || []).map((p: SupabaseProperty) => normalizeProperty(p, ownerId));
+    return { data: properties, meta: createPaginationMeta(count, limit, page, properties.length) };
   },
+
+  async searchProperties(ownerId: number, list: 'mine' | 'others' | 'both' | 'saved', queryStr: string, column?: string, pagination?: PaginationOptions, forMap?: boolean, filters?: FilterOptions): Promise<PaginatedResponse<Property>> {
+    validateOwnerId(ownerId);
+    const page = pagination?.page || 1;
+    const limit = pagination?.per_page || 40;
+    
+    let query;
+    if (list === 'saved') {
+      query = supabase.from('network_properties').select(`*, owner:network_users!inner(name, phone, firm_name), favorites:network_favorites!inner(user_id, is_favourite, user_note)`, { count: 'exact' });
+      query = query.eq('favorites.user_id', ownerId).eq('favorites.is_favourite', true);
+    } else {
+      query = supabase.from('network_properties').select(`${selectColumns}, favorites:network_favorites(user_id, is_favourite, user_note)`, { count: 'exact' });
+      
+      if (list === 'mine') {
+        query = query.eq('owner_id', ownerId);
+      } else if (list === 'others') {
+        query = query.eq('is_public', true).neq('owner_id', ownerId);
+      } else if (list === 'both') {
+        query = query.or(`owner_id.eq.${ownerId},is_public.eq.true`);
+      }
+    }
+
+    if (forMap) query = query.not('location', 'is', null);
+
+    if (queryStr && queryStr.trim()) {
+      const q = queryStr.trim();
+      
+      if (column === 'all') {
+        // Everything Search: Search across all standard text columns
+        let orConditions = `city.ilike.%${q}%,area.ilike.%${q}%,type.ilike.%${q}%,description.ilike.%${q}%,tags.ilike.%${q}%,highlights.ilike.%${q}%`;
+        
+        // If query is a valid number, also search numeric fields (ID, size, price)
+        const numValue = Number(q);
+        if (!isNaN(numValue)) {
+          orConditions += `,id.eq.${numValue},size_min.eq.${numValue},size_max.eq.${numValue},price_min.eq.${numValue},price_max.eq.${numValue}`;
+        }
+        query = query.or(orConditions);
+      } else if (column === 'general') {
+        // General Search: Standard text search
+        query = query.or(`city.ilike.%${q}%,area.ilike.%${q}%,type.ilike.%${q}%,description.ilike.%${q}%,tags.ilike.%${q}%,highlights.ilike.%${q}%`);
+      } else if (column === 'heading') {
+        // Heading Search: Search area, city, type, and size
+        let orConditions = `area.ilike.%${q}%,city.ilike.%${q}%,type.ilike.%${q}%`;
+        const numValue = Number(q);
+        if (!isNaN(numValue)) {
+          orConditions += `,size_min.eq.${numValue},size_max.eq.${numValue}`;
+        }
+        query = query.or(orConditions);
+      } else if (column === 'id') {
+        // ID Search: Must be a number. Exact match only.
+        const numValue = Number(q);
+        if (!isNaN(numValue)) {
+          query = query.eq('id', numValue);
+        } else {
+          query = query.eq('id', -1); // Safe fallback to return no results if not a number
+        }
+      } else if (column === 'size') {
+        // Size Search: Must be a number. Exact match on min/max size or match unit.
+        const numValue = Number(q);
+        if (!isNaN(numValue)) {
+          query = query.or(`size_min.eq.${numValue},size_max.eq.${numValue}`);
+        } else {
+          query = query.ilike('size_unit', `%${q}%`);
+        }
+      } else if (column === 'price') {
+        // Price Search: Must be a number. Exact match on min/max price.
+        const numValue = Number(q);
+        if (!isNaN(numValue)) {
+          query = query.or(`price_min.eq.${numValue},price_max.eq.${numValue}`);
+        } else {
+          query = query.eq('id', -1); // Safe fallback if not a number
+        }
+      } else if (column === 'note_private') {
+        // Private Note Search: Strict security boundary check.
+        // Users can only search private notes for properties they actually own.
+        if (list === 'mine') {
+          query = query.ilike('note_private', `%${q}%`);
+        } else if (list === 'both') {
+          query = query.eq('owner_id', ownerId).ilike('note_private', `%${q}%`);
+        } else {
+          // If viewing others' or saved properties, private notes are not searchable by visitors.
+          query = query.eq('id', -1); // Safe fallback to return no results
+        }
+      } else if (column) {
+        // Any other standard column (e.g. area, description, city, type, tags, highlights)
+        query = query.ilike(column, `%${q}%`);
+      } else {
+        // Default to General Search
+        query = query.or(`city.ilike.%${q}%,area.ilike.%${q}%,type.ilike.%${q}%,description.ilike.%${q}%,tags.ilike.%${q}%,highlights.ilike.%${q}%`);
+      }
+    }
+
+    if (filters) {
+      query = applyFilters(query, filters);
+    } else {
+      query = query.order('created_on', { ascending: false });
+    }
+    
+    query = query.range((page - 1) * limit, page * limit - 1);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const properties = (data || []).map((p: SupabaseProperty) => normalizeProperty(p, ownerId));
+    return { data: properties, meta: createPaginationMeta(count, limit, page, properties.length) };
+  },
+
+  async addProperty(ownerId: number, data: PropertyFormData): Promise<{ success: boolean; id: number }> {
+    validateOwnerId(ownerId);
+    
+    // Ensure numeric fields are appropriately parsed
+    const size_min = data.size_min ? Number(data.size_min) : undefined;
+    const size_max = data.size_max ? Number(data.size_max) : undefined;
+    const price_min = data.price_min ? Number(data.price_min) : undefined;
+    const price_max = data.price_max ? Number(data.price_max) : undefined;
+
+    const payload: Record<string, any> = {
+      owner_id: ownerId,
+      city: data.city,
+      area: data.area,
+      type: data.type,
+      description: data.description,
+      note_private: data.note_private,
+      size_min,
+      size_max,
+      size_unit: data.size_unit,
+      price_min,
+      price_max,
+      location: data.location,
+      location_accuracy: data.location_accuracy,
+      is_public: !!data.is_public,
+      tags: data.tags,
+      highlights: data.highlights,
+      public_rating: data.public_rating,
+      my_rating: data.my_rating,
+      image_urls: data.image_urls,
+      landmark_location: data.landmark_location,
+      landmark_location_distance: data.landmark_location_distance ? Number(data.landmark_location_distance) : undefined,
+    };
+
+    // Remove undefined fields
+    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+
+    const { data: insertedData, error } = await supabase.from('network_properties').insert([payload]).select('id').single();
+
+    if (error) throw new Error(error.message);
+    return { success: true, id: insertedData.id };
+  },
+
+  async updateProperty(id: number, ownerId: number, data: Partial<PropertyFormData>): Promise<{ success: boolean }> {
+    validateOwnerId(ownerId);
+    
+    const updatePayload: Record<string, any> = {};
+    if (data.city !== undefined) updatePayload.city = data.city;
+    if (data.area !== undefined) updatePayload.area = data.area;
+    if (data.type !== undefined) updatePayload.type = data.type;
+    if (data.description !== undefined) updatePayload.description = data.description;
+    if (data.note_private !== undefined) updatePayload.note_private = data.note_private;
+    if (data.size_min !== undefined) updatePayload.size_min = data.size_min ? Number(data.size_min) : undefined;
+    if (data.size_max !== undefined) updatePayload.size_max = data.size_max ? Number(data.size_max) : undefined;
+    if (data.size_unit !== undefined) updatePayload.size_unit = data.size_unit;
+    if (data.price_min !== undefined) updatePayload.price_min = data.price_min ? Number(data.price_min) : undefined;
+    if (data.price_max !== undefined) updatePayload.price_max = data.price_max ? Number(data.price_max) : undefined;
+    if (data.location !== undefined) updatePayload.location = data.location;
+    if (data.location_accuracy !== undefined) updatePayload.location_accuracy = data.location_accuracy;
+    if (data.is_public !== undefined) updatePayload.is_public = !!data.is_public;
+    if (data.tags !== undefined) updatePayload.tags = data.tags;
+    if (data.highlights !== undefined) updatePayload.highlights = data.highlights;
+    if (data.public_rating !== undefined) updatePayload.public_rating = data.public_rating;
+    if (data.my_rating !== undefined) updatePayload.my_rating = data.my_rating;
+    if (data.image_urls !== undefined) updatePayload.image_urls = data.image_urls;
+    if (data.landmark_location !== undefined) updatePayload.landmark_location = data.landmark_location;
+    if (data.landmark_location_distance !== undefined) updatePayload.landmark_location_distance = data.landmark_location_distance ? Number(data.landmark_location_distance) : null;
+    
+    // Remove undefined fields
+    Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
+    
+    const { error } = await supabase.from('network_properties')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('owner_id', ownerId);
+
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  async deleteProperty(id: number, ownerId: number): Promise<{ success: boolean }> {
+    validateOwnerId(ownerId);
+    
+    const { error } = await supabase.from('network_properties')
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', ownerId);
+
+    if (error) throw new Error(error.message);
+    return { success: true };
+  },
+
+  async favProperty(ownerId: number, propertyId: number, isFavourite: number, userNote: string): Promise<{ success: boolean; message: string }> {
+    validateOwnerId(ownerId);
+    
+    const { error } = await supabase.from('network_favorites').upsert({
+      user_id: ownerId,
+      property_id: propertyId,
+      is_favourite: isFavourite === 1,
+      user_note: userNote
+    }, { onConflict: 'user_id,property_id' });
+
+    if (error) throw new Error(error.message);
+    return { success: true, message: 'Updated favorite' };
+  },
+
+  async getPropertyById(propertyId: number, ownerId?: number): Promise<Property | null> {
+    const { data, error } = await supabase.from('network_properties')
+      .select(`${selectColumns}, favorites:network_favorites(user_id, is_favourite, user_note)`)
+      .eq('id', propertyId)
+      .single();
+
+    if (error || !data) return null;
+    return normalizeProperty(data, ownerId || 0);
+  },
+
+  async uploadImage(file: File): Promise<string> {
+    const { uploadToR2 } = await import('../utils/r2');
+    return uploadToR2(file);
+  }
 };

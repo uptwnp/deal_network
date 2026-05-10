@@ -36,7 +36,7 @@ export function getAllUsers(): User[] {
     if (stored) {
       return JSON.parse(stored);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to load users:', error);
   }
   return [];
@@ -46,7 +46,7 @@ export function getAllUsers(): User[] {
 function saveAllUsers(users: User[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to save users:', error);
   }
 }
@@ -70,7 +70,7 @@ export function getCurrentUser(): User | null {
     }
     
     return JSON.parse(stored);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to load current user:', error);
     return null;
   }
@@ -93,7 +93,7 @@ export function setCurrentUser(user: User | null): void {
       localStorage.removeItem(CURRENT_USER_KEY);
       localStorage.removeItem(CURRENT_USER_EXPIRY_KEY);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to save current user:', error);
   }
 }
@@ -105,7 +105,7 @@ function getNextUserId(): number {
     if (stored) {
       return parseInt(stored, 10);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to load next user ID:', error);
   }
   return 1;
@@ -115,7 +115,7 @@ function getNextUserId(): number {
 function saveNextUserId(id: number): void {
   try {
     localStorage.setItem(NEXT_ID_KEY, id.toString());
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to save next user ID:', error);
   }
 }

@@ -1,14 +1,8 @@
-/**
- * Utility functions for fetching and caching area/city data from API
- */
+import { supabase } from '../services/supabase';
 
-// According to read_me.md: options.php is currently area.php in apis, code not changed
-// Using options.php as the new endpoint name
-const API_URL = 'https://prop.digiheadway.in/api/dealer_network/options.php';
 const CACHE_KEY = 'propnetwork_area_city_cache';
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
-// Track in-flight request to prevent duplicate API calls
 let inFlightRequest: Promise<AreaCityResponse> | null = null;
 
 export interface CityAreaData {
@@ -27,23 +21,16 @@ interface CachedData {
   timestamp: number;
 }
 
-/**
- * Get cached area/city data if it exists and is still valid
- */
 function getCachedData(): AreaCityResponse | null {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (!cached) return null;
 
     const parsed: CachedData = JSON.parse(cached);
-    const now = Date.now();
-    
-    // Check if cache is still valid (within 1 day)
-    if (now - parsed.timestamp < CACHE_EXPIRY_MS) {
+    if (Date.now() - parsed.timestamp < CACHE_EXPIRY_MS) {
       return parsed.data;
     }
     
-    // Cache expired, remove it
     localStorage.removeItem(CACHE_KEY);
     return null;
   } catch {
@@ -51,62 +38,94 @@ function getCachedData(): AreaCityResponse | null {
   }
 }
 
-/**
- * Save area/city data to cache with timestamp
- */
 function setCachedData(data: AreaCityResponse): void {
   try {
-    const cache: CachedData = {
-      data,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
   } catch (error) {
     console.error('Failed to cache area/city data:', error);
   }
 }
 
-/**
- * Clear the area/city cache
- * Also clears any in-flight request to force fresh data on next call
- */
 export function clearAreaCityCache(): void {
   try {
     localStorage.removeItem(CACHE_KEY);
-    // Clear in-flight request so next call will make a fresh request
     inFlightRequest = null;
   } catch (error) {
-    console.error('Failed to clear area/city cache:', error);
+    console.error('Failed to clear cache:', error);
   }
 }
 
-/**
- * Fetch area/city data from API
- * Uses request deduplication to prevent multiple simultaneous requests
- */
 async function fetchAreaCityData(): Promise<AreaCityResponse> {
-  // If there's already an in-flight request, return that promise instead of making a new request
-  if (inFlightRequest) {
-    console.log('Reusing in-flight request for area/city data');
-    return inFlightRequest;
-  }
+  if (inFlightRequest) return inFlightRequest;
 
-  // Create new request
   inFlightRequest = (async () => {
     try {
-      console.log('Fetching area/city data from API...');
-      const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // 1. Fetch Master Locations from area_locations (canonical list)
+      const { data: locations, error: locationsError } = await supabase
+        .from('area_locations')
+        .select('city, area, property_count')
+        .order('city', { ascending: true })
+        .order('area', { ascending: true });
+      
+      if (locationsError) throw locationsError;
+
+      // 2. Fetch Tags and Highlights from network_properties (derived list)
+      // We only select the columns we need to keep the bundle small
+      const { data: props, error: propsError } = await supabase
+        .from('network_properties')
+        .select('tags, highlights')
+        .not('tags', 'is', null)
+        .or('highlights.not.is.null');
+      
+      if (propsError) throw propsError;
+
+      const citiesMap = new Map<string, Set<string>>();
+      const allHighlights = new Set<string>();
+      const allTags = new Set<string>();
+
+      // Process locations
+      (locations || []).forEach(item => {
+        if (item.city && item.area) {
+          if (!citiesMap.has(item.city)) citiesMap.set(item.city, new Set());
+          citiesMap.get(item.city)!.add(item.area);
+        }
+      });
+
+      // Process props for tags/highlights
+      (props || []).forEach(item => {
+        if (item.tags) {
+          item.tags.split(',').forEach((t: string) => {
+            const trimmed = t.trim();
+            if (trimmed) allTags.add(trimmed);
+          });
+        }
+        if (item.highlights) {
+          item.highlights.split(',').forEach((h: string) => {
+            const trimmed = h.trim();
+            if (trimmed) allHighlights.add(trimmed);
+          });
+        }
+      });
+
+      const cities: CityAreaData[] = Array.from(citiesMap.entries()).map(([city, areasSet]) => ({
+        city,
+        areas: Array.from(areasSet).sort()
+      })).sort((a, b) => a.city.localeCompare(b.city));
+
+      // Fallback if db is completely empty for some reason to allow UI to function
+      if (cities.length === 0) {
+        cities.push({ city: 'Panipat', areas: ['Sector 25', 'Sector 13-17', 'Model Town'] });
       }
-      const data: AreaCityResponse = await response.json();
-      console.log('Area/city data fetched successfully');
-      return data;
+
+      return {
+        cities,
+        highlights: Array.from(allHighlights).sort(),
+        tags: Array.from(allTags).sort()
+      };
     } catch (error) {
       console.error('Failed to fetch area/city data:', error);
       throw error;
     } finally {
-      // Clear in-flight request when done (success or failure)
       inFlightRequest = null;
     }
   })();
@@ -114,165 +133,90 @@ async function fetchAreaCityData(): Promise<AreaCityResponse> {
   return inFlightRequest;
 }
 
-/**
- * Get area/city data - returns cached data if available, otherwise fetches from API
- * If fetch fails, returns cached data even if expired, or null if no cache exists
- */
 export async function getAreaCityData(forceRefresh = false): Promise<AreaCityResponse | null> {
-  // If not forcing refresh, check cache first
   if (!forceRefresh) {
     const cached = getCachedData();
-    if (cached) {
-      return cached;
-    }
+    if (cached) return cached;
   }
 
-  // Try to fetch fresh data
   try {
     const data = await fetchAreaCityData();
     setCachedData(data);
     return data;
-  } catch (error) {
-    console.error('Failed to fetch area/city data, trying expired cache:', error);
-    
-    // If fetch fails, try to return expired cache as fallback
+  } catch {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const parsed: CachedData = JSON.parse(cached);
-        return parsed.data;
-      }
+      if (cached) return JSON.parse(cached).data;
     } catch {
-      // Ignore cache read errors
+      // Ignore
     }
-    
     return null;
   }
 }
 
-/**
- * Get area/city data in background (non-blocking)
- * This will fetch and cache the data without blocking the UI
- * Uses request deduplication - if a request is already in flight, it will reuse it
- */
 export function fetchAreaCityDataInBackground(): void {
-  // Check if we already have valid cached data
-  const cached = getCachedData();
-  if (cached) {
-    return; // Already have fresh data, no need to fetch
-  }
+  if (getCachedData()) return;
 
-  // If there's already an in-flight request, don't start a new one
   if (inFlightRequest) {
-    // Reuse the existing request and cache the result when it completes
-    inFlightRequest
-      .then((data) => {
-        setCachedData(data);
-        console.log('Area/city data fetched and cached in background (reused request)');
-      })
-      .catch((error) => {
-        console.error('Background fetch of area/city data failed:', error);
-      });
+    inFlightRequest.then(setCachedData).catch(console.error);
     return;
   }
 
-  // Fetch in background without awaiting
-  fetchAreaCityData()
-    .then((data) => {
-      setCachedData(data);
-      console.log('Area/city data fetched and cached in background');
-    })
-    .catch((error) => {
-      console.error('Background fetch of area/city data failed:', error);
-    });
+  fetchAreaCityData().then(setCachedData).catch(console.error);
 }
 
-/**
- * Get all cities from cached or API data
- */
 export async function getCities(): Promise<string[]> {
   const data = await getAreaCityData();
-  if (!data) return [];
-  return data.cities.map((city) => city.city);
+  return data ? data.cities.map(c => c.city) : [];
 }
 
-/**
- * Get areas for a specific city from cached or API data
- */
 export async function getAreasForCity(city: string): Promise<string[]> {
   const data = await getAreaCityData();
   if (!data) return [];
-  const cityData = data.cities.find((c) => c.city === city);
+  const cityData = data.cities.find(c => c.city === city);
   return cityData ? cityData.areas : [];
 }
 
-/**
- * Get all areas from all cities (flattened list)
- */
 export async function getAllAreas(): Promise<string[]> {
   const data = await getAreaCityData();
   if (!data) return [];
-  const allAreas = data.cities.flatMap((city) => city.areas);
-  // Remove duplicates and sort
+  const allAreas = data.cities.flatMap(city => city.areas);
   return Array.from(new Set(allAreas)).sort();
 }
 
-/**
- * Get highlights from cached or API data
- */
 export async function getHighlights(): Promise<string[]> {
   const data = await getAreaCityData();
-  if (!data || !data.highlights) return [];
-  return data.highlights;
+  return data?.highlights || [];
 }
 
-/**
- * Get tags from cached or API data
- */
 export async function getTags(): Promise<string[]> {
   const data = await getAreaCityData();
-  if (!data || !data.tags) return [];
-  return data.tags;
+  return data?.tags || [];
 }
 
-/**
- * Update cache with a new city or area
- * If city doesn't exist, it will be added with the area
- * If city exists, area will be added to it (if not already present)
- */
 export function updateCacheWithCityArea(city: string, area: string): void {
   try {
     const cached = getCachedData();
     if (!cached) {
-      // No cache exists, create new one
-      const newData: AreaCityResponse = {
-        cities: [{ city, areas: [area] }],
-      };
-      setCachedData(newData);
+      setCachedData({ cities: [{ city, areas: [area] }] });
       return;
     }
 
-    // Find existing city
-    const cityIndex = cached.cities.findIndex((c) => c.city === city);
+    const cityIndex = cached.cities.findIndex(c => c.city === city);
     
     if (cityIndex >= 0) {
-      // City exists, add area if not already present
       const cityData = cached.cities[cityIndex];
       if (!cityData.areas.includes(area)) {
         cityData.areas.push(area);
-        cityData.areas.sort(); // Keep sorted
+        cityData.areas.sort();
       }
     } else {
-      // City doesn't exist, add new city with area
       cached.cities.push({ city, areas: [area] });
-      // Sort cities alphabetically
       cached.cities.sort((a, b) => a.city.localeCompare(b.city));
     }
 
-    // Update cache
     setCachedData(cached);
   } catch (error) {
     console.error('Failed to update area/city cache:', error);
   }
 }
-

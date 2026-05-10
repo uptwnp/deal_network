@@ -1,6 +1,6 @@
 import {
-  Globe, Lock, Clock, Tag, Heart, MessageSquare,
-  Navigation, Flame, Compass, TreeDeciduous, Map
+  Globe, Lock, Clock, Tag, Heart,
+  Navigation, Flame, Compass, TreeDeciduous, Map, LucideIcon
 } from 'lucide-react';
 import { Property } from '../types/property';
 import { getUserSettings } from '../types/userSettings';
@@ -19,7 +19,7 @@ interface PropertyCardProps {
 }
 
 // Get property icon SVG from the exact same definitions used in the map
-function getPropertyTypeIconSVG(type: string): { color: string; path: string } | null {
+function getPropertyTypeIconSVG(type: string): { color: string; url: string } | null {
   return propertyTypeDefinitions[type] || null;
 }
 
@@ -122,7 +122,7 @@ export function PropertyCard({
   const iconDef = getPropertyTypeIconSVG(property.type);
 
   // Combine highlights and tags
-  const allTags: { text: string; Icon?: any; type: 'highlight' | 'tag' }[] = [];
+  const allTags: { text: string; Icon?: LucideIcon; type: 'highlight' | 'tag' }[] = [];
 
   // Add highlights
   if (property.highlights) {
@@ -158,10 +158,7 @@ export function PropertyCard({
     });
   }
 
-  // Add user note if it exists
-  if (property.user_note && property.user_note.trim()) {
-    allTags.push({ text: `Note: ${property.user_note.trim()}`, Icon: MessageSquare, type: 'tag' });
-  }
+
 
   return (
     <button
@@ -181,26 +178,47 @@ export function PropertyCard({
           <div className="flex gap-2 sm:gap-2.5 md:gap-2.5 items-start flex-1 min-w-0">
             {/* Icon - Using exact SVG from map, more compact on desktop */}
             <div
-              className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full border border-opacity-30 flex items-center justify-center flex-shrink-0"
+              className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full border border-opacity-30 flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{
                 backgroundColor: iconDef ? `${iconDef.color}15` : '#dbeafe',
                 borderColor: iconDef ? iconDef.color : '#3b82f6'
               }}
             >
-              {iconDef && (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={iconDef.color}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-3 h-3 sm:w-4 sm:h-4 md:w-4 md:h-4"
-                  dangerouslySetInnerHTML={{ __html: iconDef.path }}
-                />
-              )}
+              {(() => {
+                const imageUrls = Array.isArray(property.image_urls)
+                  ? property.image_urls
+                  : (typeof property.image_urls === 'string'
+                      ? property.image_urls.split(',').map(url => url.trim()).filter(Boolean)
+                      : []);
+                
+                if (imageUrls.length > 0) {
+                  return (
+                    <img 
+                       src={imageUrls[0]} 
+                       alt={property.type} 
+                       className="w-full h-full object-cover"
+                       onError={(e) => {
+                         // Fallback to type icon if image fails to load
+                         (e.target as HTMLImageElement).style.display = 'none';
+                         const parent = (e.target as HTMLElement).parentElement;
+                         if (parent && iconDef) {
+                           const iconImg = document.createElement('img');
+                           iconImg.src = iconDef.url;
+                           iconImg.className = "w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 object-contain";
+                           parent.appendChild(iconImg);
+                         }
+                       }}
+                    />
+                  );
+                }
+                return iconDef && (
+                   <img 
+                      src={iconDef.url} 
+                      alt={property.type} 
+                      className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 object-contain"
+                   />
+                );
+              })()}
             </div>
             <div className="flex-1 min-w-0">
               {/* Title - More compact on desktop */}
@@ -225,7 +243,7 @@ export function PropertyCard({
         </header>
 
         {trimmedDescription && (
-          <div className="text-sm sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2 line-clamp-2">
+          <div className="text-sm sm:text-sm md:text-sm text-gray-700 leading-relaxed mb-2 sm:mb-2.5 md:mb-2 line-clamp-2 break-words">
             <ClickableText text={trimmedDescription} />
           </div>
         )}

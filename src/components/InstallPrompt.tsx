@@ -27,7 +27,7 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
     // Check if app is already installed (standalone mode)
     const checkIfInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isIOSStandalone = (window.navigator as any).standalone === true;
+      const isIOSStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
       const isStandaloneMode = isStandalone || isIOSStandalone;
       
       setIsInstalled(isStandaloneMode);
@@ -61,7 +61,7 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
     
     // Check if deferredPrompt was already captured by the early script
     const checkStoredPrompt = () => {
-      const storedPrompt = (window as any).deferredPrompt as BeforeInstallPromptEvent | null;
+      const storedPrompt = (window as unknown as { deferredPrompt?: BeforeInstallPromptEvent | null }).deferredPrompt;
       if (storedPrompt) {
         setDeferredPrompt(storedPrompt);
         setCanInstall(true);
@@ -84,8 +84,8 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
       setDeferredPrompt(promptEvent);
       setCanInstall(true);
       // Also store in window for persistence
-      (window as any).deferredPrompt = promptEvent;
-      (window as any).pwaInstallPromptAvailable = true;
+      (window as unknown as { deferredPrompt?: BeforeInstallPromptEvent | null }).deferredPrompt = promptEvent;
+      (window as unknown as { pwaInstallPromptAvailable?: boolean }).pwaInstallPromptAvailable = true;
       // Don't auto-show prompt, wait for user to click install
     };
 
@@ -153,7 +153,7 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
     
     // If not in state, check if it's stored in window (captured by early script)
     if (!promptToUse) {
-      promptToUse = (window as any).deferredPrompt as BeforeInstallPromptEvent | null;
+      promptToUse = (window as unknown as { deferredPrompt?: BeforeInstallPromptEvent | null }).deferredPrompt || null;
       if (promptToUse) {
         setDeferredPrompt(promptToUse);
       }
@@ -168,8 +168,8 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
         
         if (choiceResult.outcome === 'accepted') {
           setDeferredPrompt(null);
-          (window as any).deferredPrompt = null;
-          (window as any).pwaInstallPromptAvailable = false;
+          (window as unknown as { deferredPrompt?: BeforeInstallPromptEvent | null }).deferredPrompt = null;
+          (window as unknown as { pwaInstallPromptAvailable?: boolean }).pwaInstallPromptAvailable = false;
         }
       } catch (error) {
         console.error('Error showing install prompt:', error);
@@ -205,7 +205,7 @@ export function InstallPromptCard({ onDismiss }: InstallPromptCardProps) {
   }
 
   // Check if we have a stored prompt in window (captured by early script)
-  const hasStoredPrompt = !!(window as any).deferredPrompt;
+  const hasStoredPrompt = !!(window as unknown as { deferredPrompt?: BeforeInstallPromptEvent | null }).deferredPrompt;
   const hasPrompt = deferredPrompt || hasStoredPrompt;
 
   // Show prompt if:

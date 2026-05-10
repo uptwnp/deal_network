@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, Check, ArrowRight, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { authApi } from '../services/authApi';
 
-export const ResetPinPage: React.FC = () => {
+export const ResetPasswordPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const token = searchParams.get('token');
@@ -14,8 +14,8 @@ export const ResetPinPage: React.FC = () => {
     const [phone, setPhone] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
-    const [pin, setPin] = useState('');
-    const [confirmPin, setConfirmPin] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     useEffect(() => {
         const verifyToken = async () => {
@@ -45,13 +45,13 @@ export const ResetPinPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (pin.length < 4) {
-            setError('PIN must be at least 4 digits.');
+        if (password.length < 4) {
+            setError('Password must be at least 4 characters.');
             return;
         }
-
-        if (pin !== confirmPin) {
-            setError('PINs do not match.');
+    
+        if (password !== confirmPassword) {
+            setError('Passwords do not match.');
             return;
         }
 
@@ -60,13 +60,13 @@ export const ResetPinPage: React.FC = () => {
 
         try {
             if (!token) throw new Error('Token missing');
-
-            const response = await authApi.resetPassword(token, pin);
+            
+            const response = await authApi.resetPassword(token, password);
 
             if (response.status) {
                 setSuccess(true);
             } else {
-                setError(response.message || 'Failed to reset PIN.');
+                setError(response.message || 'Failed to reset password.');
             }
         } catch {
             setError('An error occurred. Please try again.');
@@ -95,7 +95,7 @@ export const ResetPinPage: React.FC = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Successful</h2>
                     <p className="text-gray-600 mb-8">
-                        Your PIN has been updated successfully. You can now log in with your new PIN.
+                        Your password has been updated successfully. You can now log in with your new password.
                     </p>
                     <button
                         onClick={() => navigate('/login')}
@@ -118,7 +118,7 @@ export const ResetPinPage: React.FC = () => {
                         <ShieldCheck className="w-6 h-6 text-white" />
                     </div>
                     <h1 className="text-2xl font-bold text-white">Reset Password</h1>
-                    <p className="text-blue-100 text-sm mt-1">Create a new PIN for your account</p>
+                    <p className="text-blue-100 text-sm mt-1">Create a new password for your account</p>
                 </div>
 
                 <div className="p-8">
@@ -140,7 +140,7 @@ export const ResetPinPage: React.FC = () => {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                New PIN
+                                New Password
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -148,21 +148,19 @@ export const ResetPinPage: React.FC = () => {
                                 </div>
                                 <input
                                     type="password"
-                                    value={pin}
-                                    onChange={(e) => setPin(e.target.value)}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-gray-50 focus:bg-white"
-                                    placeholder="Enter new PIN"
+                                    placeholder="Enter new password"
                                     required
                                     minLength={4}
-                                    pattern="[0-9]*"
-                                    inputMode="numeric"
                                 />
                             </div>
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Confirm New PIN
+                                Confirm New Password
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -170,14 +168,12 @@ export const ResetPinPage: React.FC = () => {
                                 </div>
                                 <input
                                     type="password"
-                                    value={confirmPin}
-                                    onChange={(e) => setConfirmPin(e.target.value)}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
                                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-gray-50 focus:bg-white"
-                                    placeholder="Confirm new PIN"
+                                    placeholder="Confirm new password"
                                     required
                                     minLength={4}
-                                    pattern="[0-9]*"
-                                    inputMode="numeric"
                                 />
                             </div>
                         </div>
