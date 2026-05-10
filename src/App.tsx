@@ -615,7 +615,10 @@ function App() {
     return properties.filter(property => {
       if (filters.city && property.city !== filters.city) return false;
       if (filters.area && property.area !== filters.area) return false;
-      if (filters.type && property.type !== filters.type) return false;
+      if (filters.type) {
+        const typeArr = Array.isArray(filters.type) ? filters.type : [filters.type];
+        if (typeArr.length > 0 && !typeArr.includes(property.type)) return false;
+      }
       if (filters.min_price !== undefined && property.price_min < filters.min_price) return false;
       if (filters.max_price !== undefined && property.price_max > filters.max_price) return false;
       if (filters.size_min !== undefined && property.size_min < filters.size_min) return false;
@@ -624,12 +627,14 @@ function App() {
       if (filters.description && !property.description.toLowerCase().includes(filters.description.toLowerCase())) return false;
       if (filters.location && !property.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
       if (filters.tags) {
-        const filterTags = Array.isArray(filters.tags) ? filters.tags.join(',') : filters.tags;
-        if (!property.tags?.toLowerCase().includes(filterTags.toLowerCase())) return false;
+        const filterTags = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
+        const propTags = property.tags?.toLowerCase() || '';
+        if (!filterTags.some(tag => propTags.includes(tag.toLowerCase()))) return false;
       }
       if (filters.highlights) {
-        const filterHighlights = Array.isArray(filters.highlights) ? filters.highlights.join(',') : filters.highlights;
-        if (!property.highlights?.toLowerCase().includes(filterHighlights.toLowerCase())) return false;
+        const filterHighlights = Array.isArray(filters.highlights) ? filters.highlights : [filters.highlights];
+        const propHighlights = property.highlights?.toLowerCase() || '';
+        if (!filterHighlights.some(h => propHighlights.includes(h.toLowerCase()))) return false;
       }
       return true;
     });
@@ -1325,10 +1330,12 @@ function App() {
       setFilteredProperties([...myProperties, ...publicProperties]);
     } else if (activeFilter === 'my') {
       setFilteredProperties(myProperties);
-    } else {
+    } else if (activeFilter === 'public') {
       setFilteredProperties(publicProperties);
+    } else if (activeFilter === 'saved') {
+      setFilteredProperties(savedProperties);
     }
-  }, [activeFilter, myProperties, publicProperties, setPagination]);
+  }, [activeFilter, myProperties, publicProperties, savedProperties, setPagination]);
 
 
   const handleAskQuestion = (property: Property) => {
@@ -1945,7 +1952,10 @@ function MainAppContent({
     return properties.filter(property => {
       if (filters.city && property.city !== filters.city) return false;
       if (filters.area && property.area !== filters.area) return false;
-      if (filters.type && property.type !== filters.type) return false;
+      if (filters.type) {
+        const typeArr = Array.isArray(filters.type) ? filters.type : [filters.type];
+        if (typeArr.length > 0 && !typeArr.includes(property.type)) return false;
+      }
       if (filters.min_price !== undefined && property.price_min < filters.min_price) return false;
       if (filters.max_price !== undefined && property.price_max > filters.max_price) return false;
       if (filters.size_min !== undefined && property.size_min < filters.size_min) return false;
@@ -1957,17 +1967,13 @@ function MainAppContent({
       if (filters.tags) {
         const filterTags = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
         const propTags = property.tags?.toLowerCase() || '';
-        // If property tags contain ANY of the filter tags
-        const match = filterTags.some(tag => propTags.includes(tag.toLowerCase()));
-        if (!match) return false;
+        if (!filterTags.some(tag => propTags.includes(tag.toLowerCase()))) return false;
       }
 
       if (filters.highlights) {
         const filterHighlights = Array.isArray(filters.highlights) ? filters.highlights : [filters.highlights];
         const propHighlights = property.highlights?.toLowerCase() || '';
-        // If property highlights contain ANY of the filter highlights
-        const match = filterHighlights.some(highlight => propHighlights.includes(highlight.toLowerCase()));
-        if (!match) return false;
+        if (!filterHighlights.some(h => propHighlights.includes(h.toLowerCase()))) return false;
       }
 
       return true;
