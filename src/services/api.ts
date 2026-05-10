@@ -168,15 +168,11 @@ function applyFilters<T>(query: T, filters: FilterOptions): T {
     }
   }
 
-  const DEFAULT_MIN_PRICE = 0;
-  const DEFAULT_MAX_PRICE = 500;
-  if (filters.min_price !== undefined && filters.min_price !== DEFAULT_MIN_PRICE) q = q.gte('price_min', filters.min_price);
-  if (filters.max_price !== undefined && filters.max_price !== DEFAULT_MAX_PRICE) q = q.lte('price_max', filters.max_price);
+  if (filters.min_price !== undefined && filters.min_price > 0) q = q.gte('price_min', filters.min_price);
+  if (filters.max_price !== undefined) q = q.lte('price_max', filters.max_price);
 
-  const DEFAULT_MIN_SIZE = 0;
-  const DEFAULT_MAX_SIZE = 10000;
-  if (filters.size_min !== undefined && filters.size_min !== DEFAULT_MIN_SIZE) q = q.gte('size_min', filters.size_min);
-  if (filters.max_size !== undefined && filters.max_size !== DEFAULT_MAX_SIZE) q = q.lte('size_max', filters.max_size);
+  if (filters.size_min !== undefined && filters.size_min > 0) q = q.gte('size_min', filters.size_min);
+  if (filters.max_size !== undefined) q = q.lte('size_max', filters.max_size);
 
   if (filters.size_unit) q = q.eq('size_unit', filters.size_unit);
   if (filters.filter_size_unit) q = q.eq('size_unit', filters.filter_size_unit);
